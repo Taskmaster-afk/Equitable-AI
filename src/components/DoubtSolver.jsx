@@ -313,7 +313,7 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
           <span className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-bold">
             Try Sample:
           </span>
-          {SAMPLE_CURRICULUM_CATEGORIES[activeCategoryIndex].doubts.map((s, idx) => (
+          {(SAMPLE_CURRICULUM_CATEGORIES[activeCategoryIndex]?.doubts || []).map((s, idx) => (
             <button
               key={idx}
               onClick={() => handleSelectSample(s)}
@@ -424,7 +424,7 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                       </div>
 
                       <div className="space-y-1.5">
-                        {msg.citations.map((cite) => (
+                        {(msg.citations || []).map((cite) => (
                           <div
                             key={cite.id}
                             className="bg-white border border-[#E5E7EB] p-2 text-xs"
@@ -458,7 +458,7 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                         Deepen Understanding:
                       </p>
                       <div className="flex flex-wrap gap-1.5">
-                        {msg.suggestedFollowUps.map((f, i) => (
+                        {(msg.suggestedFollowUps || []).map((f, i) => (
                           <button
                             key={i}
                             onClick={() => handleSubmit(f)}
@@ -598,9 +598,9 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                 </span>
               </div>
 
-              {activeCitations.length > 0 ? (
+              {activeCitations && activeCitations.length > 0 ? (
                 <div className="space-y-3">
-                  {activeCitations.map((c) => (
+                  {(activeCitations || []).map((c) => (
                     <div key={c.id} className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] space-y-1.5 text-xs">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-[#1A1A1A]">{c.sourceName}</span>

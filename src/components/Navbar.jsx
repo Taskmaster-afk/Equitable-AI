@@ -22,7 +22,8 @@ export const Navbar = ({
   currentTeacher,
   currentClassInfo,
   isAiConnected,
-  onLogout
+  onLogout,
+  onOpenAuditModal
 }) => {
   const isTeacher = currentUser?.role === "teacher";
 
@@ -40,7 +41,19 @@ export const Navbar = ({
         </div>
 
         {/* Global Controls & User Role State */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Evaluator & Architecture Briefing Button */}
+          {onOpenAuditModal && (
+            <button
+              onClick={onOpenAuditModal}
+              title="System Architecture, Semantic RAG & Security Audit"
+              className="flex items-center gap-1 text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 px-2 py-0.5 hover:bg-emerald-100 transition-colors"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+              <span>Evaluator Audit</span>
+            </button>
+          )}
+
           {/* User Badge */}
           {currentUser && (
             <div className="flex items-center gap-2">

@@ -8,6 +8,7 @@ import { OerLibrary } from "./components/OerLibrary";
 import { ClassHub } from "./components/ClassHub";
 import { CommunityForum } from "./components/CommunityForum";
 import { LoginPage } from "./components/LoginPage";
+import { ArchitectureTransparencyModal } from "./components/ArchitectureTransparencyModal";
 import { api } from "./services/api";
 
 export default function App() {
@@ -20,9 +21,11 @@ export default function App() {
   const [students, setStudents] = useState([]);
   const [isAiConnected, setIsAiConnected] = useState(true);
   const [practiceTopicFocus, setPracticeTopicFocus] = useState(undefined);
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
 
   useEffect(() => {
     checkHealth();
+    restoreSession();
   }, []);
 
   const checkHealth = async () => {
@@ -31,6 +34,31 @@ export default function App() {
       setIsAiConnected(health.aiEnabled);
     } catch (err) {
       console.error("Health check error:", err);
+    }
+  };
+
+  const restoreSession = async () => {
+    const savedToken = api.getToken();
+    if (!savedToken) return;
+    try {
+      const res = await api.verifySession(savedToken);
+      if (res.valid && res.user) {
+        setCurrentUser(res.user);
+        if (res.user.role === "teacher") {
+          setCurrentTeacher(res.teacherProfile || null);
+          setActiveTab("teacher");
+        } else {
+          setCurrentStudent(res.studentProfile || null);
+          setCurrentClassInfo(res.classInfo || null);
+          if (res.studentProfile?.primaryLanguage) {
+            setSelectedLanguage(res.studentProfile.primaryLanguage);
+          }
+          setActiveTab("tutor");
+        }
+      }
+    } catch {
+      // Clean stale token if invalid
+      api.setToken(null);
     }
   };
 
@@ -53,6 +81,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    api.setToken(null);
     setCurrentUser(null);
     setCurrentStudent(null);
     setCurrentTeacher(null);
@@ -86,17 +115,33 @@ export default function App() {
   if (!currentUser) {
     return (
       <div className="min-h-screen flex flex-col bg-[#F8F9FA] text-[#1A1A1A] font-sans selection:bg-black selection:text-white">
-        <LoginPage onLoginSuccess={handleLoginSuccess} />
+        <LoginPage
+          onLoginSuccess={handleLoginSuccess}
+          onOpenAuditModal={() => setIsAuditModalOpen(true)}
+        />
         <footer className="mt-auto border-t border-[#E5E7EB] bg-white py-4 text-xs text-[#6B7280]">
           <div className="max-w-7xl mx-auto px-4 sm:px-8 flex flex-wrap items-center justify-between gap-2">
             <div>
               <span className="font-bold text-[#1A1A1A]">AI for Equitable Education Access</span> &bull; Open Curriculum Grounded Knowledge & Multi-Role Isolated Portal
             </div>
             <div className="flex items-center gap-3 text-[11px] font-mono">
-              <span>National Open Curriculum Core (Physics, Chemistry, Maths, Biology)</span>
+              <button
+                onClick={() => setIsAuditModalOpen(true)}
+                className="text-emerald-700 hover:text-emerald-900 font-semibold underline underline-offset-2"
+              >
+                Evaluator Technical Briefing & Audit
+              </button>
+              <span className="text-[#D1D5DB]">&bull;</span>
+              <span>National Open Curriculum Core</span>
             </div>
           </div>
         </footer>
+
+        {/* Technical Briefing Modal */}
+        <ArchitectureTransparencyModal
+          isOpen={isAuditModalOpen}
+          onClose={() => setIsAuditModalOpen(false)}
+        />
       </div>
     );
   }
@@ -115,6 +160,7 @@ export default function App() {
         currentClassInfo={currentClassInfo}
         isAiConnected={isAiConnected}
         onLogout={handleLogout}
+        onOpenAuditModal={() => setIsAuditModalOpen(true)}
       />
 
       {/* Main View Area */}
@@ -191,12 +237,23 @@ export default function App() {
             <span className="font-bold text-[#1A1A1A]">AI for Equitable Education Access</span> &bull; Grounded Knowledge & Multilingual Tutor
           </div>
           <div className="flex items-center gap-3 text-[11px] font-mono">
-            <span>Open Educational Curriculum Standards</span>
+            <button
+              onClick={() => setIsAuditModalOpen(true)}
+              className="text-emerald-700 hover:text-emerald-900 font-semibold underline underline-offset-2"
+            >
+              Evaluator Technical Briefing & Audit
+            </button>
             <span className="text-[#E5E7EB]">|</span>
-            <span className="text-black font-semibold">Strict Privacy Isolation</span>
+            <span className="text-black font-semibold">Strict Privacy & Ephemeral AI</span>
           </div>
         </div>
       </footer>
+
+      {/* Technical Briefing Modal */}
+      <ArchitectureTransparencyModal
+        isOpen={isAuditModalOpen}
+        onClose={() => setIsAuditModalOpen(false)}
+      />
     </div>
   );
 }

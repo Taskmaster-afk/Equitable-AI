@@ -295,10 +295,12 @@ export const ScholarshipMatcher = ({ currentStudent }) => {
                   Required Documents:
                 </h4>
                 <ul className="space-y-1 text-xs text-[#4B5563] bg-[#F8F9FA] p-2.5 border border-[#E5E7EB]">
-                  {selectedScheme.scheme.requiredDocuments.map((doc, idx) => <li key={idx} className="flex items-center gap-2">
+                  {(selectedScheme?.scheme?.requiredDocuments || []).map((doc, idx) => (
+                    <li key={idx} className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 bg-black shrink-0" />
                       <span>{doc}</span>
-                    </li>)}
+                    </li>
+                  ))}
                 </ul>
               </div>
             </div>}

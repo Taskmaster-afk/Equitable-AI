@@ -645,7 +645,7 @@ export const OerLibrary = ({ currentStudent, currentTeacher, onNavigateToTutor, 
                     {doc.chapter} &bull; <span className="text-[#6B7280]">{doc.section}</span>
                   </p>
                   <div className="flex flex-wrap gap-1">
-                    {doc.keyConcepts.slice(0, 3).map((concept, i) => (
+                    {(doc.keyConcepts || []).slice(0, 3).map((concept, i) => (
                       <span key={i} className="bg-[#F0F2F5] text-[#374151] px-1.5 py-0.5 text-[10px] font-mono">
                         {concept}
                       </span>
@@ -709,7 +709,7 @@ export const OerLibrary = ({ currentStudent, currentTeacher, onNavigateToTutor, 
                     Indexed Concept Tags:
                   </span>
                   <div className="flex flex-wrap gap-1.5">
-                    {selectedDoc.keyConcepts.map((concept, idx) => (
+                    {(selectedDoc.keyConcepts || []).map((concept, idx) => (
                       <span
                         key={idx}
                         className="bg-white text-[#1A1A1A] border border-[#E5E7EB] px-2 py-0.5 text-xs font-mono"
