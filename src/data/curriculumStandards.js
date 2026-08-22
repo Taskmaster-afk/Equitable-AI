@@ -7,94 +7,108 @@
 // with full support for global educational frameworks and custom institutional syllabi.
 // =========================================================================
 
+export const SCHOOL_CLASSES = [
+  "Class 1",
+  "Class 2",
+  "Class 3",
+  "Class 4",
+  "Class 5",
+  "Class 6",
+  "Class 7",
+  "Class 8",
+  "Class 9",
+  "Class 10",
+  "Class 11",
+  "Class 12"
+];
+
+export const SCHOOL_SECTIONS = [
+  "Section A",
+  "Section B",
+  "Section C",
+  "Section D"
+];
+
 export const DEFAULT_CUSTOM_CURRICULUM = {
-  name: "",
-  domains: "Applied Sciences, Computational Thinking, Advanced Analytics",
-  gradingScale: "Semester GPA / Grade Points (10.0 scale)",
-  degreeOrAward: "Bachelor of Technology / B.S. Degree",
-  department: "Academic Board & Faculty Senate",
-  accreditation: "Autonomous Institution Academic Council"
+  name: "National School Standards Framework",
+  domains: "Mathematics, Physical & Life Sciences, Languages, Social Studies",
+  gradingScale: "Percentage / Letter Grade (A1 to E)",
+  degreeOrAward: "Senior Secondary School Certificate",
+  department: "School Academic Council",
+  accreditation: "National & State School Boards"
 };
 
 export const CURRICULUM_CATEGORIES = [
-  { id: "higher-ed", name: "Higher Education & Universities" },
-  { id: "intl-sec", name: "International & Global Baccalaureate" },
-  { id: "nat-boards", name: "National Boards & Ministries" },
-  { id: "prep-foundation", name: "Foundation & Pre-Professional" },
-  { id: "tech-vocation", name: "Technical & Vocational" }
+  { id: "nat-boards", name: "National School Boards (CBSE / NCERT / ICSE)" },
+  { id: "state-boards", name: "State Education Boards (Class 1-12)" },
+  { id: "intl-school", name: "International School Frameworks (IB / Cambridge)" },
+  { id: "foundation", name: "STEM & Remedial School Foundation" }
 ];
 
 export const INSTITUTION_CATEGORIES = [
-  "University / Higher Education",
-  "Institute of Technology & Engineering (IIT / ABET)",
-  "Medical College & Health Sciences (MBBS / MD)",
-  "Graduate Research Institute & Doctoral Academy",
-  "International High School (IB / Cambridge)",
-  "Private Senior Secondary School (CBSE / ICSE / National)",
-  "Government / State Model Higher Secondary",
-  "Comprehensive K-12 Academy",
-  "Middle School (Grades 6-8)",
-  "Coaching & Competitive Foundation Institute"
+  "Kendriya Vidyalaya / Central School (K-12)",
+  "Jawahar Navodaya Vidyalaya (JNV)",
+  "Private Senior Secondary School (CBSE / ICSE)",
+  "Government / State Model Senior Secondary School",
+  "Sarvodaya Kanya / Bal Vidyalaya",
+  "Army Public School (APS)",
+  "Delhi Public School (DPS Cluster)",
+  "International Day & Boarding School (IB / IGCSE)",
+  "Integrated Middle School (Class 1-8)"
 ];
 
 export const ACADEMIC_TIERS = [
   {
-    id: "tier-higher-ed",
-    name: "Higher Education",
-    label: "Higher Education (Universities & Colleges)",
-    description: "Undergraduate (UG 1-4), Postgraduate (Master's / MD / MS), Research"
-  },
-  {
     id: "tier-senior-sec",
     name: "Senior Secondary",
-    label: "Senior Secondary (Grades 11-12)",
-    description: "High School, Pre-University, Junior College, A-Levels, IB DP"
+    label: "Senior Secondary (Class 11-12)",
+    description: "High School, Science / Commerce / Humanities Tracks"
   },
   {
     id: "tier-secondary",
     name: "Secondary Standard",
-    label: "Secondary Standard (Grades 9-10)",
-    description: "Secondary School, IGCSE, 10th Board, Foundation"
+    label: "Secondary School (Class 9-10)",
+    description: "Board Standard, Core Math & Science Foundation"
   },
   {
     id: "tier-middle",
     name: "Middle School",
-    label: "Middle School (Grades 6-8)",
-    description: "Middle School Science & Math Core Foundations"
+    label: "Middle School (Class 6-8)",
+    description: "Middle School Foundational Concepts & Skills"
   },
   {
-    id: "tier-k12",
-    name: "Comprehensive K-12",
-    label: "Comprehensive K-12 Integrated School",
-    description: "Continuous Multi-Tier Primary to Senior Secondary"
+    id: "tier-primary",
+    name: "Primary School",
+    label: "Primary School (Class 1-5)",
+    description: "Elementary Numeracy, Science & Literacy Foundations"
   }
 ];
 
 export const WORLDWIDE_CURRICULUMS = [
-  // Higher Education & Universities
+  // School Education Curriculums
   {
-    id: "curr-univ-cbcs",
-    name: "University Undergraduate Degree (Semester / CBCS Credit System)",
-    code: "UNIV-UG-CBCS",
-    category: "Higher Education & Universities",
-    tier: "Higher Education (UG 1-4)",
-    region: "Global / Commonwealth / India",
-    gradingScale: "10-Point CGPA / Letter Grades (O, A+, A, B, C, F)",
-    domains: ["Applied Mathematics", "Computational Thinking", "Natural Sciences", "Core Electives", "Capstone Research"],
-    accreditation: "University Grants / Higher Education Commission",
-    description: "Standard worldwide choice-based credit system with modular semester schedules and disciplinary majors."
+    id: "curr-ncert-cbse",
+    name: "CBSE / NCERT National Curriculum (Class 1-12)",
+    code: "NCERT-CBSE-K12",
+    category: "National School Boards (CBSE / NCERT / ICSE)",
+    tier: "School Standard (Class 1-12)",
+    region: "India / National / Global CBSE",
+    gradingScale: "Percentage / Letter Grades (A1, A2, B1, B2, C1, C2, D, E)",
+    domains: ["Physics", "Chemistry", "Mathematics", "Biology", "General Science", "Languages"],
+    accreditation: "Central Board of Secondary Education (CBSE) / NCERT",
+    description: "Comprehensive national standard school curriculum aligned with NEP frameworks from Class 1 through Class 12."
   },
   {
-    id: "curr-abet-eng",
-    name: "ABET / AICTE / IEEE Engineering & Technology Framework",
-    code: "ENG-BTECH-ABET",
-    category: "Higher Education & Universities",
-    tier: "Higher Education (B.Tech / B.E. / B.S.)",
-    region: "USA / Global / Washington Accord",
-    gradingScale: "4.0 GPA / 10-Point CGPA Scale",
-    domains: ["Calculus & Differential Equations", "Engineering Physics", "Algorithms & Systems", "Mechanics & Circuits", "Design Projects"],
-    accreditation: "ABET / AICTE / Washington Accord",
-    description: "Globally accredited engineering curriculum with rigorous math, physical sciences, laboratory practicals, and capstone engineering."
+    id: "curr-cisce-icse",
+    name: "CISCE / ICSE / ISC School Curriculum (Class 1-12)",
+    code: "CISCE-ICSE-K12",
+    category: "National School Boards (CBSE / NCERT / ICSE)",
+    tier: "School Standard (Class 1-12)",
+    region: "India / International CISCE",
+    gradingScale: "Percentage Marks (1-100 scale)",
+    domains: ["English & Literature", "Mathematics", "Science (Physics, Chem, Bio)", "Computer Applications", "Social Sciences"],
+    accreditation: "Council for the Indian School Certificate Examinations",
+    description: "Rigorous concept-driven school curriculum covering foundational, secondary, and higher secondary education."
   },
   {
     id: "curr-med-sciences",

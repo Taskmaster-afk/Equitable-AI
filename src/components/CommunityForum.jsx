@@ -19,10 +19,13 @@ import { api } from "../services/api";
 export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, onNavigateToTutor }) => {
   const user = currentTeacher || currentStudent || currentUser;
   const isTeacher = currentUser?.role === "teacher";
-  const userInstitute = currentUser?.institute || currentUser?.school || currentStudent?.institute || currentTeacher?.school || "National Open Education Network";
+  const userInstitute = currentUser?.institute || currentUser?.school || currentStudent?.institute || currentTeacher?.school || "Kendriya Vidyalaya No. 1";
+  const userClassCode = currentStudent?.classCode || "";
+  const userSection = currentStudent?.section || "Section A";
 
   const [posts, setPosts] = useState([]);
   const [selectedInstitute, setSelectedInstitute] = useState(userInstitute);
+  const [selectedScope, setSelectedScope] = useState("all_school"); // "all_school" | "my_class"
   const [selectedSubject, setSelectedSubject] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [activePost, setActivePost] = useState(null);
@@ -33,7 +36,7 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
   const [newPostData, setNewPostData] = useState({
     title: "",
     subject: "Physics",
-    gradeLevel: currentStudent?.gradeLevel || "Class 12",
+    gradeLevel: currentStudent?.gradeLevel || "Class 10",
     content: "",
     tags: ""
   });
@@ -46,14 +49,16 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
 
   useEffect(() => {
     loadPosts();
-  }, [selectedInstitute, selectedSubject]);
+  }, [selectedInstitute, selectedSubject, selectedScope]);
 
   const loadPosts = async () => {
     setIsLoading(true);
     try {
       const data = await api.getCommunityPosts({
         institute: selectedInstitute !== "all" ? selectedInstitute : void 0,
-        subject: selectedSubject !== "all" ? selectedSubject : void 0
+        subject: selectedSubject !== "all" ? selectedSubject : void 0,
+        classCode: selectedScope === "my_class" ? userClassCode : void 0,
+        section: selectedScope === "my_class" ? userSection : void 0
       });
       setPosts(data.posts || []);
       if (data.posts && data.posts.length > 0 && !activePost) {
@@ -77,22 +82,24 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
     try {
       const payload = {
         instituteName: userInstitute,
+        classCode: userClassCode,
+        section: userSection,
         title: newPostData.title,
         content: newPostData.content,
         subject: newPostData.subject,
         gradeLevel: newPostData.gradeLevel,
-        authorName: user?.name || "Community Scholar",
+        authorName: user?.name || (isTeacher ? "Teacher" : "Student"),
         authorRole: isTeacher ? "teacher" : "student",
         authorId: user?.id || "user-1",
-        tags: newPostData.tags
+        tags: newPostData.tags ? newPostData.tags.split(",").map(t => t.trim()).filter(Boolean) : [newPostData.subject]
       };
 
-      const res = await api.createCommunityPost(payload);
-      setStatusMessage({ type: "success", text: "Doubt posted to your institution's community chat!" });
+      await api.createCommunityPost(payload);
+      setStatusMessage({ type: "success", text: "Doubt posted to your school & class community forum!" });
       setNewPostData({
         title: "",
         subject: "Physics",
-        gradeLevel: currentStudent?.gradeLevel || "Class 12",
+        gradeLevel: currentStudent?.gradeLevel || "Class 10",
         content: "",
         tags: ""
       });

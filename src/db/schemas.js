@@ -84,21 +84,37 @@ const StudentSchema = new mongoose.Schema({
     difficulty: { type: String, default: "Intermediate" },
     isCorrect: { type: Boolean, default: false },
     timestamp: { type: String, default: () => new Date().toISOString() },
-    studentAnswerIndex: { type: Number, default: -1 },
-    questionId: { type: String, default: "" }
+    studentAnswerIndex: { type: Number, default: -1 }
+  }],
+  section: { type: String, default: "Section A" },
+  pendingInvites: [{ type: String }],
+  joinedClasses: [{
+    classCode: { type: String },
+    className: { type: String },
+    section: { type: String },
+    joinedAt: { type: String }
   }]
 }, { timestamps: true, strict: false });
 
 const ClassSchema = new mongoose.Schema({
   classCode: { type: String, required: true, unique: true, index: true },
   className: { type: String, required: true },
-  gradeLevel: { type: String, default: "Grade 11-12" },
-  stream: { type: String, default: "Science" },
+  gradeLevel: { type: String, default: "Class 10" },
+  stream: { type: String, default: "General" },
+  section: { type: String, default: "Section A" },
+  availableSections: { type: [String], default: ["Section A", "Section B", "Section C", "Section D"] },
   teacherId: { type: String, index: true },
   teacherName: { type: String, default: "Teacher" },
   school: { type: String, default: "" },
   institute: { type: String, default: "" },
   studentsCount: { type: Number, default: 0 },
+  enrolledStudents: [{
+    studentId: { type: String },
+    studentName: { type: String },
+    studentEmail: { type: String },
+    section: { type: String, default: "Section A" },
+    joinedAt: { type: String }
+  }],
   timetable: [{
     day: { type: String, required: true },
     periods: [{
@@ -112,12 +128,41 @@ const ClassSchema = new mongoose.Schema({
   }]
 }, { timestamps: true, strict: false });
 
+const ClassInviteSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  classCode: { type: String, required: true, index: true },
+  className: { type: String, required: true },
+  gradeLevel: { type: String, default: "Class 10" },
+  section: { type: String, default: "Section A" },
+  teacherId: { type: String, required: true, index: true },
+  teacherName: { type: String, default: "Teacher" },
+  school: { type: String, default: "" },
+  studentEmail: { type: String, required: true, lowercase: true, index: true },
+  studentName: { type: String, default: "" },
+  status: { type: String, default: "pending", enum: ["pending", "accepted", "rejected"] },
+  invitedAt: { type: String, default: () => new Date().toISOString() },
+  acceptedAt: { type: String, default: "" }
+}, { timestamps: true, strict: false });
+
+const ClassAnnouncementSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  classCode: { type: String, required: true, index: true },
+  section: { type: String, default: "all" },
+  teacherId: { type: String, required: true },
+  teacherName: { type: String, default: "Teacher" },
+  title: { type: String, required: true },
+  content: { type: String, required: true },
+  priority: { type: String, default: "normal", enum: ["normal", "important", "urgent"] },
+  attachments: [{ type: mongoose.Schema.Types.Mixed }],
+  createdAt: { type: String, default: "Just now" }
+}, { timestamps: true, strict: false });
+
 const ClassroomResourceSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true, index: true },
   classCode: { type: String, required: true, index: true },
   title: { type: String, required: true },
   subject: { type: String, default: "General" },
-  gradeLevel: { type: String, default: "Grade 11-12" },
+  gradeLevel: { type: String, default: "Class 10" },
   chapter: { type: String, default: "" },
   keyConcepts: [{ type: String }],
   content: { type: String, default: "" },
@@ -139,7 +184,7 @@ const ResourceDumpSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true, index: true },
   title: { type: String, required: true },
   subject: { type: String, default: "General" },
-  gradeLevel: { type: String, default: "Grade 11-12" },
+  gradeLevel: { type: String, default: "Class 10" },
   chapter: { type: String, default: "" },
   tags: [{ type: String }],
   content: { type: String, default: "" },
@@ -155,16 +200,18 @@ const ResourceDumpSchema = new mongoose.Schema({
   authorName: { type: String, default: "Scholar" },
   authorRole: { type: String, default: "student" },
   authorId: { type: String, default: "" },
-  instituteName: { type: String, default: "Open Education Network" }
+  instituteName: { type: String, default: "Open School Education Network" }
 }, { timestamps: true, strict: false });
 
 const CommunityPostSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true, index: true },
   instituteName: { type: String, required: true, index: true },
+  classCode: { type: String, default: "", index: true },
+  section: { type: String, default: "all" },
   title: { type: String, required: true },
   content: { type: String, required: true },
   subject: { type: String, default: "General" },
-  gradeLevel: { type: String, default: "Grade 11-12" },
+  gradeLevel: { type: String, default: "Class 10" },
   authorName: { type: String, default: "Scholar" },
   authorRole: { type: String, default: "student" },
   authorId: { type: String, default: "" },
@@ -190,6 +237,8 @@ export const Institute = mongoose.models.Institute || mongoose.model("Institute"
 export const Teacher = mongoose.models.Teacher || mongoose.model("Teacher", TeacherSchema);
 export const Student = mongoose.models.Student || mongoose.model("Student", StudentSchema);
 export const ClassModel = mongoose.models.Class || mongoose.model("Class", ClassSchema);
+export const ClassInvite = mongoose.models.ClassInvite || mongoose.model("ClassInvite", ClassInviteSchema);
+export const ClassAnnouncement = mongoose.models.ClassAnnouncement || mongoose.model("ClassAnnouncement", ClassAnnouncementSchema);
 export const ClassroomResource = mongoose.models.ClassroomResource || mongoose.model("ClassroomResource", ClassroomResourceSchema);
 export const ResourceDump = mongoose.models.ResourceDump || mongoose.model("ResourceDump", ResourceDumpSchema);
 export const CommunityPost = mongoose.models.CommunityPost || mongoose.model("CommunityPost", CommunityPostSchema);

@@ -56,9 +56,9 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
   const [regPassword, setRegPassword] = useState("");
   const [regConfirmPassword, setRegConfirmPassword] = useState("");
   const [showRegPassword, setShowRegPassword] = useState(false);
-  const [regStudentClass, setRegStudentClass] = useState("Undergraduate Year 1");
-  const [regClassCode, setRegClassCode] = useState("UNIV-UG1");
-  const [regStudentInstitute, setRegStudentInstitute] = useState("Indian Institute of Technology (IIT Delhi)");
+  const [regStudentClass, setRegStudentClass] = useState("Class 10");
+  const [regClassCode, setRegClassCode] = useState("KV-10A");
+  const [regStudentInstitute, setRegStudentInstitute] = useState("Kendriya Vidyalaya No. 1");
   const [regLanguage, setRegLanguage] = useState("en");
   const [regCategory, setRegCategory] = useState("General");
   const [regGender, setRegGender] = useState("Male");
@@ -81,24 +81,24 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
   const [teacherRegPassword, setTeacherRegPassword] = useState("");
   const [teacherRegConfirmPassword, setTeacherRegConfirmPassword] = useState("");
   const [showTeacherRegPassword, setShowTeacherRegPassword] = useState(false);
-  const [teacherRegDepartment, setTeacherRegDepartment] = useState("Computer Science & AI Faculty Lead");
-  const [teacherInstituteChoice, setTeacherInstituteChoice] = useState("new"); // "existing" | "new"
-  const [teacherExistingInstitute, setTeacherExistingInstitute] = useState("Indian Institute of Technology (IIT Delhi)");
+  const [teacherRegDepartment, setTeacherRegDepartment] = useState("Senior Science & Mathematics Faculty");
+  const [teacherInstituteChoice, setTeacherInstituteChoice] = useState("existing"); // "existing" | "new"
+  const [teacherExistingInstitute, setTeacherExistingInstitute] = useState("Kendriya Vidyalaya No. 1");
   const [teacherNewInstituteName, setTeacherNewInstituteName] = useState("");
-  const [teacherNewInstituteType, setTeacherNewInstituteType] = useState("University / Higher Education");
-  const [teacherInstituteTier, setTeacherInstituteTier] = useState("Higher Education");
-  const [teacherNewInstituteLocation, setTeacherNewInstituteLocation] = useState("Global / National Campus");
+  const [teacherNewInstituteType, setTeacherNewInstituteType] = useState("Kendriya Vidyalaya / Central School (K-12)");
+  const [teacherInstituteTier, setTeacherInstituteTier] = useState("Secondary Standard");
+  const [teacherNewInstituteLocation, setTeacherNewInstituteLocation] = useState("National / Regional Campus");
   
   // Curriculum Selection State
-  const [teacherCurriculum, setTeacherCurriculum] = useState("University Undergraduate Degree (Semester / CBCS Credit System)");
+  const [teacherCurriculum, setTeacherCurriculum] = useState("CBSE / NCERT National Curriculum (Class 1-12)");
   const [isCustomCurriculum, setIsCustomCurriculum] = useState(false);
   const [curriculumSearchQuery, setCurriculumSearchQuery] = useState("");
   const [selectedCurriculumCategory, setSelectedCurriculumCategory] = useState("All");
   const [customCurriculumData, setCustomCurriculumData] = useState({ ...DEFAULT_CUSTOM_CURRICULUM });
 
   // Initial Class Setup State
-  const [teacherInitialGrade, setTeacherInitialGrade] = useState("Undergraduate Year 1");
-  const [teacherInitialStream, setTeacherInitialStream] = useState("Computer Science & Engineering (B.Tech/BS)");
+  const [teacherInitialGrade, setTeacherInitialGrade] = useState("Class 10");
+  const [teacherInitialStream, setTeacherInitialStream] = useState("General Science & Mathematics");
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
@@ -813,26 +813,25 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                             onChange={(e) => setRegStudentClass(e.target.value)}
                             className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
                           >
-                            <optgroup label="Higher Education & University Degrees">
-                              <option value="Undergraduate Year 1">Undergraduate Year 1 (Freshman / UG-1)</option>
-                              <option value="Undergraduate Year 2">Undergraduate Year 2 (Sophomore / UG-2)</option>
-                              <option value="Undergraduate Year 3">Undergraduate Year 3 (Junior / UG-3)</option>
-                              <option value="Undergraduate Year 4">Undergraduate Year 4 (Senior / UG-4)</option>
-                              <option value="Postgraduate Year 1">Postgraduate Year 1 (Master's / MD / MS)</option>
-                              <option value="Postgraduate Year 2">Postgraduate Year 2 (Master's / MD / MS)</option>
+                            <optgroup label="Senior Secondary (Class 11-12)">
+                              <option value="Class 12">Class 12 (Senior Secondary)</option>
+                              <option value="Class 11">Class 11 (Senior Secondary)</option>
                             </optgroup>
-                            <optgroup label="Senior Secondary / High School (Grades 11-12)">
-                              <option value="Class 12">Class 12 (Senior Secondary / Grade 12)</option>
-                              <option value="Class 11">Class 11 (Senior Secondary / Grade 11)</option>
+                            <optgroup label="Secondary High School (Class 9-10)">
+                              <option value="Class 10">Class 10 (Secondary High School)</option>
+                              <option value="Class 9">Class 9 (Secondary High School)</option>
                             </optgroup>
-                            <optgroup label="Secondary Standard (Grades 9-10)">
-                              <option value="Class 10">Class 10 (Secondary Standard / Grade 10)</option>
-                              <option value="Class 9">Class 9 (Secondary Standard / Grade 9)</option>
-                            </optgroup>
-                            <optgroup label="Middle School (Grades 6-8)">
+                            <optgroup label="Middle School (Class 6-8)">
                               <option value="Class 8">Class 8 (Middle School)</option>
                               <option value="Class 7">Class 7 (Middle School)</option>
                               <option value="Class 6">Class 6 (Middle School)</option>
+                            </optgroup>
+                            <optgroup label="Primary School (Class 1-5)">
+                              <option value="Class 5">Class 5 (Primary School)</option>
+                              <option value="Class 4">Class 4 (Primary School)</option>
+                              <option value="Class 3">Class 3 (Primary School)</option>
+                              <option value="Class 2">Class 2 (Primary School)</option>
+                              <option value="Class 1">Class 1 (Primary School)</option>
                             </optgroup>
                           </select>
                         </div>
@@ -1959,24 +1958,26 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                           onChange={(e) => setTeacherInitialGrade(e.target.value)}
                           className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
                         >
-                          {teacherInstituteTier === "Higher Education" ? (
-                            <>
-                              <option value="Undergraduate Year 1">Undergraduate Year 1 (Freshman / UG-1)</option>
-                              <option value="Undergraduate Year 2">Undergraduate Year 2 (Sophomore / UG-2)</option>
-                              <option value="Undergraduate Year 3">Undergraduate Year 3 (Junior / UG-3)</option>
-                              <option value="Undergraduate Year 4">Undergraduate Year 4 (Senior / UG-4)</option>
-                              <option value="Postgraduate Year 1">Postgraduate Year 1 (Master's M.Tech / MS / MD)</option>
-                              <option value="Postgraduate Year 2">Postgraduate Year 2 (Master's M.Tech / MS / MD)</option>
-                            </>
-                          ) : (
-                            <>
-                              <option value="Class 12">Class 12 (Senior Secondary)</option>
-                              <option value="Class 11">Class 11 (Senior Secondary)</option>
-                              <option value="Class 10">Class 10 (Secondary Standard)</option>
-                              <option value="Class 9">Class 9 (Secondary Standard)</option>
-                              <option value="Class 8">Class 8 (Middle School)</option>
-                            </>
-                          )}
+                          <optgroup label="Senior Secondary (Class 11-12)">
+                            <option value="Class 12">Class 12 (Senior Secondary)</option>
+                            <option value="Class 11">Class 11 (Senior Secondary)</option>
+                          </optgroup>
+                          <optgroup label="Secondary High School (Class 9-10)">
+                            <option value="Class 10">Class 10 (Secondary Standard)</option>
+                            <option value="Class 9">Class 9 (Secondary Standard)</option>
+                          </optgroup>
+                          <optgroup label="Middle School (Class 6-8)">
+                            <option value="Class 8">Class 8 (Middle School)</option>
+                            <option value="Class 7">Class 7 (Middle School)</option>
+                            <option value="Class 6">Class 6 (Middle School)</option>
+                          </optgroup>
+                          <optgroup label="Primary School (Class 1-5)">
+                            <option value="Class 5">Class 5 (Primary School)</option>
+                            <option value="Class 4">Class 4 (Primary School)</option>
+                            <option value="Class 3">Class 3 (Primary School)</option>
+                            <option value="Class 2">Class 2 (Primary School)</option>
+                            <option value="Class 1">Class 1 (Primary School)</option>
+                          </optgroup>
                         </select>
                       </div>
 

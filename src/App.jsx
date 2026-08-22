@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { ArrowRight } from "lucide-react";
 import { Navbar } from "./components/Navbar";
 import { DoubtSolver } from "./components/DoubtSolver";
 import { AdaptivePractice } from "./components/AdaptivePractice";
@@ -22,11 +23,21 @@ export default function App() {
   const [isAiConnected, setIsAiConnected] = useState(true);
   const [practiceTopicFocus, setPracticeTopicFocus] = useState(undefined);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [pendingInvites, setPendingInvites] = useState([]);
+  const [isAcceptingInvite, setIsAcceptingInvite] = useState(false);
 
   useEffect(() => {
     checkHealth();
     restoreSession();
   }, []);
+
+  useEffect(() => {
+    if (currentStudent) {
+      loadStudentInvites(currentStudent);
+    } else {
+      setPendingInvites([]);
+    }
+  }, [currentStudent?.id, currentStudent?.email]);
 
   const checkHealth = async () => {
     try {
@@ -34,6 +45,51 @@ export default function App() {
       setIsAiConnected(health.aiEnabled);
     } catch (err) {
       console.error("Health check error:", err);
+    }
+  };
+
+  const loadStudentInvites = async (student) => {
+    if (!student) return;
+    try {
+      const res = await api.getStudentInvites(student.email, student.id);
+      setPendingInvites(res.invites || []);
+    } catch (err) {
+      console.error("Failed to load student invites:", err);
+    }
+  };
+
+  const handleAcceptInvite = async (invite) => {
+    if (!currentStudent || !invite) return;
+    setIsAcceptingInvite(true);
+    try {
+      const res = await api.acceptInvite(
+        invite.id,
+        currentStudent.id,
+        currentStudent.name,
+        currentStudent.email
+      );
+      if (res.student) {
+        setCurrentStudent(res.student);
+      }
+      if (res.classInfo) {
+        setCurrentClassInfo(res.classInfo);
+      }
+      // Remove accepted invite from pending list
+      setPendingInvites((prev) => prev.filter((i) => i.id !== invite.id));
+      setActiveTab("classhub");
+    } catch (err) {
+      alert("Failed to join class: " + err.message);
+    } finally {
+      setIsAcceptingInvite(false);
+    }
+  };
+
+  const handleRejectInvite = async (inviteId) => {
+    try {
+      await api.rejectInvite(inviteId);
+      setPendingInvites((prev) => prev.filter((i) => i.id !== inviteId));
+    } catch (err) {
+      console.error("Failed to decline invite:", err);
     }
   };
 
@@ -54,6 +110,7 @@ export default function App() {
             setSelectedLanguage(res.studentProfile.primaryLanguage);
           }
           setActiveTab("tutor");
+          loadStudentInvites(res.studentProfile);
         }
       }
     } catch {
@@ -77,6 +134,7 @@ export default function App() {
         setSelectedLanguage(student.primaryLanguage);
       }
       setActiveTab("tutor");
+      loadStudentInvites(student);
     }
   };
 
@@ -162,6 +220,45 @@ export default function App() {
         onLogout={handleLogout}
         onOpenAuditModal={() => setIsAuditModalOpen(true)}
       />
+
+      {/* Pending Classroom Invitations Banner */}
+      {currentStudent && pendingInvites.length > 0 && (
+        <div className="bg-indigo-900 text-white border-b-2 border-indigo-700 py-3.5 px-4 sm:px-8 shadow-inner">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="bg-amber-400 text-black font-bold text-[10px] uppercase px-2 py-0.5 tracking-wider rounded-xs">
+                  Classroom Invitation Pending
+                </span>
+                <span className="text-xs text-indigo-200">
+                  {pendingInvites.length} invite awaiting your confirmation
+                </span>
+              </div>
+              <h3 className="font-bold text-sm text-white">
+                Teacher <strong>{pendingInvites[0].teacherName || "Faculty"}</strong> invited you to join{" "}
+                <span className="underline font-mono">{pendingInvites[0].classCode}</span> - {pendingInvites[0].className} ({pendingInvites[0].section || "Section A"})
+              </h3>
+            </div>
+
+            <div className="flex items-center gap-2 self-end md:self-auto">
+              <button
+                onClick={() => handleRejectInvite(pendingInvites[0].id)}
+                className="px-3 py-1.5 text-xs text-indigo-200 hover:text-white border border-indigo-500 hover:border-indigo-400 transition-colors"
+              >
+                Decline
+              </button>
+              <button
+                onClick={() => handleAcceptInvite(pendingInvites[0])}
+                disabled={isAcceptingInvite}
+                className="px-4 py-1.5 text-xs font-bold bg-white text-indigo-950 hover:bg-indigo-50 border border-white transition-colors flex items-center gap-1.5 shadow-sm"
+              >
+                <span>{isAcceptingInvite ? "Joining..." : "Accept & Join Classroom"}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main View Area */}
       <main className="flex-1">

@@ -24,7 +24,15 @@ import {
   Film,
   Paperclip,
   Eye,
-  AlertCircle
+  AlertCircle,
+  Megaphone,
+  MessageSquare,
+  Users,
+  ThumbsUp,
+  Send,
+  Check,
+  Mail,
+  UserPlus
 } from "lucide-react";
 import { api } from "../services/api";
 
@@ -33,22 +41,51 @@ export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigate
   const isTeacher = !!currentTeacher;
   const currentUser = currentTeacher || currentStudent;
   const classCode = info?.classCode || currentStudent?.classCode || "";
+  const studentSection = currentStudent?.section || "Section A";
 
-  const [activeSubTab, setActiveSubTab] = useState("resources"); // "resources" | "schedule" | "syllabus"
+  const [activeSubTab, setActiveSubTab] = useState("announcements"); // "announcements" | "discussion" | "roster" | "resources" | "schedule"
   const [selectedDay, setSelectedDay] = useState("Monday");
   const [resources, setResources] = useState([]);
   const [loadingResources, setLoadingResources] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
   const [subjectFilter, setSubjectFilter] = useState("all");
   const [mediaTypeFilter, setMediaTypeFilter] = useState("all");
-  
+
+  // Announcements State
+  const [announcements, setAnnouncements] = useState([]);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
+  const [showAnnounceModal, setShowAnnounceModal] = useState(false);
+  const [annTitle, setAnnTitle] = useState("");
+  const [annContent, setAnnContent] = useState("");
+  const [annSection, setAnnSection] = useState("all");
+  const [annPriority, setAnnPriority] = useState("normal");
+  const [isPostingAnn, setIsPostingAnn] = useState(false);
+
+  // Class Discussion / Doubt Chat State
+  const [classPosts, setClassPosts] = useState([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+  const [activePost, setActivePost] = useState(null);
+  const [showCreatePostModal, setShowCreatePostModal] = useState(false);
+  const [postTitle, setPostTitle] = useState("");
+  const [postSubject, setPostSubject] = useState("Physics");
+  const [postContent, setPostContent] = useState("");
+  const [postTags, setPostTags] = useState("");
+  const [isSubmittingPost, setIsSubmittingPost] = useState(false);
+  const [answerContent, setAnswerContent] = useState("");
+  const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
+
+  // Classmates Roster State
+  const [classmates, setClassmates] = useState([]);
+  const [loadingClassmates, setLoadingClassmates] = useState(false);
+  const [selectedRosterSection, setSelectedRosterSection] = useState(isTeacher ? "all" : studentSection);
+
   // Share modal state
   const [showShareModal, setShowShareModal] = useState(false);
   const [uploadMode, setUploadMode] = useState("text"); // "text" | "image" | "video" | "file"
   const [formData, setFormData] = useState({
     title: "",
     subject: "Physics",
-    gradeLevel: info?.grade || currentStudent?.gradeLevel || "Class 12",
+    gradeLevel: info?.grade || currentStudent?.gradeLevel || "Class 10",
     chapter: "",
     keyConcepts: "",
     content: ""
@@ -69,8 +106,53 @@ export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigate
   useEffect(() => {
     if (classCode) {
       loadResources();
+      loadAnnouncements();
+      loadDiscussionPosts();
+      loadClassmates();
     }
   }, [classCode]);
+
+  const loadAnnouncements = async () => {
+    if (!classCode) return;
+    setLoadingAnnouncements(true);
+    try {
+      const res = await api.getClassAnnouncements(classCode, isTeacher ? "all" : studentSection);
+      setAnnouncements(res?.announcements || []);
+    } catch (err) {
+      console.error("Failed to load announcements:", err);
+    } finally {
+      setLoadingAnnouncements(false);
+    }
+  };
+
+  const loadDiscussionPosts = async () => {
+    if (!classCode) return;
+    setLoadingPosts(true);
+    try {
+      const res = await api.getCommunityPosts({ classCode, section: isTeacher ? "all" : studentSection });
+      setClassPosts(res?.posts || []);
+      if (res?.posts && res.posts.length > 0 && !activePost) {
+        setActivePost(res.posts[0]);
+      }
+    } catch (err) {
+      console.error("Failed to load class posts:", err);
+    } finally {
+      setLoadingPosts(false);
+    }
+  };
+
+  const loadClassmates = async () => {
+    if (!classCode) return;
+    setLoadingClassmates(true);
+    try {
+      const res = await api.getClassStudents(classCode);
+      setClassmates(res?.students || []);
+    } catch (err) {
+      console.error("Failed to load classmates:", err);
+    } finally {
+      setLoadingClassmates(false);
+    }
+  };
 
   const loadResources = async () => {
     if (!classCode) return;
@@ -194,6 +276,123 @@ export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigate
     }
   };
 
+  const handleCreatePost = async (e) => {
+    e.preventDefault();
+    if (!postTitle.trim() || !postContent.trim()) return;
+    setIsSubmittingPost(true);
+    try {
+      const res = await api.createCommunityPost({
+        instituteName: info?.school || currentUser?.school || "School",
+        classCode: classCode,
+        section: studentSection,
+        title: postTitle.trim(),
+        content: postContent.trim(),
+        subject: postSubject,
+        gradeLevel: info?.grade || currentStudent?.gradeLevel || "Class 10",
+        authorName: currentUser?.name || "Student",
+        authorRole: isTeacher ? "teacher" : "student",
+        authorId: currentUser?.id || "student-1",
+        tags: postTags ? postTags.split(",").map(t => t.trim()).filter(Boolean) : [postSubject]
+      });
+      setShowCreatePostModal(false);
+      setPostTitle("");
+      setPostContent("");
+      setPostTags("");
+      loadDiscussionPosts();
+    } catch (err) {
+      alert("Failed to submit doubt: " + err.message);
+    } finally {
+      setIsSubmittingPost(false);
+    }
+  };
+
+  const handleSubmitAnswer = async (e) => {
+    e.preventDefault();
+    if (!activePost || !answerContent.trim()) return;
+    setIsSubmittingAnswer(true);
+    try {
+      const res = await api.answerCommunityPost(activePost.id, {
+        authorName: currentUser?.name || "Student",
+        authorRole: isTeacher ? "teacher" : "student",
+        authorId: currentUser?.id || "student-1",
+        content: answerContent.trim()
+      });
+      setAnswerContent("");
+      loadDiscussionPosts();
+      if (res.answer) {
+        setActivePost(prev => ({
+          ...prev,
+          answers: [...(prev.answers || []), res.answer]
+        }));
+      }
+    } catch (err) {
+      alert("Failed to submit answer: " + err.message);
+    } finally {
+      setIsSubmittingAnswer(false);
+    }
+  };
+
+  const handleUpvotePost = async (postId) => {
+    try {
+      const updated = await api.upvoteCommunityPost(postId, currentUser?.id || "user-1");
+      setClassPosts(prev => prev.map(p => p.id === postId ? { ...p, upvotes: updated.upvotes, upvotedBy: updated.upvotedBy } : p));
+      if (activePost?.id === postId) {
+        setActivePost(prev => ({ ...prev, upvotes: updated.upvotes, upvotedBy: updated.upvotedBy }));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleUpvoteAnswer = async (postId, answerId) => {
+    try {
+      const updated = await api.upvoteAnswer(postId, answerId, currentUser?.id || "user-1");
+      if (activePost?.id === postId) {
+        setActivePost(updated);
+      }
+      loadDiscussionPosts();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleVerifyAnswer = async (postId, answerId) => {
+    if (!isTeacher) return;
+    try {
+      const updated = await api.verifyAnswer(postId, answerId);
+      if (activePost?.id === postId) {
+        setActivePost(updated);
+      }
+      loadDiscussionPosts();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleCreateAnnouncement = async (e) => {
+    e.preventDefault();
+    if (!annTitle.trim() || !annContent.trim()) return;
+    setIsPostingAnn(true);
+    try {
+      await api.createAnnouncement(classCode, {
+        title: annTitle.trim(),
+        content: annContent.trim(),
+        section: annSection,
+        priority: annPriority,
+        teacherId: currentUser?.id,
+        teacherName: currentUser?.name
+      });
+      setShowAnnounceModal(false);
+      setAnnTitle("");
+      setAnnContent("");
+      loadAnnouncements();
+    } catch (err) {
+      alert("Failed to post announcement: " + err.message);
+    } finally {
+      setIsPostingAnn(false);
+    }
+  };
+
   if (!info && !classCode) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 text-center">
@@ -230,9 +429,12 @@ export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigate
       <div className="bg-white border border-[#E5E7EB] p-5">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#F0F2F5] pb-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="bg-black text-white text-[10px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider">
                 Class Code: {classCode}
+              </span>
+              <span className="bg-indigo-50 text-indigo-800 text-[10px] font-bold px-2 py-0.5 border border-indigo-200">
+                {studentSection}
               </span>
               {info?.academicYear && (
                 <span className="text-xs text-[#6B7280] font-medium">
@@ -245,7 +447,7 @@ export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigate
             </h1>
             <p className="text-xs text-[#4B5563] flex items-center gap-2 flex-wrap">
               <Building className="w-3.5 h-3.5 text-[#6B7280]" />
-              <span>{info?.school || currentUser?.institute || currentUser?.school || "Institution Campus"}</span>
+              <span>{info?.school || currentUser?.institute || currentUser?.school || "School Campus"}</span>
               {info?.teacherName && (
                 <>
                   <span className="text-[#D1D5DB]">&bull;</span>
@@ -256,13 +458,29 @@ export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigate
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {isTeacher && (
+              <button
+                onClick={() => setShowAnnounceModal(true)}
+                className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-2 border border-amber-600 transition-colors"
+              >
+                <Megaphone className="w-3.5 h-3.5" />
+                <span>+ Broadcast Announcement</span>
+              </button>
+            )}
+            <button
+              onClick={() => setShowCreatePostModal(true)}
+              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-2 border border-indigo-600 transition-colors"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>+ Ask Class Doubt</span>
+            </button>
             <button
               onClick={() => setShowShareModal(true)}
-              className="flex items-center gap-2 bg-black hover:bg-[#333] text-white text-xs font-semibold px-4 py-2 border border-black transition-colors"
+              className="flex items-center gap-1.5 bg-black hover:bg-[#333] text-white text-xs font-semibold px-3 py-2 border border-black transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Upload Notes / Media / Files</span>
+              <span>Upload Notes / Media</span>
             </button>
           </div>
         </div>
@@ -280,7 +498,7 @@ export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigate
 
           <div className="flex items-center gap-1.5 text-emerald-700 text-xs font-medium">
             <Sparkles className="w-4 h-4 text-emerald-600" />
-            <span>AI Multimodal Engine reads text notes, diagram images, lecture videos & files uploaded here</span>
+            <span>AI Multimodal Engine reads notes, circulars & doubt threads for personalized explanations</span>
           </div>
         </div>
       </div>
@@ -295,37 +513,344 @@ export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigate
       )}
 
       {/* Sub-Navigation Tabs */}
-      <div className="flex border-b border-[#E5E7EB] bg-white text-xs font-medium">
+      <div className="flex border-b border-[#E5E7EB] bg-white text-xs font-medium flex-wrap">
+        <button
+          onClick={() => setActiveSubTab("announcements")}
+          className={`px-4 py-3 font-bold border-b-2 flex items-center gap-2 transition-colors ${
+            activeSubTab === "announcements" ? "border-amber-600 text-amber-900 bg-amber-50/40" : "border-transparent text-[#6B7280] hover:text-black"
+          }`}
+        >
+          <Megaphone className="w-4 h-4 text-amber-600" />
+          <span>Teacher Announcements ({announcements.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab("discussion")}
+          className={`px-4 py-3 font-bold border-b-2 flex items-center gap-2 transition-colors ${
+            activeSubTab === "discussion" ? "border-indigo-600 text-indigo-900 bg-indigo-50/40" : "border-transparent text-[#6B7280] hover:text-black"
+          }`}
+        >
+          <MessageSquare className="w-4 h-4 text-indigo-600" />
+          <span>Class Community Chat ({classPosts.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab("roster")}
+          className={`px-4 py-3 font-bold border-b-2 flex items-center gap-2 transition-colors ${
+            activeSubTab === "roster" ? "border-black text-black bg-[#FAFAFA]" : "border-transparent text-[#6B7280] hover:text-black"
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Classmates in {studentSection} ({classmates.length})</span>
+        </button>
+
         <button
           onClick={() => setActiveSubTab("resources")}
-          className={`px-5 py-3 font-bold border-b-2 flex items-center gap-2 transition-colors ${
+          className={`px-4 py-3 font-bold border-b-2 flex items-center gap-2 transition-colors ${
             activeSubTab === "resources" ? "border-black text-black bg-[#FAFAFA]" : "border-transparent text-[#6B7280] hover:text-black"
           }`}
         >
           <Share2 className="w-4 h-4" />
-          <span>Classroom Shared Resources ({resources.length})</span>
+          <span>Shared Notes & Files ({resources.length})</span>
         </button>
+
         <button
           onClick={() => setActiveSubTab("schedule")}
-          className={`px-5 py-3 font-bold border-b-2 flex items-center gap-2 transition-colors ${
+          className={`px-4 py-3 font-bold border-b-2 flex items-center gap-2 transition-colors ${
             activeSubTab === "schedule" ? "border-black text-black bg-[#FAFAFA]" : "border-transparent text-[#6B7280] hover:text-black"
           }`}
         >
           <Calendar className="w-4 h-4" />
           <span>Weekly Timetable</span>
         </button>
-        <button
-          onClick={() => setActiveSubTab("syllabus")}
-          className={`px-5 py-3 font-bold border-b-2 flex items-center gap-2 transition-colors ${
-            activeSubTab === "syllabus" ? "border-black text-black bg-[#FAFAFA]" : "border-transparent text-[#6B7280] hover:text-black"
-          }`}
-        >
-          <BookOpen className="w-4 h-4" />
-          <span>Syllabus Roadmap</span>
-        </button>
       </div>
 
-      {/* TAB 1: CLASSROOM SHARED RESOURCES */}
+      {/* TAB 1: TEACHER ANNOUNCEMENTS BROADCAST CHANNEL */}
+      {activeSubTab === "announcements" && (
+        <div className="space-y-4">
+          <div className="bg-white border border-[#E5E7EB] p-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Megaphone className="w-4 h-4 text-amber-600" />
+                <h3 className="font-bold text-sm text-[#1A1A1A]">Official Teacher Broadcast Channel</h3>
+              </div>
+              <p className="text-xs text-[#6B7280] mt-0.5">
+                Official notices, test schedules, and homework circulars broadcasted by your faculty.
+              </p>
+            </div>
+
+            {isTeacher && (
+              <button
+                onClick={() => setShowAnnounceModal(true)}
+                className="clean-button-primary py-1.5 px-3 text-xs flex items-center gap-1.5 bg-amber-600 border-amber-600 hover:bg-amber-700 text-white"
+              >
+                <Megaphone className="w-3.5 h-3.5" />
+                <span>+ Broadcast New Circular</span>
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            {announcements.length === 0 ? (
+              <div className="bg-white border border-[#E5E7EB] p-8 text-center text-xs text-[#6B7280]">
+                No announcements posted for this classroom yet. Check back soon for circulars!
+              </div>
+            ) : (
+              announcements.map((ann) => {
+                const isUrgent = ann.priority === "urgent";
+                const isImportant = ann.priority === "important";
+                return (
+                  <div
+                    key={ann.id}
+                    className={`border p-4 bg-white space-y-2 ${isUrgent ? "border-rose-400 bg-rose-50/20" : isImportant ? "border-amber-300 bg-amber-50/20" : "border-[#E5E7EB]"}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${isUrgent ? "bg-rose-100 text-rose-800" : isImportant ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-800"}`}>
+                            {ann.priority || "Official Notice"}
+                          </span>
+                          <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.2 text-[10px] font-bold">
+                            {ann.section === "all" ? "All Sections" : ann.section}
+                          </span>
+                          <span className="text-[11px] text-[#9CA3AF]">
+                            &bull; {ann.createdAt || "Just now"}
+                          </span>
+                        </div>
+                        <h4 className="font-bold text-sm text-[#1A1A1A]">{ann.title}</h4>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-[#374151] leading-relaxed whitespace-pre-wrap">
+                      {ann.content}
+                    </p>
+
+                    <div className="pt-2 border-t border-[#F0F2F5] text-[11px] text-[#6B7280] flex items-center justify-between">
+                      <span>Posted by Faculty: <strong>{ann.teacherName || info?.teacherName || "Teacher"}</strong></span>
+                      <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                        <ShieldCheck className="w-3 h-3" /> Teacher Verified Circular
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: CLASS COMMUNITY DISCUSSION & DOUBT CHAT */}
+      {activeSubTab === "discussion" && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Left Column: Doubt Questions List */}
+          <div className="lg:col-span-5 space-y-3">
+            <div className="bg-white border border-[#E5E7EB] p-3 flex items-center justify-between">
+              <span className="text-xs font-bold text-[#1A1A1A]">
+                Doubt Threads ({classPosts.length})
+              </span>
+              <button
+                onClick={() => setShowCreatePostModal(true)}
+                className="clean-button-primary py-1 px-2.5 text-xs flex items-center gap-1 bg-indigo-600 border-indigo-600 text-white"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Ask Doubt</span>
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {classPosts.length === 0 ? (
+                <div className="bg-white border border-[#E5E7EB] p-6 text-center text-xs text-[#6B7280]">
+                  No doubts asked yet in this class. Click <strong>Ask Doubt</strong> to start a peer discussion!
+                </div>
+              ) : (
+                classPosts.map((post) => {
+                  const isSelected = activePost?.id === post.id;
+                  const hasTeacherVerified = (post.answers || []).some(a => a.isTeacherVerified);
+                  return (
+                    <div
+                      key={post.id}
+                      onClick={() => setActivePost(post)}
+                      className={`p-3 border cursor-pointer transition-colors bg-white ${isSelected ? "border-black ring-1 ring-black" : "border-[#E5E7EB] hover:border-[#9CA3AF]"}`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-[10px] uppercase font-bold px-1.5 py-0.2 bg-[#F3F4F6] text-[#4B5563]">
+                          {post.subject}
+                        </span>
+                        {hasTeacherVerified && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-0.5">
+                            <CheckCircle2 className="w-2.5 h-2.5" /> Verified
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="font-bold text-xs text-[#1A1A1A] line-clamp-1">{post.title}</h4>
+                      <p className="text-[11px] text-[#6B7280] line-clamp-2 mt-0.5">{post.content}</p>
+                      <div className="flex items-center justify-between text-[10px] text-[#9CA3AF] mt-2 pt-1 border-t border-[#F0F2F5]">
+                        <span>{post.authorName} ({post.authorRole})</span>
+                        <span>{(post.answers || []).length} answers &bull; {post.upvotes || 0} upvotes</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Right Column: Selected Thread & Answers */}
+          <div className="lg:col-span-7">
+            {activePost ? (
+              <div className="bg-white border border-[#E5E7EB] p-5 space-y-4">
+                <div className="border-b border-[#F0F2F5] pb-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-[#F3F4F6] text-[#4B5563]">
+                        {activePost.subject}
+                      </span>
+                      <span className="text-xs text-[#6B7280] font-medium">
+                        By {activePost.authorName} ({activePost.authorRole}) &bull; {activePost.createdAt || "Just now"}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleUpvotePost(activePost.id)}
+                      className="clean-button-secondary py-1 px-2.5 text-xs flex items-center gap-1.5"
+                    >
+                      <ThumbsUp className="w-3 h-3 text-black" />
+                      <span>{activePost.upvotes || 0}</span>
+                    </button>
+                  </div>
+                  <h3 className="font-bold text-base text-[#1A1A1A]">{activePost.title}</h3>
+                  <p className="text-xs text-[#374151] leading-relaxed whitespace-pre-wrap">{activePost.content}</p>
+                </div>
+
+                {/* Answers Section */}
+                <div className="space-y-3">
+                  <h4 className="font-bold text-xs text-[#1A1A1A] uppercase tracking-wider text-[#9CA3AF]">
+                    Class Answers & Teacher Feedback ({(activePost.answers || []).length})
+                  </h4>
+
+                  {(activePost.answers || []).length === 0 ? (
+                    <p className="text-xs text-[#6B7280] py-2">No peer solutions yet. Be the first to answer!</p>
+                  ) : (
+                    (activePost.answers || []).map((ans) => (
+                      <div
+                        key={ans.id}
+                        className={`p-3 text-xs space-y-1.5 border ${ans.isTeacherVerified ? "border-emerald-300 bg-emerald-50/20" : "border-[#E5E7EB] bg-[#FAFAFA]"}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-[#1A1A1A]">{ans.authorName}</span>
+                            <span className="text-[10px] text-[#6B7280]">({ans.authorRole})</span>
+                            {ans.isTeacherVerified && (
+                              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.2 flex items-center gap-0.5 border border-emerald-300">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-700" /> Faculty Verified
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {isTeacher && !ans.isTeacherVerified && (
+                              <button
+                                onClick={() => handleVerifyAnswer(activePost.id, ans.id)}
+                                className="text-[10px] font-bold text-emerald-700 hover:underline"
+                              >
+                                ✓ Mark Verified
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleUpvoteAnswer(activePost.id, ans.id)}
+                              className="text-[11px] text-[#6B7280] hover:text-black flex items-center gap-1"
+                            >
+                              <ThumbsUp className="w-3 h-3" /> {ans.upvotes || 0}
+                            </button>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-[#374151] leading-relaxed whitespace-pre-wrap">{ans.content}</p>
+                      </div>
+                    ))
+                  )}
+
+                  {/* Answer Input */}
+                  <form onSubmit={handleSubmitAnswer} className="space-y-2 pt-2 border-t border-[#F0F2F5]">
+                    <textarea
+                      rows={3}
+                      required
+                      placeholder="Write your explanation or step-by-step solution for your classmates..."
+                      value={answerContent}
+                      onChange={(e) => setAnswerContent(e.target.value)}
+                      className="w-full bg-[#F9FAFB] border border-[#E5E7EB] p-2.5 text-xs outline-none focus:border-black"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSubmittingAnswer}
+                      className="clean-button-primary py-1.5 px-4 text-xs font-bold flex items-center gap-1.5 ml-auto"
+                    >
+                      <Send className="w-3 h-3" />
+                      <span>{isSubmittingAnswer ? "Posting..." : "Post Solution"}</span>
+                    </button>
+                  </form>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white border border-[#E5E7EB] p-12 text-center text-xs text-[#6B7280]">
+                Select a doubt from the left to view the thread and solutions.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: CLASSMATES IN MY SECTION ROSTER */}
+      {activeSubTab === "roster" && (
+        <div className="bg-white border border-[#E5E7EB] p-5 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F0F2F5] pb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-black" />
+                <h3 className="font-bold text-sm text-[#1A1A1A]">Classmates Roster</h3>
+              </div>
+              <p className="text-xs text-[#6B7280]">
+                Students enrolled in <strong>{info?.className || `Class ${classCode}`}</strong>.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {["all", "Section A", "Section B", "Section C", "Section D"].map((sec) => (
+                <button
+                  key={sec}
+                  onClick={() => setSelectedRosterSection(sec)}
+                  className={`px-2.5 py-1 text-xs font-bold border transition-colors ${selectedRosterSection === sec ? "bg-black text-white border-black" : "bg-[#F8F9FA] text-[#4B5563] border-[#E5E7EB]"}`}
+                >
+                  {sec === "all" ? "All Sections" : sec}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {classmates
+              .filter(s => selectedRosterSection === "all" || s.section === selectedRosterSection || (!s.section && selectedRosterSection === "Section A"))
+              .map((student) => (
+                <div key={student.studentId} className="border border-[#E5E7EB] p-3.5 bg-[#F9FAFB] space-y-2">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-bold text-xs text-[#1A1A1A]">{student.studentName}</h4>
+                      <span className="text-[10px] text-[#6B7280] font-mono">{student.studentEmail || student.email}</span>
+                    </div>
+                    <span className="bg-indigo-100 text-indigo-800 text-[10px] font-bold px-2 py-0.5 border border-indigo-200">
+                      {student.section || "Section A"}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-[#4B5563] pt-1.5 border-t border-[#E5E7EB] flex items-center justify-between">
+                    <span>Grade: <strong>{student.gradeLevel || info?.grade || "Class 10"}</strong></span>
+                    <span className="text-emerald-700 font-semibold">Active Learner</span>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: CLASSROOM SHARED RESOURCES */}
       {activeSubTab === "resources" && (
         <div className="space-y-4">
           {/* Filter and Search Bar */}
@@ -933,17 +1458,188 @@ export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigate
         </div>
       )}
 
-      {/* ZOOMED MEDIA MODAL */}
-      {zoomedMedia && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setZoomedMedia(null)}>
-          <div className="bg-white p-4 max-w-4xl max-h-[90vh] overflow-auto rounded space-y-2" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b pb-2">
-              <h4 className="font-bold text-sm text-[#1A1A1A]">{zoomedMedia.title}</h4>
-              <button onClick={() => setZoomedMedia(null)} className="text-xl font-bold">&times;</button>
+      {/* MODAL: ASK CLASS DOUBT */}
+      {showCreatePostModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white border border-black max-w-lg w-full p-6 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-indigo-600" />
+                <h3 className="font-bold text-sm text-[#1A1A1A]">Ask a Doubt to Your Classroom</h3>
+              </div>
+              <button
+                onClick={() => setShowCreatePostModal(false)}
+                className="text-[#6B7280] hover:text-black font-bold text-xs"
+              >
+                ✕
+              </button>
             </div>
-            <div className="flex items-center justify-center bg-black/5 p-2">
-              <img src={zoomedMedia.url} alt={zoomedMedia.title} className="max-h-[75vh] object-contain" />
+
+            <form onSubmit={handleCreatePost} className="space-y-3 text-xs">
+              <div className="space-y-1">
+                <label className="font-bold text-[#374151]">Question / Doubt Title *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. How does Lens Maker's formula change when immersed in water?"
+                  value={postTitle}
+                  onChange={(e) => setPostTitle(e.target.value)}
+                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs outline-none focus:border-black"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="font-bold text-[#374151]">Subject</label>
+                  <select
+                    value={postSubject}
+                    onChange={(e) => setPostSubject(e.target.value)}
+                    className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-2.5 py-2 text-xs outline-none focus:border-black"
+                  >
+                    <option value="Physics">Physics</option>
+                    <option value="Chemistry">Chemistry</option>
+                    <option value="Mathematics">Mathematics</option>
+                    <option value="Biology">Biology</option>
+                    <option value="General Science">General Science</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-[#374151]">Tags (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Optics, Refraction, Focal Length"
+                    value={postTags}
+                    onChange={(e) => setPostTags(e.target.value)}
+                    className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs outline-none focus:border-black"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-[#374151]">Detailed Question & What you tried *</label>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Describe your step-by-step confusion so your classmates and teacher can help..."
+                  value={postContent}
+                  onChange={(e) => setPostContent(e.target.value)}
+                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] p-2.5 text-xs outline-none focus:border-black"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreatePostModal(false)}
+                  className="flex-1 clean-button-secondary py-2 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingPost}
+                  className="flex-1 clean-button-primary py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-1.5"
+                >
+                  <Send className="w-3 h-3" />
+                  <span>{isSubmittingPost ? "Posting..." : "Post Doubt"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: BROADCAST TEACHER CIRCULAR */}
+      {showAnnounceModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white border border-black max-w-md w-full p-6 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
+              <div className="flex items-center gap-2">
+                <Megaphone className="w-4 h-4 text-amber-600" />
+                <h3 className="font-bold text-sm text-[#1A1A1A]">Broadcast Teacher Circular</h3>
+              </div>
+              <button
+                onClick={() => setShowAnnounceModal(false)}
+                className="text-[#6B7280] hover:text-black font-bold text-xs"
+              >
+                ✕
+              </button>
             </div>
+
+            <form onSubmit={handleCreateAnnouncement} className="space-y-3 text-xs">
+              <div className="space-y-1">
+                <label className="font-bold text-[#374151]">Circular Title *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Unit Test 2 Date Sheet & Syllabus Allocation"
+                  value={annTitle}
+                  onChange={(e) => setAnnTitle(e.target.value)}
+                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs outline-none focus:border-black"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="font-bold text-[#374151]">Target Section</label>
+                  <select
+                    value={annSection}
+                    onChange={(e) => setAnnSection(e.target.value)}
+                    className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-2.5 py-2 text-xs outline-none focus:border-black"
+                  >
+                    <option value="all">All Sections</option>
+                    <option value="Section A">Section A only</option>
+                    <option value="Section B">Section B only</option>
+                    <option value="Section C">Section C only</option>
+                    <option value="Section D">Section D only</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-[#374151]">Priority</label>
+                  <select
+                    value={annPriority}
+                    onChange={(e) => setAnnPriority(e.target.value)}
+                    className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-2.5 py-2 text-xs outline-none focus:border-black font-bold"
+                  >
+                    <option value="normal">Normal Circular</option>
+                    <option value="important">Important Notice</option>
+                    <option value="urgent">Urgent / Exam Notice</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-[#374151]">Circular Details *</label>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Type notice message for enrolled students..."
+                  value={annContent}
+                  onChange={(e) => setAnnContent(e.target.value)}
+                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] p-2.5 text-xs outline-none focus:border-black"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAnnounceModal(false)}
+                  className="flex-1 clean-button-secondary py-2 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPostingAnn}
+                  className="flex-1 clean-button-primary py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-1.5"
+                >
+                  <Megaphone className="w-3 h-3" />
+                  <span>{isPostingAnn ? "Broadcasting..." : "Broadcast Notice"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

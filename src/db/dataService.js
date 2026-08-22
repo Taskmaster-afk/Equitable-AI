@@ -4,6 +4,8 @@ import {
   Teacher,
   Student,
   ClassModel,
+  ClassInvite,
+  ClassAnnouncement,
   ClassroomResource,
   ResourceDump,
   CommunityPost
@@ -15,6 +17,8 @@ export const inMemDb = {
   students: new Map(),
   teachers: new Map(),
   classes: new Map(),
+  invites: [],
+  announcements: [],
   classroomResources: new Map(),
   resourceDumps: [],
   communityPosts: [],
@@ -366,6 +370,12 @@ export async function deleteResourceDump(id) {
 export async function getCommunityPosts(filters = {}) {
   if (isMongoConnected()) {
     const query = {};
+    if (filters.classCode && filters.classCode !== "all") {
+      query.classCode = filters.classCode;
+    }
+    if (filters.section && filters.section !== "all") {
+      query.section = { $in: [filters.section, "all"] };
+    }
     if (filters.institute && filters.institute !== "all") {
       query.instituteName = filters.institute;
     }
@@ -375,6 +385,12 @@ export async function getCommunityPosts(filters = {}) {
     return await CommunityPost.find(query).sort({ createdAt: -1 }).lean();
   }
   let posts = [...inMemDb.communityPosts];
+  if (filters.classCode && filters.classCode !== "all") {
+    posts = posts.filter(p => !p.classCode || p.classCode === filters.classCode);
+  }
+  if (filters.section && filters.section !== "all") {
+    posts = posts.filter(p => !p.section || p.section === filters.section || p.section === "all");
+  }
   if (filters.institute && filters.institute !== "all") {
     posts = posts.filter(p => p.instituteName === filters.institute);
   }
@@ -397,6 +413,190 @@ export async function createCommunityPost(postData) {
     await CommunityPost.findOneAndUpdate({ id: postData.id }, postData, { upsert: true, new: true });
   }
   return postData;
+}
+
+// -------------------------------------------------------------
+// CLASSROOM INVITATIONS (TEACHER INVITES STUDENT BY EMAIL & SECTION)
+// -------------------------------------------------------------
+export async function createClassInvite(inviteData) {
+  inMemDb.invites = inMemDb.invites || [];
+  inMemDb.invites.unshift(inviteData);
+
+  if (isMongoConnected()) {
+    await ClassInvite.findOneAndUpdate({ id: inviteData.id }, inviteData, { upsert: true, new: true });
+  }
+  return inviteData;
+}
+
+export async function getStudentPendingInvites(studentEmail) {
+  const emailNorm = (studentEmail || "").toLowerCase().trim();
+  if (isMongoConnected()) {
+    return await ClassInvite.find({ studentEmail: emailNorm, status: "pending" }).sort({ createdAt: -1 }).lean();
+  }
+  return (inMemDb.invites || []).filter(i => (i.studentEmail || "").toLowerCase().trim() === emailNorm && i.status === "pending");
+}
+
+export async function getTeacherClassInvites(teacherId) {
+  if (isMongoConnected()) {
+    return await ClassInvite.find({ teacherId }).sort({ createdAt: -1 }).lean();
+  }
+  return (inMemDb.invites || []).filter(i => i.teacherId === teacherId);
+}
+
+export async function acceptClassInvite(inviteId, studentId) {
+  let invite = null;
+  if (isMongoConnected()) {
+    invite = await ClassInvite.findOneAndUpdate(
+      { id: inviteId, status: "pending" },
+      { $set: { status: "accepted", acceptedAt: new Date().toISOString() } },
+      { new: true }
+    ).lean();
+  } else {
+    invite = (inMemDb.invites || []).find(i => i.id === inviteId);
+    if (invite) {
+      invite.status = "accepted";
+      invite.acceptedAt = new Date().toISOString();
+    }
+  }
+
+  if (!invite) return null;
+
+  // Add student to the class roster and update student's classCode & section
+  const student = await getStudentById(studentId);
+  if (student) {
+    student.classCode = invite.classCode;
+    student.section = invite.section || "Section A";
+    student.gradeLevel = invite.gradeLevel || student.gradeLevel;
+    if (invite.school) student.school = invite.school;
+    
+    student.joinedClasses = student.joinedClasses || [];
+    if (!student.joinedClasses.some(c => c.classCode === invite.classCode)) {
+      student.joinedClasses.push({
+        classCode: invite.classCode,
+        className: invite.className,
+        section: invite.section || "Section A",
+        joinedAt: new Date().toISOString()
+      });
+    }
+    await updateStudent(studentId, student);
+  }
+
+  // Update class enrollment in database
+  const targetClass = await getClassByCode(invite.classCode);
+  if (targetClass) {
+    targetClass.enrolledStudents = targetClass.enrolledStudents || [];
+    if (!targetClass.enrolledStudents.some(s => s.studentId === studentId || s.studentEmail === invite.studentEmail)) {
+      targetClass.enrolledStudents.push({
+        studentId: student?.id || studentId,
+        studentName: student?.name || invite.studentName || "Student",
+        studentEmail: invite.studentEmail,
+        section: invite.section || "Section A",
+        joinedAt: new Date().toISOString()
+      });
+      targetClass.studentsCount = targetClass.enrolledStudents.length;
+      await createClass(targetClass);
+    }
+  }
+
+  return { invite, student, classInfo: targetClass };
+}
+
+export async function rejectClassInvite(inviteId) {
+  if (isMongoConnected()) {
+    return await ClassInvite.findOneAndUpdate(
+      { id: inviteId },
+      { $set: { status: "rejected" } },
+      { new: true }
+    ).lean();
+  }
+  const invite = (inMemDb.invites || []).find(i => i.id === inviteId);
+  if (invite) invite.status = "rejected";
+  return invite;
+}
+
+// -------------------------------------------------------------
+// CLASSROOM STUDENT ROSTER
+// -------------------------------------------------------------
+export async function getClassStudents(classCode) {
+  const code = (classCode || "").toUpperCase().trim();
+  const cls = await getClassByCode(code);
+  let students = cls?.enrolledStudents || [];
+
+  // Also query any students matching classCode
+  if (isMongoConnected()) {
+    const directStudents = await Student.find({ classCode: code }).lean();
+    for (const ds of directStudents) {
+      if (!students.some(s => s.studentId === ds.id || s.studentEmail === ds.email)) {
+        students.push({
+          studentId: ds.id,
+          studentName: ds.name,
+          studentEmail: ds.email,
+          section: ds.section || "Section A",
+          gradeLevel: ds.gradeLevel,
+          joinedAt: ds.createdAt || "Enrolled"
+        });
+      }
+    }
+  } else {
+    for (const ds of inMemDb.students.values()) {
+      if (ds.classCode === code && !students.some(s => s.studentId === ds.id)) {
+        students.push({
+          studentId: ds.id,
+          studentName: ds.name,
+          studentEmail: ds.email,
+          section: ds.section || "Section A",
+          gradeLevel: ds.gradeLevel,
+          joinedAt: "Enrolled"
+        });
+      }
+    }
+  }
+
+  return {
+    classCode: code,
+    className: cls?.className || `Class ${code}`,
+    totalEnrolled: students.length,
+    students
+  };
+}
+
+// -------------------------------------------------------------
+// TEACHER ANNOUNCEMENTS BROADCAST CHANNEL (TEACHER POSTS, ALL READ)
+// -------------------------------------------------------------
+export async function createAnnouncement(announcementData) {
+  inMemDb.announcements = inMemDb.announcements || [];
+  inMemDb.announcements.unshift(announcementData);
+
+  if (isMongoConnected()) {
+    await ClassAnnouncement.findOneAndUpdate(
+      { id: announcementData.id },
+      announcementData,
+      { upsert: true, new: true }
+    );
+  }
+  return announcementData;
+}
+
+export async function getClassAnnouncements(classCode, section = "all") {
+  const code = (classCode || "").toUpperCase().trim();
+  if (isMongoConnected()) {
+    const query = { classCode: code };
+    if (section && section !== "all") {
+      query.section = { $in: [section, "all"] };
+    }
+    return await ClassAnnouncement.find(query).sort({ createdAt: -1 }).lean();
+  }
+  return (inMemDb.announcements || []).filter(a => 
+    a.classCode === code && (!section || section === "all" || a.section === section || a.section === "all")
+  );
+}
+
+export async function deleteAnnouncement(announcementId) {
+  if (isMongoConnected()) {
+    await ClassAnnouncement.deleteOne({ id: announcementId });
+  }
+  inMemDb.announcements = (inMemDb.announcements || []).filter(a => a.id !== announcementId);
+  return true;
 }
 
 export async function addPostAnswer(postId, answerData) {

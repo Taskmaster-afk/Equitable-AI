@@ -290,11 +290,93 @@ const api = {
     if (!res.ok) throw new Error("Failed to probe retrieval");
     return res.json();
   },
+  // Classroom Invitations & Sections
+  async inviteStudent(payload) {
+    const res = await fetch("/api/teacher/invite-student", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to send invitation");
+    }
+    return res.json();
+  },
+  async getTeacherInvites(teacherId) {
+    const res = await fetch(`/api/teacher/invites?teacherId=${encodeURIComponent(teacherId || "")}`);
+    if (!res.ok) throw new Error("Failed to fetch teacher invites");
+    return res.json();
+  },
+  async getStudentInvites(email, studentId) {
+    const searchParams = new URLSearchParams();
+    if (email) searchParams.set("email", email);
+    if (studentId) searchParams.set("studentId", studentId);
+    const res = await fetch(`/api/student/invites?${searchParams.toString()}`);
+    if (!res.ok) throw new Error("Failed to fetch student invites");
+    return res.json();
+  },
+  async acceptInvite(inviteId, studentId) {
+    const res = await fetch("/api/student/accept-invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inviteId, studentId })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to accept invite");
+    }
+    return res.json();
+  },
+  async rejectInvite(inviteId) {
+    const res = await fetch("/api/student/reject-invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inviteId })
+    });
+    return res.json();
+  },
+  // Class Roster
+  async getClassStudents(classCode) {
+    const res = await fetch(`/api/class/${encodeURIComponent(classCode)}/students`);
+    if (!res.ok) throw new Error("Failed to fetch class students");
+    return res.json();
+  },
+  // Classroom Announcements (Teacher Broadcast)
+  async getClassAnnouncements(classCode, section = "all") {
+    const searchParams = new URLSearchParams();
+    if (section && section !== "all") searchParams.set("section", section);
+    const qs = searchParams.toString();
+    const url = qs ? `/api/class/${encodeURIComponent(classCode)}/announcements?${qs}` : `/api/class/${encodeURIComponent(classCode)}/announcements`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Failed to fetch class announcements");
+    return res.json();
+  },
+  async createAnnouncement(classCode, payload) {
+    const res = await fetch(`/api/class/${encodeURIComponent(classCode)}/announcements`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to create announcement");
+    }
+    return res.json();
+  },
+  async deleteAnnouncement(classCode, id) {
+    const res = await fetch(`/api/class/${encodeURIComponent(classCode)}/announcements/${encodeURIComponent(id)}`, {
+      method: "DELETE"
+    });
+    return res.json();
+  },
   // Community Chat & Doubts
   async getCommunityPosts(params) {
     const searchParams = new URLSearchParams();
     if (params?.institute) searchParams.set("institute", params.institute);
     if (params?.subject) searchParams.set("subject", params.subject);
+    if (params?.classCode) searchParams.set("classCode", params.classCode);
+    if (params?.section) searchParams.set("section", params.section);
     if (params?.search) searchParams.set("search", params.search);
     const res = await fetch(`/api/community/posts?${searchParams.toString()}`);
     if (!res.ok) throw new Error("Failed to fetch community posts");

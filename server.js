@@ -43,6 +43,15 @@ import {
   upvotePost,
   upvoteAnswer,
   verifyAnswer,
+  createClassInvite,
+  getStudentPendingInvites,
+  getTeacherClassInvites,
+  acceptClassInvite,
+  rejectClassInvite,
+  getClassStudents,
+  createAnnouncement,
+  getClassAnnouncements,
+  deleteAnnouncement,
   recordDoubt,
   recordPracticeLog
 } from "./src/db/dataService.js";
@@ -51,6 +60,8 @@ import {
   Teacher,
   Student,
   ClassModel,
+  ClassInvite,
+  ClassAnnouncement,
   ClassroomResource,
   ResourceDump,
   CommunityPost
@@ -2641,6 +2652,178 @@ app.put("/api/students/:id", (req, res) => {
   db.students.set(req.params.id, updated);
   res.json({ student: updated });
 });
+
+// ==========================================
+// CLASSROOM STUDENT INVITATIONS & SECTIONS
+// ==========================================
+app.post("/api/teacher/invite-student", async (req, res) => {
+  try {
+    const {
+      classCode,
+      studentEmail,
+      studentName = "",
+      section = "Section A",
+      teacherId,
+      teacherName
+    } = req.body;
+
+    if (!classCode || !studentEmail) {
+      return res.status(400).json({ error: "Class code and student email are required." });
+    }
+
+    const targetClass = (await getClassByCode(classCode)) || db.classes.get(classCode);
+    if (!targetClass) {
+      return res.status(404).json({ error: "Class not found." });
+    }
+
+    const invite = {
+      id: `inv-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      classCode: targetClass.classCode,
+      className: targetClass.className,
+      gradeLevel: targetClass.gradeLevel || targetClass.targetClass || "Class 10",
+      section: section || targetClass.section || "Section A",
+      teacherId: teacherId || targetClass.teacherId || "teacher-1",
+      teacherName: teacherName || targetClass.teacherName || "Teacher",
+      school: targetClass.school || targetClass.institute || "School",
+      studentEmail: studentEmail.trim().toLowerCase(),
+      studentName: studentName.trim(),
+      status: "pending",
+      invitedAt: new Date().toISOString()
+    };
+
+    await createClassInvite(invite);
+
+    res.status(201).json({
+      success: true,
+      message: `Invitation successfully sent to ${studentEmail} for ${targetClass.className} (${section})!`,
+      invite
+    });
+  } catch (err) {
+    console.error("Error in /api/teacher/invite-student:", err);
+    res.status(500).json({ error: "Failed to send invitation." });
+  }
+});
+
+app.get("/api/teacher/invites", async (req, res) => {
+  const teacherId = req.query.teacherId || "teacher-1";
+  const invites = await getTeacherClassInvites(teacherId);
+  res.json({ invites });
+});
+
+app.get("/api/student/invites", async (req, res) => {
+  const email = (req.query.email || "").toLowerCase().trim();
+  const studentId = req.query.studentId;
+  let targetEmail = email;
+  if (!targetEmail && studentId) {
+    const student = (await getStudentById(studentId)) || db.students.get(studentId);
+    if (student) targetEmail = (student.email || "").toLowerCase().trim();
+  }
+
+  if (!targetEmail) {
+    return res.json({ invites: [] });
+  }
+
+  const invites = await getStudentPendingInvites(targetEmail);
+  res.json({ invites });
+});
+
+app.post("/api/student/accept-invite", async (req, res) => {
+  try {
+    const { inviteId, studentId } = req.body;
+    if (!inviteId || !studentId) {
+      return res.status(400).json({ error: "Invite ID and student ID are required." });
+    }
+
+    const result = await acceptClassInvite(inviteId, studentId);
+    if (!result) {
+      return res.status(404).json({ error: "Invitation not found or already accepted." });
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully joined ${result.classInfo?.className || result.invite.className} (${result.invite.section})!`,
+      ...result
+    });
+  } catch (err) {
+    console.error("Error in /api/student/accept-invite:", err);
+    res.status(500).json({ error: "Failed to accept invitation." });
+  }
+});
+
+app.post("/api/student/reject-invite", async (req, res) => {
+  const { inviteId } = req.body;
+  await rejectClassInvite(inviteId);
+  res.json({ success: true, message: "Invitation declined." });
+});
+
+// ==========================================
+// CLASSROOM ROSTER & SECTION STUDENTS
+// ==========================================
+app.get("/api/class/:code/students", async (req, res) => {
+  const code = req.params.code.trim().toUpperCase();
+  const roster = await getClassStudents(code);
+  res.json(roster);
+});
+
+// ==========================================
+// TEACHER ANNOUNCEMENTS BROADCAST
+// ==========================================
+app.get("/api/class/:code/announcements", async (req, res) => {
+  const code = req.params.code.trim().toUpperCase();
+  const { section = "all" } = req.query;
+  const announcements = await getClassAnnouncements(code, section);
+  res.json({ announcements, classCode: code });
+});
+
+app.post("/api/class/:code/announcements", async (req, res) => {
+  try {
+    const code = req.params.code.trim().toUpperCase();
+    const {
+      title,
+      content,
+      section = "all",
+      priority = "normal",
+      teacherId = "teacher-1",
+      teacherName = "Faculty",
+      attachments = []
+    } = req.body;
+
+    if (!title || !title.trim() || !content || !content.trim()) {
+      return res.status(400).json({ error: "Announcement title and content are required." });
+    }
+
+    const newAnnouncement = {
+      id: `ann-${Date.now()}`,
+      classCode: code,
+      section,
+      teacherId,
+      teacherName,
+      title: title.trim(),
+      content: content.trim(),
+      priority,
+      attachments,
+      createdAt: "Just now"
+    };
+
+    await createAnnouncement(newAnnouncement);
+
+    res.status(201).json({
+      success: true,
+      message: "Announcement broadcasted to classroom!",
+      announcement: newAnnouncement
+    });
+  } catch (err) {
+    console.error("Error in /api/class/:code/announcements:", err);
+    res.status(500).json({ error: "Failed to post announcement." });
+  }
+});
+
+app.delete("/api/class/:code/announcements/:id", async (req, res) => {
+  const annId = req.params.id;
+  await deleteAnnouncement(annId);
+  res.json({ success: true, message: "Announcement deleted." });
+});
+
 // ==========================================
 // CLASSROOM RESOURCES (TEACHER & STUDENT SHARING)
 // ==========================================
@@ -2834,11 +3017,11 @@ app.delete("/api/resources/dumps/:id", async (req, res) => {
 });
 
 // ==========================================
-// INSTITUTION COMMUNITY CHAT & DOUBTS
+// INSTITUTION & CLASSROOM COMMUNITY CHAT & DOUBTS
 // ==========================================
 app.get("/api/community/posts", async (req, res) => {
-  const { institute, subject, search } = req.query;
-  let posts = await getCommunityPosts({ institute, subject });
+  const { institute, subject, classCode, section, search } = req.query;
+  let posts = await getCommunityPosts({ institute, subject, classCode, section });
 
   if (search && search.trim()) {
     const term = search.toLowerCase();
@@ -2855,19 +3038,18 @@ app.get("/api/community/posts", async (req, res) => {
 app.post("/api/community/posts", async (req, res) => {
   const {
     instituteName,
+    classCode = "",
+    section = "all",
     title,
     content,
     subject = "General",
-    gradeLevel = "Grade 11-12",
+    gradeLevel = "Class 10",
     authorName = "Anonymous Student",
     authorRole = "student",
     authorId = "user-1",
     tags = []
   } = req.body;
 
-  if (!instituteName || !instituteName.trim()) {
-    return res.status(400).json({ error: "Institution name is required to post in the community forum." });
-  }
   if (!title || !title.trim()) {
     return res.status(400).json({ error: "Doubt question title is required." });
   }
@@ -2877,7 +3059,9 @@ app.post("/api/community/posts", async (req, res) => {
 
   const newPost = {
     id: `post-${Date.now()}`,
-    instituteName: instituteName.trim(),
+    instituteName: (instituteName || "Open School Network").trim(),
+    classCode: (classCode || "").toUpperCase().trim(),
+    section: section || "all",
     title: title.trim(),
     content: content.trim(),
     subject: subject.trim(),
@@ -2895,7 +3079,7 @@ app.post("/api/community/posts", async (req, res) => {
   await createCommunityPost(newPost);
 
   res.status(201).json({
-    message: "Doubt shared to your institution's community chat!",
+    message: classCode ? `Doubt posted to Class ${classCode} discussion!` : "Doubt shared to your school community forum!",
     post: newPost
   });
 });
