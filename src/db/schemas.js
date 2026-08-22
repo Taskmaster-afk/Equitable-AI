@@ -73,7 +73,7 @@ const StudentSchema = new mongoose.Schema({
   doubtHistory: [{
     id: { type: String, required: true },
     doubtQuery: { type: String, required: true },
-    timestamp: { type: Date, default: Date.now },
+    timestamp: { type: String, default: () => new Date().toISOString() },
     topicId: { type: String, default: "" },
     language: { type: String, default: "en" },
     responseSummary: { type: String, default: "" }
@@ -83,11 +83,11 @@ const StudentSchema = new mongoose.Schema({
     topicId: { type: String, required: true },
     difficulty: { type: String, default: "Intermediate" },
     isCorrect: { type: Boolean, default: false },
-    timestamp: { type: Date, default: Date.now },
+    timestamp: { type: String, default: () => new Date().toISOString() },
     studentAnswerIndex: { type: Number, default: -1 },
     questionId: { type: String, default: "" }
   }]
-}, { timestamps: true });
+}, { timestamps: true, strict: false });
 
 const ClassSchema = new mongoose.Schema({
   classCode: { type: String, required: true, unique: true, index: true },
@@ -110,7 +110,7 @@ const ClassSchema = new mongoose.Schema({
       room: { type: String }
     }]
   }]
-}, { timestamps: true });
+}, { timestamps: true, strict: false });
 
 const ClassroomResourceSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true, index: true },
@@ -133,7 +133,7 @@ const ClassroomResourceSchema = new mongoose.Schema({
   authorName: { type: String, default: "Faculty" },
   authorRole: { type: String, default: "teacher" },
   authorId: { type: String, default: "" }
-}, { timestamps: true });
+}, { timestamps: true, strict: false });
 
 const ResourceDumpSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true, index: true },
@@ -156,7 +156,7 @@ const ResourceDumpSchema = new mongoose.Schema({
   authorRole: { type: String, default: "student" },
   authorId: { type: String, default: "" },
   instituteName: { type: String, default: "Open Education Network" }
-}, { timestamps: true });
+}, { timestamps: true, strict: false });
 
 const CommunityPostSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true, index: true },
@@ -171,6 +171,7 @@ const CommunityPostSchema = new mongoose.Schema({
   tags: [{ type: String }],
   upvotes: { type: Number, default: 0 },
   upvotedBy: [{ type: String }],
+  createdAt: { type: String, default: "Just now" },
   answers: [{
     id: { type: String, required: true },
     authorName: { type: String, default: "Scholar" },
@@ -179,10 +180,11 @@ const CommunityPostSchema = new mongoose.Schema({
     content: { type: String, required: true },
     upvotes: { type: Number, default: 0 },
     upvotedBy: [{ type: String }],
+    isVerified: { type: Boolean, default: false },
     isTeacherVerified: { type: Boolean, default: false },
-    createdAt: { type: Date, default: Date.now }
+    createdAt: { type: String, default: "Just now" }
   }]
-}, { timestamps: true });
+}, { timestamps: true, strict: false });
 
 export const Institute = mongoose.models.Institute || mongoose.model("Institute", InstituteSchema);
 export const Teacher = mongoose.models.Teacher || mongoose.model("Teacher", TeacherSchema);
