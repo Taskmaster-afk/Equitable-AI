@@ -7,12 +7,16 @@ import {
   ArrowRight,
   RefreshCw,
   Image as ImageIcon,
+  Video as VideoIcon,
+  FileText,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  Maximize2
 } from "lucide-react";
 import { api } from "../services/api";
 import { SUPPORTED_LANGUAGES } from "../data/oerKnowledgeBase";
-const NCERT_SAMPLE_CATEGORIES = [
+
+const SAMPLE_CURRICULUM_CATEGORIES = [
   {
     name: "Class 11-12 Physics",
     grade: "Grade 11-12",
@@ -20,17 +24,17 @@ const NCERT_SAMPLE_CATEGORIES = [
     doubts: [
       {
         label: "Wave Optics: YDSE Fringe Width",
-        question: "In Young\u2019s Double Slit Experiment, what is the formula for fringe width \u03B2? How does the fringe width change if the apparatus is immersed in water of refractive index 4/3?",
+        question: "In Young’s Double Slit Experiment, what is the formula for fringe width β? How does the fringe width change if the apparatus is immersed in water of refractive index 4/3?",
         topicId: "wave-optics"
       },
       {
         label: "Kinematics: Projectile Motion Range",
-        question: "Why is the horizontal range of a projectile identical for complementary angles of projection \u03B8 and (90\xB0 - \u03B8)? Show the NCERT derivation.",
+        question: "Why is the horizontal range of a projectile identical for complementary angles of projection θ and (90° - θ)? Show the complete derivation.",
         topicId: "projectile-motion"
       },
       {
-        label: "Current Electricity: Kirchhoff\u2019s Loop Rule",
-        question: "How do I apply Kirchhoff\u2019s Second Law (Loop Rule) and what is the proper sign convention for EMF and IR drops in a closed circuit loop?",
+        label: "Current Electricity: Kirchhoff’s Loop Rule",
+        question: "How do I apply Kirchhoff’s Second Law (Loop Rule) and what is the proper sign convention for EMF and IR drops in a closed circuit loop?",
         topicId: "current-electricity"
       }
     ]
@@ -52,7 +56,7 @@ const NCERT_SAMPLE_CATEGORIES = [
       },
       {
         label: "Bonding: VSEPR & Hybridization",
-        question: "Why is the bond angle in ammonia (NH3) 107\xB0 and water (H2O) 104.5\xB0, even though both central atoms have sp3 hybridization?",
+        question: "Why is the bond angle in ammonia (NH3) 107° and water (H2O) 104.5°, even though both central atoms have sp3 hybridization?",
         topicId: "chemical-bonding"
       }
     ]
@@ -64,12 +68,12 @@ const NCERT_SAMPLE_CATEGORIES = [
     doubts: [
       {
         label: "Calculus: Integration by Parts (ILATE)",
-        question: "How do I integrate \u222B x \xB7 e^x dx using the Integration by Parts formula? Which function is chosen as first function according to ILATE?",
+        question: "How do I integrate ∫ x · e^x dx using the Integration by Parts formula? Which function is chosen as first function according to ILATE?",
         topicId: "calculus-integrals"
       },
       {
         label: "Matrices: Inverse of a Matrix",
-        question: "What is the exact condition for a square matrix A to be invertible, and how is the inverse formula A^-1 = (1/|A|) \xB7 adj(A) derived from cofactors?",
+        question: "What is the exact condition for a square matrix A to be invertible, and how is the inverse formula A^-1 = (1/|A|) · adj(A) derived from cofactors?",
         topicId: "matrices-determinants"
       },
       {
@@ -107,7 +111,7 @@ const NCERT_SAMPLE_CATEGORIES = [
     subject: "General Science & Math",
     doubts: [
       {
-        label: "Physics: Newton\u2019s 2nd Law F=ma",
+        label: "Physics: Newton’s 2nd Law F=ma",
         question: "Why does a cricket fielder pull their hands backward while catching a fast ball? How does rate of change of momentum explain reduced impact force?",
         topicId: "newton-laws"
       },
@@ -118,13 +122,14 @@ const NCERT_SAMPLE_CATEGORIES = [
       },
       {
         label: "Biology (Hindi): Photosynthesis & Stomata",
-        question: "\u092A\u094C\u0927\u094B\u0902 \u092E\u0947\u0902 \u092A\u094D\u0930\u0915\u093E\u0936 \u0938\u0902\u0936\u094D\u0932\u0947\u0937\u0923 (Photosynthesis) \u0915\u0940 \u0930\u093E\u0938\u093E\u092F\u0928\u093F\u0915 \u0938\u092E\u0940\u0915\u0930\u0923 \u0915\u094D\u092F\u093E \u0939\u0948 \u0914\u0930 \u0938\u094D\u091F\u094B\u092E\u0947\u091F\u093E \u0915\u0948\u0938\u0947 \u0917\u0948\u0938\u094B\u0902 \u0915\u093E \u0906\u0926\u093E\u0928-\u092A\u094D\u0930\u0926\u093E\u0928 \u0915\u0930\u0924\u0947 \u0939\u0948\u0902?",
+        question: "पौधों में प्रकाश संश्लेषण (Photosynthesis) की रासायनिक समीकरण क्या है और स्टोमेटा कैसे गैसों का आदान-प्रदान करते हैं?",
         lang: "hi",
         topicId: "photosynthesis"
       }
     ]
   }
 ];
+
 export const DoubtSolver = ({
   currentStudent,
   selectedLanguage,
@@ -135,20 +140,21 @@ export const DoubtSolver = ({
     {
       id: "welcome-msg",
       role: "assistant",
-      content: `Hello ${currentStudent?.name || "there"}! I am your NCERT Grounded AI Tutor.
+      content: `Hello ${currentStudent?.name || "there"}! I am your AI Curriculum & Classroom Tutor.
 
-You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Classes 6 to 12. Every solution provided is step-by-step and strictly grounded in official NCERT National Curriculum textbooks with transparent page and chapter citations.`,
-      timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Classes 6 to 12. Every solution provided is step-by-step and grounded in open educational curriculum materials and classroom-shared notes with chapter and concept citations.`,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       groundingStatus: "verified_grounded",
-      groundingReasoning: "Ready to retrieve NCERT textbook curriculum passages.",
+      groundingReasoning: "Ready to retrieve curriculum and classroom knowledge base passages.",
       citations: [],
       suggestedFollowUps: [
-        "How do I solve \u222B x \xB7 e^x dx using integration by parts (ILATE)?",
-        "Why does a fielder pull hands back when catching a ball (Newton\u2019s 2nd Law)?",
+        "How do I solve ∫ x · e^x dx using integration by parts (ILATE)?",
+        "Why does a fielder pull hands back when catching a ball (Newton’s 2nd Law)?",
         "What are the key differences between SN1 and SN2 reaction mechanisms?"
       ]
     }
   ]);
+
   const [inputText, setInputText] = useState("");
   const [gradeLevel, setGradeLevel] = useState(currentStudent?.gradeLevel || "Grade 11-12");
   const [explanationStyle, setExplanationStyle] = useState("step-by-step");
@@ -156,6 +162,7 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
   const [isLoading, setIsLoading] = useState(false);
   const [activeCategoryIndex, setActiveCategoryIndex] = useState(0);
   const [sidebarTab, setSidebarTab] = useState("citations");
+
   useEffect(() => {
     if (currentStudent?.gradeLevel) {
       setGradeLevel(currentStudent.gradeLevel);
@@ -166,13 +173,16 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
       }
     }
   }, [currentStudent?.id, currentStudent?.gradeLevel]);
+
   const fileInputRef = useRef(null);
   const chatEndRef = useRef(null);
+
   const scrollToBottom = () => {
     setTimeout(() => {
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, 100);
   };
+
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -182,31 +192,36 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
     };
     reader.readAsDataURL(file);
   };
+
   const handleSubmit = async (overrideText) => {
     const query = overrideText || inputText;
-    if (!query.trim() && !imagePreview || isLoading) return;
+    if ((!query.trim() && !imagePreview) || isLoading) return;
+
     const userMsgId = `user-${Date.now()}`;
     const newMsg = {
       id: userMsgId,
       role: "user",
-      content: query.trim() || "Uploaded handwritten problem for NCERT analysis.",
-      timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      content: query.trim() || "Uploaded problem photo for step-by-step solution.",
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       gradeLevel,
       language: selectedLanguage,
       imageAttachment: imagePreview || void 0,
       groundingStatus: "verified_grounded"
     };
+
     setMessages((prev) => [...prev, newMsg]);
     setInputText("");
     const sentImage = imagePreview;
     setImagePreview(null);
     setIsLoading(true);
     scrollToBottom();
+
     try {
       const prevContext = messages.slice(-4).map((m) => ({
         role: m.role,
         content: m.content
       }));
+
       const res = await api.solveDoubt({
         question: query,
         gradeLevel,
@@ -216,11 +231,12 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
         imageData: sentImage || void 0,
         previousContext: prevContext
       });
+
       const assistantMsg = {
         id: `asst-${Date.now()}`,
         role: "assistant",
         content: res.explanation,
-        timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         gradeLevel: res.gradeLevel,
         language: res.language,
         citations: res.citations,
@@ -228,14 +244,15 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
         groundingReasoning: res.groundingReasoning,
         suggestedFollowUps: res.suggestedFollowUps
       };
+
       setMessages((prev) => [...prev, assistantMsg]);
       setSidebarTab("citations");
     } catch (err) {
       const errorMsg = {
         id: `err-${Date.now()}`,
         role: "assistant",
-        content: `I encountered an issue retrieving the NCERT textbook passage: ${err.message}. Please check your connection or try rephrasing the question.`,
-        timestamp: (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        content: `I encountered an issue retrieving the knowledge base passages: ${err.message}. Please check your connection or try rephrasing the question.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         groundingStatus: "unsupported_in_corpus",
         groundingReasoning: "Connection or retrieval error."
       };
@@ -245,72 +262,74 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
       scrollToBottom();
     }
   };
+
   const handleSelectSample = (sample) => {
     if (sample.lang) {
       setSelectedLanguage(sample.lang);
     }
     setInputText(sample.question);
   };
-  const latestAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant" && m.citations && m.citations.length > 0);
+
+  const latestAssistantMessage = [...messages].reverse().find(
+    (m) => m.role === "assistant" && m.citations && m.citations.length > 0
+  );
   const activeCitations = latestAssistantMessage?.citations || [];
-  return <div id="doubt-solver-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5">
-      {
-    /* Clean Quick-Topic Selector Ribbon */
-  }
+
+  return (
+    <div id="doubt-solver-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5">
+      {/* Clean Quick-Topic Selector Ribbon */}
       <div className="bg-white border border-[#E5E7EB] p-3 mb-4 flex flex-col gap-2.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Sparkles className="w-3.5 h-3.5 text-black" />
             <span className="text-[11px] font-bold uppercase tracking-wider text-[#1A1A1A]">
-              NCERT Curriculum Prompts by Subject:
+              Curriculum & Classroom Topic Prompts:
             </span>
           </div>
 
-          {
-    /* Subject Categories Tabs */
-  }
+          {/* Subject Categories Tabs */}
           <div className="flex flex-wrap gap-1.5">
-            {NCERT_SAMPLE_CATEGORIES.map((cat, idx) => <button
-    key={idx}
-    onClick={() => {
-      setActiveCategoryIndex(idx);
-      setGradeLevel(cat.grade);
-    }}
-    className={`text-[11px] px-2.5 py-1 border transition-colors font-medium ${activeCategoryIndex === idx ? "bg-black text-white border-black font-semibold" : "bg-[#F8F9FA] text-[#4B5563] border-[#E5E7EB] hover:bg-[#E5E7EB]"}`}
-  >
+            {SAMPLE_CURRICULUM_CATEGORIES.map((cat, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  setActiveCategoryIndex(idx);
+                  setGradeLevel(cat.grade);
+                }}
+                className={`text-[11px] px-2.5 py-1 border transition-colors font-medium ${
+                  activeCategoryIndex === idx
+                    ? "bg-black text-white border-black font-semibold"
+                    : "bg-[#F8F9FA] text-[#4B5563] border-[#E5E7EB] hover:bg-[#E5E7EB]"
+                }`}
+              >
                 {cat.name}
-              </button>)}
+              </button>
+            ))}
           </div>
         </div>
 
-        {
-    /* Selected Category Sample Doubts */
-  }
+        {/* Selected Category Sample Doubts */}
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#F0F2F5]">
           <span className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-bold">
             Try Sample:
           </span>
-          {NCERT_SAMPLE_CATEGORIES[activeCategoryIndex].doubts.map((s, idx) => <button
-    key={idx}
-    onClick={() => handleSelectSample(s)}
-    className="text-xs bg-[#F8F9FA] hover:bg-white text-[#1A1A1A] px-2.5 py-1 border border-[#E5E7EB] hover:border-black transition-colors text-left font-medium"
-  >
+          {SAMPLE_CURRICULUM_CATEGORIES[activeCategoryIndex].doubts.map((s, idx) => (
+            <button
+              key={idx}
+              onClick={() => handleSelectSample(s)}
+              className="text-xs bg-[#F8F9FA] hover:bg-white text-[#1A1A1A] px-2.5 py-1 border border-[#E5E7EB] hover:border-black transition-colors text-left font-medium"
+            >
               {s.label}
-            </button>)}
+            </button>
+          ))}
         </div>
       </div>
 
-      {
-    /* Main 2-Column Clean Workspace */
-  }
+      {/* Main 2-Column Clean Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {
-    /* Chat / Doubt Workspace (8 Columns) */
-  }
+        {/* Chat / Doubt Workspace (8 Columns) */}
         <div className="lg:col-span-8 flex flex-col h-[660px] bg-white border border-[#E5E7EB]">
-          {
-    /* Streamlined Workspace Controls Bar */
-  }
+          {/* Streamlined Workspace Controls Bar */}
           <div className="px-4 py-2.5 border-b border-[#E5E7EB] bg-[#F8F9FA] flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
@@ -318,11 +337,11 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                   Class:
                 </span>
                 <select
-    id="grade-select"
-    value={gradeLevel}
-    onChange={(e) => setGradeLevel(e.target.value)}
-    className="bg-white border border-[#E5E7EB] px-2 py-1 text-[#1A1A1A] font-medium outline-none text-xs hover:border-[#9CA3AF]"
-  >
+                  id="grade-select"
+                  value={gradeLevel}
+                  onChange={(e) => setGradeLevel(e.target.value)}
+                  className="bg-white border border-[#E5E7EB] px-2 py-1 text-[#1A1A1A] font-medium outline-none text-xs hover:border-[#9CA3AF]"
+                >
                   <option value="Grade 11-12">Class 11 & 12 (Higher Secondary)</option>
                   <option value="Grade 9-10">Class 9 & 10 (Secondary)</option>
                   <option value="Grade 6-8">Class 6 to 8 (Middle)</option>
@@ -334,11 +353,11 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                   Format:
                 </span>
                 <select
-    id="style-select"
-    value={explanationStyle}
-    onChange={(e) => setExplanationStyle(e.target.value)}
-    className="bg-white border border-[#E5E7EB] px-2 py-1 text-[#1A1A1A] font-medium outline-none text-xs hover:border-[#9CA3AF]"
-  >
+                  id="style-select"
+                  value={explanationStyle}
+                  onChange={(e) => setExplanationStyle(e.target.value)}
+                  className="bg-white border border-[#E5E7EB] px-2 py-1 text-[#1A1A1A] font-medium outline-none text-xs hover:border-[#9CA3AF]"
+                >
                   <option value="step-by-step">Step-by-Step Derivation</option>
                   <option value="simple-analogy">Intuitive Real-World Analogy</option>
                   <option value="prerequisite-basics">Foundational Basics First</option>
@@ -348,67 +367,68 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
 
             <div className="flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 font-semibold">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>NCERT Grounding Verified</span>
+              <span>Curriculum & Knowledge Grounded</span>
             </div>
           </div>
 
-          {
-    /* Messages Scroll Area */
-  }
+          {/* Messages Scroll Area */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#FAFAFA]">
-            {messages.map((msg) => <div
-    key={msg.id}
-    className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
-  >
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
+              >
                 <div className="flex items-center gap-1.5 mb-1 text-[10px] uppercase tracking-wider text-[#9CA3AF] font-bold">
                   <span className="text-[#4B5563]">
-                    {msg.role === "user" ? currentStudent?.name || "You" : "NCERT AI Tutor"}
+                    {msg.role === "user" ? currentStudent?.name || "You" : "AI Tutor"}
                   </span>
                   <span>&bull;</span>
                   <span className="font-mono text-[10px] text-[#9CA3AF]">{msg.timestamp}</span>
                 </div>
 
                 <div
-    className={`max-w-[92%] p-4 text-sm ${msg.role === "user" ? "bg-[#1A1A1A] text-white border border-black" : "bg-white border border-[#E5E7EB] text-[#1A1A1A]"}`}
-  >
-                  {
-    /* Attached Image preview */
-  }
-                  {msg.imageAttachment && <div className="mb-3 border border-[#E5E7EB] bg-neutral-900 p-1">
+                  className={`max-w-[92%] p-4 text-sm ${
+                    msg.role === "user"
+                      ? "bg-[#1A1A1A] text-white border border-black"
+                      : "bg-white border border-[#E5E7EB] text-[#1A1A1A]"
+                  }`}
+                >
+                  {/* Attached Image preview */}
+                  {msg.imageAttachment && (
+                    <div className="mb-3 border border-[#E5E7EB] bg-neutral-900 p-1">
                       <img
-    src={msg.imageAttachment}
-    alt="Uploaded student work"
-    className="max-h-48 object-contain"
-  />
+                        src={msg.imageAttachment}
+                        alt="Uploaded student work"
+                        className="max-h-48 object-contain"
+                      />
                       <p className="text-[10px] uppercase tracking-widest text-[#9CA3AF] font-bold mt-1">Uploaded Problem Image</p>
-                    </div>}
+                    </div>
+                  )}
 
-                  {
-    /* Text Content */
-  }
+                  {/* Text Content */}
                   <div className="whitespace-pre-wrap leading-relaxed space-y-2 font-sans">
                     {msg.content}
                   </div>
 
-                  {
-    /* Inline Verified NCERT Citation Badge */
-  }
-                  {msg.citations && msg.citations.length > 0 && <div className="mt-3.5 pt-3 border-t border-[#E5E7EB] bg-[#F8F9FA] -mx-4 -mb-4 p-3">
+                  {/* Inline Verified Citation Badge */}
+                  {msg.citations && msg.citations.length > 0 && (
+                    <div className="mt-3.5 pt-3 border-t border-[#E5E7EB] bg-[#F8F9FA] -mx-4 -mb-4 p-3">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-[11px] font-bold text-[#1A1A1A] flex items-center gap-1.5 uppercase tracking-wider">
                           <BookOpen className="w-3.5 h-3.5 text-black" />
-                          NCERT Textbook Citations ({msg.citations.length})
+                          Curriculum & Classroom Citations ({msg.citations.length})
                         </span>
                         <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 font-bold uppercase tracking-wider font-mono">
-                          98% Grounded
+                          Grounding Verified
                         </span>
                       </div>
 
                       <div className="space-y-1.5">
-                        {msg.citations.map((cite) => <div
-    key={cite.id}
-    className="bg-white border border-[#E5E7EB] p-2 text-xs"
-  >
+                        {msg.citations.map((cite) => (
+                          <div
+                            key={cite.id}
+                            className="bg-white border border-[#E5E7EB] p-2 text-xs"
+                          >
                             <div className="flex items-start justify-between gap-2">
                               <span className="font-bold text-[#1A1A1A]">{cite.sourceName}</span>
                               <span className="bg-black text-white px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider shrink-0">
@@ -424,106 +444,111 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                             <p className="mt-1 text-[10px] text-[#9CA3AF] font-mono">
                               Reference: {cite.pageOrRef}
                             </p>
-                          </div>)}
+                          </div>
+                        ))}
                       </div>
-                    </div>}
+                    </div>
+                  )}
 
-                  {
-    /* Suggested Follow-Up Prompts */
-  }
-                  {msg.suggestedFollowUps && msg.suggestedFollowUps.length > 0 && <div className="mt-3 pt-2.5 border-t border-[#E5E7EB]">
+                  {/* Suggested Follow-Up Prompts */}
+                  {msg.suggestedFollowUps && msg.suggestedFollowUps.length > 0 && (
+                    <div className="mt-3 pt-2.5 border-t border-[#E5E7EB]">
                       <p className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-bold mb-1.5 flex items-center gap-1">
                         <HelpCircle className="w-3 h-3 text-[#9CA3AF]" />
                         Deepen Understanding:
                       </p>
                       <div className="flex flex-wrap gap-1.5">
-                        {msg.suggestedFollowUps.map((f, i) => <button
-    key={i}
-    onClick={() => handleSubmit(f)}
-    className="text-xs bg-white hover:bg-[#F3F4F6] text-[#1A1A1A] border border-[#E5E7EB] px-2 py-1 text-left transition-colors flex items-center gap-1 font-medium"
-  >
+                        {msg.suggestedFollowUps.map((f, i) => (
+                          <button
+                            key={i}
+                            onClick={() => handleSubmit(f)}
+                            className="text-xs bg-white hover:bg-[#F3F4F6] text-[#1A1A1A] border border-[#E5E7EB] px-2 py-1 text-left transition-colors flex items-center gap-1 font-medium"
+                          >
                             <span>{f}</span>
                             <ChevronRight className="w-3 h-3 shrink-0 text-[#9CA3AF]" />
-                          </button>)}
+                          </button>
+                        ))}
                       </div>
-                    </div>}
+                    </div>
+                  )}
                 </div>
-              </div>)}
+              </div>
+            ))}
 
-            {isLoading && <div className="flex items-start gap-2">
+            {isLoading && (
+              <div className="flex items-start gap-2">
                 <div className="p-3 flex items-center gap-2.5 text-xs text-[#4B5563] bg-white border border-[#E5E7EB]">
                   <RefreshCw className="w-4 h-4 text-black animate-spin" />
-                  <span>Retrieving official NCERT textbook passages and computing solution...</span>
+                  <span>Retrieving curriculum & classroom passages and computing step-by-step solution...</span>
                 </div>
-              </div>}
+              </div>
+            )}
 
             <div ref={chatEndRef} />
           </div>
 
-          {
-    /* Image preview before send */
-  }
-          {imagePreview && <div className="px-4 py-2 bg-[#F3F4F6] border-t border-[#E5E7EB] flex items-center justify-between">
+          {/* Image preview before send */}
+          {imagePreview && (
+            <div className="px-4 py-2 bg-[#F3F4F6] border-t border-[#E5E7EB] flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <img src={imagePreview} alt="Upload preview" className="w-10 h-10 object-cover border border-[#E5E7EB]" />
                 <div className="text-xs">
                   <p className="font-bold text-[#1A1A1A]">Problem Photo Attached</p>
-                  <p className="text-[#6B7280] text-[11px]">Will be analyzed against NCERT curriculum</p>
+                  <p className="text-[#6B7280] text-[11px]">Will be analyzed with step-by-step curriculum verification</p>
                 </div>
               </div>
               <button
-    onClick={() => setImagePreview(null)}
-    className="text-xs text-rose-600 hover:text-rose-800 font-bold uppercase tracking-wider"
-  >
+                onClick={() => setImagePreview(null)}
+                className="text-xs text-rose-600 hover:text-rose-800 font-bold uppercase tracking-wider"
+              >
                 Remove
               </button>
-            </div>}
+            </div>
+          )}
 
-          {
-    /* Input Bar */
-  }
+          {/* Input Bar */}
           <div className="p-3 border-t border-[#E5E7EB] bg-white">
             <form
-    onSubmit={(e) => {
-      e.preventDefault();
-      handleSubmit();
-    }}
-    className="flex items-center gap-2"
-  >
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSubmit();
+              }}
+              className="flex items-center gap-2"
+            >
               <input
-    type="file"
-    ref={fileInputRef}
-    onChange={handleImageUpload}
-    accept="image/*"
-    className="hidden"
-  />
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageUpload}
+                accept="image/*"
+                className="hidden"
+              />
 
               <button
-    type="button"
-    id="btn-upload-problem"
-    onClick={() => fileInputRef.current?.click()}
-    title="Upload photo of handwritten work or textbook problem"
-    className="p-2 border border-[#E5E7EB] hover:bg-[#F8F9FA] text-[#4B5563] transition-colors"
-  >
+                type="button"
+                id="btn-upload-problem"
+                onClick={() => fileInputRef.current?.click()}
+                title="Upload photo of handwritten work or textbook problem"
+                className="p-2 border border-[#E5E7EB] hover:bg-[#F8F9FA] text-[#4B5563] transition-colors"
+              >
                 <ImageIcon className="w-4 h-4" />
               </button>
 
               <input
-    type="text"
-    id="doubt-input-field"
-    value={inputText}
-    onChange={(e) => setInputText(e.target.value)}
-    placeholder={`Ask any Class 11-12 NCERT question in ${SUPPORTED_LANGUAGES.find((l) => l.code === selectedLanguage)?.name || "English"}...`}
-    className="flex-1 clean-input py-2 text-sm"
-    disabled={isLoading}
-  />
+                type="text"
+                id="doubt-input-field"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder={`Ask any Class 6-12 doubt in ${SUPPORTED_LANGUAGES.find((l) => l.code === selectedLanguage)?.name || "English"}...`}
+                className="flex-1 clean-input py-2 text-sm"
+                disabled={isLoading}
+              />
 
               <button
-    type="submit"
-    id="btn-submit-doubt"
-    disabled={!inputText.trim() && !imagePreview || isLoading}
-    className="clean-button-primary py-2 px-4 text-xs font-semibold shrink-0"
-  >
+                type="submit"
+                id="btn-submit-doubt"
+                disabled={(!inputText.trim() && !imagePreview) || isLoading}
+                className="clean-button-primary py-2 px-4 text-xs font-semibold shrink-0"
+              >
                 <Send className="w-3.5 h-3.5" />
                 <span>Ask Doubt</span>
               </button>
@@ -531,49 +556,52 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
           </div>
         </div>
 
-        {
-    /* Sidebar: Clean Organized Reference & Adaptive Hub (4 Columns) */
-  }
+        {/* Sidebar: Clean Organized Reference & Adaptive Hub (4 Columns) */}
         <div className="lg:col-span-4 space-y-4">
-          {
-    /* Sidebar Tab Navigation */
-  }
+          {/* Sidebar Tab Navigation */}
           <div className="bg-white border border-[#E5E7EB] p-1 flex gap-1">
             <button
-    onClick={() => setSidebarTab("citations")}
-    className={`flex-1 py-1.5 text-center text-xs font-semibold transition-colors ${sidebarTab === "citations" ? "bg-black text-white" : "text-[#6B7280] hover:text-black"}`}
-  >
-              NCERT Citations
+              onClick={() => setSidebarTab("citations")}
+              className={`flex-1 py-1.5 text-center text-xs font-semibold transition-colors ${
+                sidebarTab === "citations" ? "bg-black text-white" : "text-[#6B7280] hover:text-black"
+              }`}
+            >
+              Citations ({activeCitations.length})
             </button>
             <button
-    onClick={() => setSidebarTab("practice")}
-    className={`flex-1 py-1.5 text-center text-xs font-semibold transition-colors ${sidebarTab === "practice" ? "bg-black text-white" : "text-[#6B7280] hover:text-black"}`}
-  >
+              onClick={() => setSidebarTab("practice")}
+              className={`flex-1 py-1.5 text-center text-xs font-semibold transition-colors ${
+                sidebarTab === "practice" ? "bg-black text-white" : "text-[#6B7280] hover:text-black"
+              }`}
+            >
               Next Practice
             </button>
             <button
-    onClick={() => setSidebarTab("syllabus")}
-    className={`flex-1 py-1.5 text-center text-xs font-semibold transition-colors ${sidebarTab === "syllabus" ? "bg-black text-white" : "text-[#6B7280] hover:text-black"}`}
-  >
+              onClick={() => setSidebarTab("syllabus")}
+              className={`flex-1 py-1.5 text-center text-xs font-semibold transition-colors ${
+                sidebarTab === "syllabus" ? "bg-black text-white" : "text-[#6B7280] hover:text-black"
+              }`}
+            >
               Curriculum Index
             </button>
           </div>
 
-          {
-    /* Tab Content 1: Active Citations */
-  }
-          {sidebarTab === "citations" && <div className="bg-white border border-[#E5E7EB] p-4 space-y-3">
+          {/* Tab Content 1: Active Citations */}
+          {sidebarTab === "citations" && (
+            <div className="bg-white border border-[#E5E7EB] p-4 space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-[#E5E7EB]">
                 <span className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">
                   Active Reference Proof
                 </span>
                 <span className="text-[10px] font-mono bg-emerald-50 text-emerald-700 px-1.5 py-0.5 font-bold">
-                  Verified NCERT
+                  Grounding Verified
                 </span>
               </div>
 
-              {activeCitations.length > 0 ? <div className="space-y-3">
-                  {activeCitations.map((c) => <div key={c.id} className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] space-y-1.5 text-xs">
+              {activeCitations.length > 0 ? (
+                <div className="space-y-3">
+                  {activeCitations.map((c) => (
+                    <div key={c.id} className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] space-y-1.5 text-xs">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-[#1A1A1A]">{c.sourceName}</span>
                         <span className="bg-black text-white text-[9px] px-1 py-0.5 font-bold">
@@ -588,38 +616,42 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                       <p className="text-[10px] text-[#9CA3AF]">
                         Official Reference: <span className="font-bold text-black">{c.pageOrRef}</span>
                       </p>
-                    </div>)}
-                </div> : <div className="text-center py-8 text-xs text-[#6B7280] space-y-2">
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-xs text-[#6B7280] space-y-2">
                   <BookOpen className="w-6 h-6 mx-auto text-[#9CA3AF]" />
-                  <p>Ask any doubt to view the exact NCERT textbook page references and derivations.</p>
-                </div>}
-            </div>}
+                  <p>Ask any doubt to view the exact textbook & classroom page references and derivations.</p>
+                </div>
+              )}
+            </div>
+          )}
 
-          {
-    /* Tab Content 2: Connect to Practice */
-  }
-          {sidebarTab === "practice" && <div className="bg-white border border-[#E5E7EB] p-4 space-y-3">
+          {/* Tab Content 2: Connect to Practice */}
+          {sidebarTab === "practice" && (
+            <div className="bg-white border border-[#E5E7EB] p-4 space-y-3">
               <span className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider block pb-2 border-b border-[#E5E7EB]">
                 Adaptive Mastery Loop
               </span>
               <p className="text-xs text-[#4B5563] leading-relaxed">
-                Reinforce what you just learned with our adaptive ladder. If you get a question wrong, the system automatically steps down to prerequisite concepts from earlier NCERT chapters.
+                Reinforce what you just learned with our adaptive ladder. If you get a question wrong, the system automatically steps down to prerequisite concepts from earlier chapters.
               </p>
               <button
-    onClick={() => onNavigateToPractice && onNavigateToPractice()}
-    className="w-full clean-button-primary py-2.5 text-xs justify-between"
-  >
+                onClick={() => onNavigateToPractice && onNavigateToPractice()}
+                className="w-full clean-button-primary py-2.5 text-xs justify-between"
+              >
                 <span>Launch Adaptive Practice</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
-            </div>}
+            </div>
+          )}
 
-          {
-    /* Tab Content 3: Syllabus Covered */
-  }
-          {sidebarTab === "syllabus" && <div className="bg-white border border-[#E5E7EB] p-4 space-y-3">
+          {/* Tab Content 3: Syllabus Covered */}
+          {sidebarTab === "syllabus" && (
+            <div className="bg-white border border-[#E5E7EB] p-4 space-y-3">
               <span className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider block pb-2 border-b border-[#E5E7EB]">
-                Indexed NCERT Subjects
+                Indexed Curriculum Subjects
               </span>
               <div className="space-y-2 text-xs">
                 <div className="p-2 border border-[#E5E7EB] bg-[#F8F9FA]">
@@ -639,21 +671,21 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                   <p className="text-[#6B7280] text-[11px]">Molecular Genetics, Biotechnology & PCR, Cell Biology, Photosynthesis C3 Cycle</p>
                 </div>
               </div>
-            </div>}
+            </div>
+          )}
 
-          {
-    /* Grounding Guarantee Box */
-  }
+          {/* Grounding Guarantee Box */}
           <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-3 text-xs text-[#4B5563] space-y-1">
             <div className="flex items-center gap-1.5 font-bold text-[#1A1A1A]">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <span>Zero Hallucination Directive</span>
             </div>
             <p className="text-[11px] leading-relaxed text-[#6B7280]">
-              Every step is strictly checked against official NCERT National Curriculum textbooks. If a concept is outside the curriculum, the tutor explicitly indicates the boundary.
+              Every step is strictly checked against official curriculum frameworks and classroom resources. If a concept is outside the curriculum, the tutor explicitly indicates the boundary.
             </p>
           </div>
         </div>
       </div>
-    </div>;
+    </div>
+  );
 };

@@ -1,6 +1,8 @@
 {
   "name": "AI for Equitable Education Access",
-  "description": "An AI-powered equitable learning platform featuring grounded doubt solving with open textbook citations, adaptive practice ladders, teacher intervention insights, and scholarship eligibility matching.",
+  "description": "An AI-powered equitable learning platform featuring grounded doubt solving, collaborative classroom notes, institutional community doubt forums, open resource dumps, adaptive practice ladders, and scholarship eligibility matching.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

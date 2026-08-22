@@ -97,7 +97,7 @@ export const AdaptivePractice = ({
       <div className="bg-white border border-[#E5E7EB] p-4 mb-5 flex flex-wrap items-center justify-between gap-4">
         <div>
           <span className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-bold block mb-0.5">
-            NCERT Adaptive Diagnostic Engine
+            Adaptive Diagnostic Engine
           </span>
           <h2 className="text-lg font-bold text-[#1A1A1A] tracking-tight">
             Class 11–12 & Secondary Adaptive Practice Ladder
@@ -130,7 +130,7 @@ export const AdaptivePractice = ({
           <div className="p-5 min-h-[480px] flex flex-col justify-between bg-white border border-[#E5E7EB]">
             {isLoading ? <div className="h-64 flex flex-col items-center justify-center text-[#6B7280] gap-3">
                 <RefreshCw className="w-6 h-6 animate-spin text-black" />
-                <p className="text-xs font-semibold uppercase tracking-wider">Retrieving NCERT curriculum question...</p>
+                <p className="text-xs font-semibold uppercase tracking-wider">Retrieving curriculum question...</p>
               </div> : currentQuestion ? <div>
                 {
     /* Question Metadata Header */
@@ -158,7 +158,7 @@ export const AdaptivePractice = ({
                     <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
                     <div>
                       <strong className="font-bold">Adaptive Intervention: </strong>
-                      Recent attempts indicated a foundational gap. This problem tests the prerequisite concept from earlier NCERT units before climbing back up.
+                      Recent attempts indicated a foundational gap. This problem tests the prerequisite concept from earlier foundational units before climbing back up.
                     </div>
                   </div>}
 
@@ -208,15 +208,15 @@ export const AdaptivePractice = ({
                 </div>
 
                 {
-    /* Worked Solution & Grounded NCERT Citation */
+    /* Worked Solution & Grounded Citation */
   }
                 {showExplanation && <div className="mt-4 p-4 bg-[#F8F9FA] border border-[#E5E7EB] text-xs text-[#1A1A1A] space-y-2.5">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-xs uppercase tracking-wider">
                         {selectedOptionIndex === currentQuestion.correctOptionIndex ? <span className="text-emerald-700 flex items-center gap-1">
-                            <CheckCircle2 className="w-4 h-4" /> Correct &bull; NCERT Textbook Derivation
+                            <CheckCircle2 className="w-4 h-4" /> Correct &bull; Curriculum Derivation
                           </span> : <span className="text-rose-700 flex items-center gap-1">
-                            <XCircle className="w-4 h-4" /> Solution &bull; NCERT Step-by-Step Method
+                            <XCircle className="w-4 h-4" /> Solution &bull; Step-by-Step Method
                           </span>}
                       </span>
                     </div>
@@ -228,7 +228,7 @@ export const AdaptivePractice = ({
                     {currentQuestion.groundedCitation && <div className="pt-2 border-t border-[#E5E7EB] text-[11px] text-[#6B7280] flex flex-wrap items-center justify-between gap-1">
                         <span className="flex items-center gap-1">
                           <BookOpen className="w-3.5 h-3.5 text-black" />
-                          NCERT Source: <strong className="text-black">{currentQuestion.groundedCitation.sourceName}</strong> ({currentQuestion.groundedCitation.chapter})
+                          Curriculum Source: <strong className="text-black">{currentQuestion.groundedCitation.sourceName}</strong> ({currentQuestion.groundedCitation.chapter})
                         </span>
                         <span className="font-mono text-[10px] text-[#9CA3AF]">
                           {currentQuestion.groundedCitation.pageOrRef}

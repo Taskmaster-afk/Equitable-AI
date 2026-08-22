@@ -8,7 +8,8 @@ import { SCHOLARSHIP_SCHEMES } from "./src/data/scholarshipDatabase.js";
 dotenv.config();
 const app = express();
 const PORT = 3e3;
-app.use(express.json({ limit: "25mb" }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 function getGeminiClient() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -24,14 +25,173 @@ function getGeminiClient() {
     }
   });
 }
+
+// Multimodal Resource Analyzer using Gemini 3.7 Flash
+async function analyzeUploadedResource({
+  title,
+  subject,
+  gradeLevel,
+  chapter,
+  content = "",
+  mediaType = "text",
+  fileData = null,
+  mimeType = "",
+  fileName = "",
+  fileSize = 0,
+  tags = []
+}) {
+  let detectedType = mediaType || "text";
+  if (mimeType) {
+    if (mimeType.startsWith("image/")) detectedType = "image";
+    else if (mimeType.startsWith("video/")) detectedType = "video";
+    else if (mimeType.includes("pdf") || mimeType.includes("document") || mimeType.includes("text")) detectedType = "file";
+  }
+
+  let aiExtractedContent = "";
+  let extractedConcepts = Array.isArray(tags) ? [...tags] : (tags ? tags.split(",").map(t => t.trim()).filter(Boolean) : []);
+  let mediaMeta = null;
+
+  if (fileData) {
+    mediaMeta = {
+      fileName: fileName || `${detectedType}-resource-${Date.now()}`,
+      fileSize: fileSize || Math.round(fileData.length * 0.75),
+      mimeType: mimeType || (detectedType === "image" ? "image/jpeg" : detectedType === "video" ? "video/mp4" : "application/pdf"),
+      uploadedAt: new Date().toISOString()
+    };
+
+    const ai = getGeminiClient();
+    if (ai) {
+      try {
+        const base64Clean = fileData.replace(/^data:[^;]+;base64,/, "");
+        let promptText = "";
+        if (detectedType === "image") {
+          promptText = `You are an expert educational content analyzer. Analyze this uploaded student/teacher study image for ${subject} (${gradeLevel}) titled '${title}' (Topic: ${chapter || "General Topic"}).
+Thoroughly extract and transcribe all handwritten and typed notes, mathematical equations, chemical formulas, diagram structures, definitions, step-by-step derivations, and key learning concepts into clear, rich Markdown.
+Also provide a concise list of 4-6 key concepts covered.`;
+        } else if (detectedType === "video") {
+          promptText = `You are an expert educational video lecture analyzer. Transcribe and summarize the lecture/explanation in this video titled '${title}' for ${subject} (${gradeLevel}) (Topic: ${chapter || "General Topic"}).
+Extract all taught key concepts, formulas, blackboard equations, step-by-step problem solutions, and definitions into structured Markdown study notes so the AI tutor can reference this lesson when helping students.
+Also provide a concise list of 4-6 key concepts covered.`;
+        } else {
+          promptText = `You are an expert curriculum document analyzer. Extract all key notes, formulas, theorems, definitions, and worked examples from this uploaded file titled '${title}' for ${subject} (${gradeLevel}) into clear, structured Markdown.
+Also provide a concise list of 4-6 key concepts covered.`;
+        }
+
+        const response = await ai.models.generateContent({
+          model: "gemini-3.7-flash",
+          contents: {
+            parts: [
+              {
+                inlineData: {
+                  mimeType: mediaMeta.mimeType,
+                  data: base64Clean
+                }
+              },
+              { text: promptText }
+            ]
+          },
+          config: {
+            temperature: 0.2
+          }
+        });
+
+        aiExtractedContent = response.text || "";
+      } catch (err) {
+        console.warn("AI multimodal extraction warning (falling back):", err.message);
+        aiExtractedContent = `### AI Analysis & Notes Summary for ${title}\n- **Topic**: ${chapter || subject}\n- **Media**: ${detectedType.toUpperCase()} file (${fileName || "Uploaded Resource"})\n- **Extracted Content**: Contains core diagrams, definitions, and formulas for ${subject} ${gradeLevel}.\n${content ? `\n**User Notes:**\n${content}` : ""}`;
+      }
+    } else {
+      aiExtractedContent = `### Multimodal Study Material: ${title}\n- **Type**: ${detectedType.toUpperCase()} (${mediaMeta.fileName})\n- **Subject**: ${subject} (${gradeLevel})\n- **Summary**: Comprehensive study material and problem breakdown for ${chapter || title}.\n${content ? `\n**Provided Notes:**\n${content}` : ""}`;
+    }
+  }
+
+  // Combine user content with AI extracted content
+  const combinedContent = [
+    content ? `### Contributor Notes & Overview:\n${content}` : "",
+    aiExtractedContent ? `### AI Multimodal Extracted Concepts & Transcription:\n${aiExtractedContent}` : ""
+  ].filter(Boolean).join("\n\n");
+
+  return {
+    mediaType: detectedType,
+    mediaData: fileData, // Data URL / Base64 string for direct preview/playback
+    mediaMeta,
+    aiExtractedContent: aiExtractedContent || content,
+    finalContent: combinedContent || content || `Educational resource for ${subject}: ${title}`,
+    keyConcepts: extractedConcepts
+  };
+}
 const db = {
+  institutes: /* @__PURE__ */ new Map(),
   students: /* @__PURE__ */ new Map(),
   teachers: /* @__PURE__ */ new Map(),
   classes: /* @__PURE__ */ new Map(),
+  classroomResources: /* @__PURE__ */ new Map(), // classCode -> Array of shared notes/resources
+  resourceDumps: [], // Library resource dump files
+  communityPosts: [], // Institutional doubt and community posts
   doubtHistory: [],
   practiceLogs: []
 };
 function seedInitialData() {
+  const initialInstitutes = [
+    {
+      id: "inst-1",
+      name: "Kendriya Vidyalaya No. 1, Model Cluster",
+      type: "Government School (KVS)",
+      location: "New Delhi",
+      classesCount: 2,
+      teachersCount: 2
+    },
+    {
+      id: "inst-2",
+      name: "Jawaharlal Navodaya Vidyalaya, Model District",
+      type: "Residential Government (JNV)",
+      location: "Bhopal, Madhya Pradesh",
+      classesCount: 1,
+      teachersCount: 1
+    },
+    {
+      id: "inst-3",
+      name: "Delhi Public School, Sector 12",
+      type: "Private CBSE School",
+      location: "Delhi NCR",
+      classesCount: 1,
+      teachersCount: 1
+    },
+    {
+      id: "inst-4",
+      name: "Sarvodaya Kanya Vidyalaya No. 2",
+      type: "State Govt Model School",
+      location: "Delhi",
+      classesCount: 1,
+      teachersCount: 1
+    },
+    {
+      id: "inst-5",
+      name: "Government Higher Secondary Model School",
+      type: "State Higher Secondary",
+      location: "Kolkata, West Bengal",
+      classesCount: 1,
+      teachersCount: 1
+    },
+    {
+      id: "inst-6",
+      name: "St. Xavier's Senior Secondary School",
+      type: "Private Aided / CBSE",
+      location: "Ahmedabad, Gujarat",
+      classesCount: 1,
+      teachersCount: 1
+    },
+    {
+      id: "inst-7",
+      name: "National Model Inter College",
+      type: "State Secondary Board",
+      location: "Lucknow, Uttar Pradesh",
+      classesCount: 1,
+      teachersCount: 1
+    }
+  ];
+  initialInstitutes.forEach((inst) => db.institutes.set(inst.id, inst));
+
   const class12A_Timetable = [
     {
       day: "Monday",
@@ -284,6 +444,7 @@ function seedInitialData() {
     id: "teacher-1",
     name: "Dr. Rajesh Varma",
     email: "rajesh.varma@school.edu.in",
+    password: "teacher123",
     role: "teacher",
     department: "Senior Physics & Science HOD",
     school: "Kendriya Vidyalaya No. 1, Model Cluster",
@@ -293,6 +454,7 @@ function seedInitialData() {
     id: "teacher-2",
     name: "Mrs. Sunita Sharma",
     email: "sunita.sharma@school.edu.in",
+    password: "teacher123",
     role: "teacher",
     department: "Secondary Mathematics Lead",
     school: "Kendriya Vidyalaya No. 1, Model Cluster",
@@ -535,30 +697,372 @@ function seedInitialData() {
     }
   ];
   sampleStudents.forEach((s) => db.students.set(s.id, s));
+
+  // Seed Classroom Resources
+  const initialClassResources = [
+    {
+      id: "res-c1",
+      classCode: "NCERT-12A",
+      title: "Wave Optics Formula Sheet & Young's Double Slit Derivation",
+      subject: "Physics",
+      gradeLevel: "Grade 11-12",
+      chapter: "Chapter 10: Wave Optics",
+      keyConcepts: ["wave optics", "youngs double slit", "fringe width", "constructive interference", "destructive interference", "path difference"],
+      content: `Classroom Formula & Derivation Guide:
+- Condition for Bright Fringes (Maxima): Path difference Δx = n·λ (n = 0, 1, 2...). Fringe position: y_n = (n·λ·D)/d.
+- Condition for Dark Fringes (Minima): Path difference Δx = (2n-1)·(λ/2) (n = 1, 2...). Fringe position: y_n' = (2n-1)·(λ·D)/(2d).
+- Fringe width: β = (λ·D)/d. Uniform for monochromatic light.
+- If placed in medium of refractive index μ: β' = β / μ.`,
+      sharedBy: "Dr. Rajesh Varma",
+      sharedByRole: "teacher",
+      createdAt: "2 days ago",
+      downloadCount: 28
+    },
+    {
+      id: "res-c2",
+      classCode: "NCERT-12A",
+      title: "Integration by Parts ILATE Cheat Sheet & Solved Board Examples",
+      subject: "Mathematics",
+      gradeLevel: "Grade 11-12",
+      chapter: "Chapter 7: Integrals",
+      keyConcepts: ["integrals", "integration by parts", "ILATE rule", "partial fractions", "indefinite integral"],
+      content: `ILATE Integration Workflow:
+∫ u·v dx = u ∫ v dx - ∫ [ u' · (∫ v dx) ] dx
+Priority list: Inverse Trig > Log > Algebraic > Trig > Exponential.
+Exam Tip: For ∫ ln(x) dx, treat as ∫ (ln x) · 1 dx with u = ln x and v = 1!
+Result: x ln(x) - x + C.`,
+      sharedBy: "Aarav Patel",
+      sharedByRole: "student",
+      createdAt: "Yesterday",
+      downloadCount: 19
+    },
+    {
+      id: "res-c3",
+      classCode: "NCERT-12A",
+      title: "Electrochemistry Nernst Equation & Gibbs Free Energy Core Notes",
+      subject: "Chemistry",
+      gradeLevel: "Grade 11-12",
+      chapter: "Chapter 3: Electrochemistry",
+      keyConcepts: ["electrochemistry", "nernst equation", "emf of cell", "gibbs free energy", "galvanic cell"],
+      content: `At standard 298 K:
+E_cell = E°_cell - (0.0591 / n) · log10( [Products] / [Reactants] )
+ΔG° = -n · F · E°_cell
+For a spontaneous cell reaction, E°_cell must be positive and ΔG° must be negative.`,
+      sharedBy: "Dr. Rajesh Varma",
+      sharedByRole: "teacher",
+      createdAt: "3 days ago",
+      downloadCount: 24
+    },
+    {
+      id: "res-c4",
+      classCode: "JNV-11A",
+      title: "Kinematics & Projectile Motion Complete Derivations",
+      subject: "Physics",
+      gradeLevel: "Grade 11-12",
+      chapter: "Chapter 4: Motion in a Plane",
+      keyConcepts: ["kinematics", "projectile motion", "time of flight", "maximum height", "horizontal range"],
+      content: `Time of flight T = (2 u sin θ) / g
+Max height H = (u² sin² θ) / (2g)
+Range R = (u² sin 2θ) / g. Max range at θ = 45°.`,
+      sharedBy: "Prof. S. Ramanujan",
+      sharedByRole: "teacher",
+      createdAt: "4 days ago",
+      downloadCount: 15
+    }
+  ];
+
+  initialClassResources.forEach((res) => {
+    if (!db.classroomResources.has(res.classCode)) {
+      db.classroomResources.set(res.classCode, []);
+    }
+    db.classroomResources.get(res.classCode).push(res);
+  });
+
+  // Seed Library Resource Dumps (uploaded by students and teachers)
+  db.resourceDumps = [
+    {
+      id: "dump-1",
+      title: "Comprehensive Nucleophilic Substitution (SN1 vs SN2) Comparison Matrix",
+      subject: "Chemistry",
+      gradeLevel: "Grade 11-12",
+      chapter: "Chapter 10: Haloalkanes and Haloarenes",
+      tags: ["organic chemistry", "SN1", "SN2", "carbocation", "walden inversion", "reaction kinetics"],
+      content: `SN1 vs SN2 Comprehensive Breakdown:
+1. Kinetics: SN1 is first order (Rate = k[R-X]), SN2 is second order (Rate = k[R-X][Nu-]).
+2. Intermediate: SN1 forms planar carbocation intermediate (allows racemization), SN2 proceeds via concerted 5-coordinate transition state (100% Walden inversion).
+3. Substrate Reactivity:
+   - SN1: 3° > 2° > 1° > CH3-X (governed by carbocation stability).
+   - SN2: CH3-X > 1° > 2° > 3° (governed by steric hindrance).
+4. Solvents: Polar protic favors SN1; polar aprotic (Acetone, DMSO) favors SN2.`,
+      uploadedBy: "Dr. Rajesh Varma",
+      uploadedByRole: "teacher",
+      instituteName: "Kendriya Vidyalaya No. 1, Model Cluster",
+      fileType: "text/markdown",
+      readCount: 142,
+      createdAt: "3 days ago"
+    },
+    {
+      id: "dump-2",
+      title: "Newton's Laws of Motion & Momentum Practical Problem Solving Notes",
+      subject: "Physics",
+      gradeLevel: "Grade 9-10",
+      chapter: "Chapter 9: Force and Laws of Motion",
+      tags: ["physics", "force", "momentum", "F=ma", "inertia", "conservation of momentum"],
+      content: `Problem Solving Steps for Newton's 2nd Law:
+1. Draw Free Body Diagram (FBD) for all forces acting on the body.
+2. Resolve forces along axes of motion: Σ F_net = m · a.
+3. Law of Conservation of Linear Momentum: In the absence of external force, total initial momentum = total final momentum (m1·u1 + m2·u2 = m1·v1 + m2·v2).
+4. Impulse = Force × time = Change in momentum (Δp).`,
+      uploadedBy: "Priya Sharma",
+      uploadedByRole: "student",
+      instituteName: "Kendriya Vidyalaya No. 1, Model Cluster",
+      fileType: "text/markdown",
+      readCount: 98,
+      createdAt: "2 days ago"
+    },
+    {
+      id: "dump-3",
+      title: "Plant Physiology & Photosynthesis Light vs Dark Reaction Summary",
+      subject: "Biology",
+      gradeLevel: "Grade 11-12",
+      chapter: "Chapter 13: Photosynthesis in Higher Plants",
+      tags: ["biology", "photosynthesis", "calvin cycle", "z scheme", "rubisco", "atp nadph"],
+      content: `Photosynthesis Light vs Dark Reaction Summary:
+- Light Reaction (Thylakoid): Photolysis of water (2 H2O -> 4 H+ + O2 + 4 e-), non-cyclic photophosphorylation generates ATP and NADPH via Photosystems II and I.
+- Dark Reaction / Calvin Cycle (Stroma): Uses ATP and NADPH to fix CO2 into glucose.
+- 6 turns of Calvin cycle are required for 1 glucose molecule, consuming 6 CO2, 18 ATP, and 12 NADPH.
+- Key enzyme: RuBisCO (Ribulose-1,5-bisphosphate carboxylase-oxygenase).`,
+      uploadedBy: "Dr. Sunita Sharma",
+      uploadedByRole: "teacher",
+      instituteName: "Sarvodaya Kanya Vidyalaya No. 2",
+      fileType: "text/markdown",
+      readCount: 115,
+      createdAt: "4 days ago"
+    },
+    {
+      id: "dump-4",
+      title: "Limits and First Principle Derivatives Quick Reference Guide",
+      subject: "Mathematics",
+      gradeLevel: "Grade 11-12",
+      chapter: "Chapter 13: Limits and Derivatives",
+      tags: ["calculus", "derivatives", "first principle", "limits", "differentiation"],
+      content: `Definition: f'(x) = lim (h->0) [ f(x+h) - f(x) ] / h
+Key Limits:
+- lim (x->0) [ sin x / x ] = 1
+- lim (x->0) [ (e^x - 1) / x ] = 1
+- lim (x->a) [ (x^n - a^n) / (x - a) ] = n · a^(n-1)`,
+      uploadedBy: "Rohan Sen",
+      uploadedByRole: "student",
+      instituteName: "Delhi Public School, Sector 12",
+      fileType: "text/markdown",
+      readCount: 88,
+      createdAt: "5 days ago"
+    }
+  ];
+
+  // Seed Institutional Community Posts & Doubts
+  db.communityPosts = [
+    {
+      id: "post-1",
+      instituteName: "Kendriya Vidyalaya No. 1, Model Cluster",
+      title: "Why does fringe width remain constant in Young's Double Slit experiment for monochromatic light?",
+      content: "I was solving the wave optics assignment from Dr. Varma's class. Could someone clarify why the spacing between consecutive dark fringes is identical to the spacing between bright fringes throughout?",
+      subject: "Physics",
+      gradeLevel: "Grade 11-12",
+      authorName: "Aarav Patel",
+      authorRole: "student",
+      authorId: "student-1",
+      tags: ["wave optics", "youngs double slit", "fringe width"],
+      upvotes: 6,
+      upvotedBy: ["student-2", "teacher-1"],
+      createdAt: "1 day ago",
+      answers: [
+        {
+          id: "ans-1",
+          authorName: "Dr. Rajesh Varma",
+          authorRole: "teacher",
+          authorId: "teacher-1",
+          content: "Great question Aarav! The fringe width formula is β = (λ · D) / d. Since λ (wavelength of monochromatic source), D (distance between slit plane and screen), and d (separation between the two coherent slits) are all constants for the apparatus, the path difference increases by exactly 1λ for each successive order. Hence, every fringe has the exact same width β.",
+          isVerified: true,
+          upvotes: 8,
+          upvotedBy: ["student-1", "student-2"],
+          createdAt: "18 hours ago"
+        },
+        {
+          id: "ans-2",
+          authorName: "Priya Sharma",
+          authorRole: "student",
+          authorId: "student-2",
+          content: "Also remember from today's class that if we immerse the entire setup in water (refractive index μ = 4/3), the new fringe width becomes β' = β / μ = 0.75 β, so fringes become narrower!",
+          isVerified: false,
+          upvotes: 4,
+          upvotedBy: ["student-1"],
+          createdAt: "14 hours ago"
+        }
+      ]
+    },
+    {
+      id: "post-2",
+      instituteName: "Kendriya Vidyalaya No. 1, Model Cluster",
+      title: "How do we distinguish between SN1 and SN2 for secondary alkyl halides in board exams?",
+      content: "Secondary (2°) alkyl halides can undergo both SN1 and SN2 reactions. What are the key deciding factors like solvent, temperature, and nucleophile strength that we should look for in test questions?",
+      subject: "Chemistry",
+      gradeLevel: "Grade 11-12",
+      authorName: "Priya Sharma",
+      authorRole: "student",
+      authorId: "student-2",
+      tags: ["organic chemistry", "SN1 vs SN2", "reaction mechanism"],
+      upvotes: 7,
+      upvotedBy: ["student-1", "teacher-1"],
+      createdAt: "2 days ago",
+      answers: [
+        {
+          id: "ans-3",
+          authorName: "Dr. Rajesh Varma",
+          authorRole: "teacher",
+          authorId: "teacher-1",
+          content: "For 2° alkyl halides, look at the reaction environment: 1) Strong nucleophiles (like OH⁻, RO⁻, CN⁻) in polar aprotic solvents (Acetone, DMSO) strongly favor SN2 with inversion of configuration. 2) Weak nucleophiles (like H2O, ROH) in polar protic solvents favor carbocation ionization and thus SN1 with racemization.",
+          isVerified: true,
+          upvotes: 9,
+          upvotedBy: ["student-1", "student-2"],
+          createdAt: "1 day ago"
+        }
+      ]
+    },
+    {
+      id: "post-3",
+      instituteName: "Sarvodaya Kanya Vidyalaya No. 2",
+      title: "Tips for choosing u(x) and v(x) in Integration by Parts using ILATE rule?",
+      content: "When integrating expressions like x · ln(x) or x · sin(x), why is the priority order strict? Does reversing it break the integral?",
+      subject: "Mathematics",
+      gradeLevel: "Grade 11-12",
+      authorName: "Sunita Rao",
+      authorRole: "student",
+      authorId: "student-3",
+      tags: ["calculus", "integrals", "ILATE rule"],
+      upvotes: 5,
+      upvotedBy: ["teacher-3"],
+      createdAt: "3 days ago",
+      answers: [
+        {
+          id: "ans-4",
+          authorName: "Dr. Sunita Sharma",
+          authorRole: "teacher",
+          authorId: "teacher-3",
+          content: "ILATE stands for Inverse, Log, Algebraic, Trig, Exponential. The function appearing earlier should be chosen as u(x) so that its derivative du/dx simplifies upon differentiation (for example d/dx(ln x) = 1/x simplifies an algebraic power). If you reverse it for x · ln(x), you'd have to integrate ln(x), which complicates the second term instead of simplifying it!",
+          isVerified: true,
+          upvotes: 7,
+          upvotedBy: ["student-3"],
+          createdAt: "2 days ago"
+        }
+      ]
+    }
+  ];
 }
 seedInitialData();
-function retrieveRelevantOerDocs(query, gradeLevel) {
+
+function retrieveRelevantOerDocs(query, gradeLevel, classCode, instituteName) {
   const queryWords = query.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2);
-  const scored = OER_CORPUS.map((doc) => {
+  
+  // 1. Gather all searchable items: Corpus + Classroom shared resources + Resource dumps
+  const allDocs = [];
+
+  // Core curriculum
+  OER_CORPUS.forEach((doc) => {
+    allDocs.push({
+      ...doc,
+      docType: "curriculum",
+      sourceTypeLabel: "Open Curriculum Core",
+      mediaType: "text",
+      mediaData: null,
+      mediaMeta: null
+    });
+  });
+
+  // Classroom-specific shared resources
+  if (classCode && db.classroomResources.has(classCode)) {
+    const classDocs = db.classroomResources.get(classCode);
+    classDocs.forEach((cd) => {
+      allDocs.push({
+        id: cd.id,
+        title: cd.title,
+        publisher: `Classroom Shared Resource (${cd.sharedByRole === 'teacher' ? 'Teacher: ' : 'Student: '}${cd.sharedBy})`,
+        subject: cd.subject,
+        gradeLevel: cd.gradeLevel,
+        chapter: cd.chapter,
+        section: `Shared in Class ${classCode}`,
+        pageOrRef: `Classroom Reference Module [${cd.sharedBy}]`,
+        license: "Classroom Open Share (Teacher & Student Resource)",
+        keyConcepts: cd.keyConcepts || [],
+        summary: `Shared notes by ${cd.sharedBy} (${cd.sharedByRole}) in class ${classCode}. ${cd.mediaType !== 'text' ? `[Includes ${cd.mediaType.toUpperCase()} file]` : ''}`,
+        content: cd.content || cd.aiExtractedContent || "",
+        aiExtractedContent: cd.aiExtractedContent,
+        mediaType: cd.mediaType || "text",
+        mediaData: cd.mediaData || null,
+        mediaMeta: cd.mediaMeta || null,
+        docType: "classroom_resource",
+        sourceTypeLabel: `Classroom Notes (${cd.sharedBy})`,
+        classCode
+      });
+    });
+  }
+
+  // Library Resource Dumps
+  if (db.resourceDumps && db.resourceDumps.length > 0) {
+    db.resourceDumps.forEach((rd) => {
+      allDocs.push({
+        id: rd.id,
+        title: rd.title,
+        publisher: `Library Resource Dump (${rd.uploadedByRole === 'teacher' ? 'Teacher: ' : 'Student: '}${rd.uploadedBy})`,
+        subject: rd.subject,
+        gradeLevel: rd.gradeLevel,
+        chapter: rd.chapter,
+        section: `Library Dump - ${rd.instituteName}`,
+        pageOrRef: `Community Repository [${rd.uploadedBy}]`,
+        license: "Open Educational Resource Dump",
+        keyConcepts: rd.tags || rd.keyConcepts || [],
+        summary: `Uploaded resource by ${rd.uploadedBy} from ${rd.instituteName}. ${rd.mediaType !== 'text' ? `[Includes ${rd.mediaType.toUpperCase()} file]` : ''}`,
+        content: rd.content || rd.aiExtractedContent || "",
+        aiExtractedContent: rd.aiExtractedContent,
+        mediaType: rd.mediaType || "text",
+        mediaData: rd.mediaData || null,
+        mediaMeta: rd.mediaMeta || null,
+        docType: "resource_dump",
+        sourceTypeLabel: `Library Dump (${rd.uploadedBy})`,
+        instituteName: rd.instituteName
+      });
+    });
+  }
+
+  const scored = allDocs.map((doc) => {
     let score = 0;
-    const docFullText = `${doc.title} ${doc.chapter} ${doc.section} ${doc.keyConcepts.join(" ")} ${doc.content} ${doc.summary}`.toLowerCase();
-    for (const concept of doc.keyConcepts) {
+    const docFullText = `${doc.title} ${doc.chapter} ${doc.section} ${(doc.keyConcepts || []).join(" ")} ${doc.content} ${doc.aiExtractedContent || ""} ${doc.summary}`.toLowerCase();
+    for (const concept of (doc.keyConcepts || [])) {
       if (query.toLowerCase().includes(concept.toLowerCase())) {
-        score += 25;
+        score += 30;
       }
     }
     for (const word of queryWords) {
       if (docFullText.includes(word)) {
-        score += 5;
+        score += 6;
       }
     }
-    if (gradeLevel && doc.gradeLevel.toLowerCase().includes(gradeLevel.toLowerCase().slice(0, 7))) {
+    if (gradeLevel && doc.gradeLevel && doc.gradeLevel.toLowerCase().includes(gradeLevel.toLowerCase().slice(0, 7))) {
       score += 10;
+    }
+    // High priority for classroom-shared resources in this class
+    if (doc.docType === "classroom_resource" && classCode && doc.classCode === classCode) {
+      score += 35;
+    }
+    // Boost for resource dumps from the same institute
+    if (doc.docType === "resource_dump" && instituteName && doc.instituteName === instituteName) {
+      score += 20;
     }
     return { doc, score };
   });
+
   scored.sort((a, b) => b.score - a.score);
-  const topMatches = scored.filter((item) => item.score > 10).slice(0, 3);
+  const topMatches = scored.filter((item) => item.score > 10).slice(0, 4);
   const selected = topMatches.length > 0 ? topMatches : scored.slice(0, 2);
   const citations = selected.map(({ doc, score }) => ({
     id: `cite-${doc.id}`,
@@ -568,9 +1072,14 @@ function retrieveRelevantOerDocs(query, gradeLevel) {
     section: doc.section,
     pageOrRef: doc.pageOrRef,
     license: doc.license,
-    excerptSnippet: doc.content.slice(0, 220) + "...",
-    relevanceScore: Math.min(98, Math.max(65, score * 3))
+    excerptSnippet: (doc.content || doc.aiExtractedContent || "").slice(0, 220) + "...",
+    mediaType: doc.mediaType || "text",
+    mediaData: doc.mediaData || null,
+    mediaMeta: doc.mediaMeta || null,
+    docType: doc.docType || "curriculum",
+    relevanceScore: Math.min(99, Math.max(65, score * 3))
   }));
+
   return {
     docs: selected.map((s) => s.doc),
     citations
@@ -583,8 +1092,51 @@ app.get("/api/health", (_req, res) => {
     oerDocsCount: OER_CORPUS.length,
     scholarshipsCount: SCHOLARSHIP_SCHEMES.length,
     activeStudents: db.students.size,
-    activeClasses: db.classes.size
+    activeTeachers: db.teachers.size,
+    activeClasses: db.classes.size,
+    activeInstitutes: db.institutes.size
   });
+});
+app.get("/api/institutes", (_req, res) => {
+  const institutesList = Array.from(db.institutes.values());
+  res.json({ institutes: institutesList });
+});
+app.post("/api/institutes", (req, res) => {
+  const { name, type = "School / Educational Institute", location = "National", addedBy = "Teacher" } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: "Institute name is required." });
+  }
+  const cleanName = name.trim();
+  const existing = Array.from(db.institutes.values()).find(
+    (i) => i.name.toLowerCase() === cleanName.toLowerCase()
+  );
+  if (existing) {
+    return res.json({ institute: existing, message: "Institute already exists in database." });
+  }
+  const newInst = {
+    id: `inst-${Date.now()}`,
+    name: cleanName,
+    type: type.trim() || "School / Educational Institute",
+    location: location.trim() || "India",
+    addedBy: addedBy || "Teacher",
+    classesCount: 0,
+    teachersCount: 1,
+    createdAt: new Date().toISOString()
+  };
+  db.institutes.set(newInst.id, newInst);
+  res.status(201).json({ success: true, institute: newInst, message: `Institute "${cleanName}" registered successfully!` });
+});
+app.get("/api/teachers", (_req, res) => {
+  const teachersList = Array.from(db.teachers.values()).map((t) => ({
+    id: t.id,
+    name: t.name,
+    email: t.email,
+    department: t.department,
+    school: t.school || t.institute || "Kendriya Vidyalaya No. 1",
+    institute: t.institute || t.school || "Kendriya Vidyalaya No. 1",
+    classes: Array.from(db.classes.values()).filter((c) => c.teacherId === t.id)
+  }));
+  res.json({ teachers: teachersList });
 });
 function validateClassCodeMatch(studentClass, classInfo) {
   if (!studentClass) {
@@ -786,19 +1338,37 @@ function generateClassMasteryList(studentClass, gradeLevel) {
 }
 app.post("/api/auth/login", (req, res) => {
   const { role, identifier, password } = req.body;
+  if (!identifier || !String(identifier).trim()) {
+    return res.status(400).json({ error: "Please provide your email or username/ID." });
+  }
+  if (!password) {
+    return res.status(400).json({ error: "Please enter your password." });
+  }
+
+  const cleanId = String(identifier).trim().toLowerCase();
+
   if (role === "teacher") {
     const teachersList = Array.from(db.teachers.values());
     const teacher = teachersList.find(
-      (t) => t.id === identifier || t.email.toLowerCase() === String(identifier).toLowerCase()
-    ) || teachersList[0];
+      (t) =>
+        t.id.toLowerCase() === cleanId ||
+        t.email.toLowerCase() === cleanId ||
+        t.name.toLowerCase() === cleanId
+    );
     if (!teacher) {
-      return res.status(404).json({ error: "Teacher account not found" });
+      return res.status(401).json({ error: "Invalid credentials. No teacher account found with that email or ID." });
+    }
+    const expectedPassword = teacher.password || "teacher123";
+    if (password !== expectedPassword) {
+      return res.status(401).json({ error: "Incorrect password for this teacher account." });
     }
     const authUser = {
       id: teacher.id,
       name: teacher.name,
       email: teacher.email,
       role: "teacher",
+      school: teacher.school || teacher.institute || "Kendriya Vidyalaya No. 1",
+      institute: teacher.institute || teacher.school || "Kendriya Vidyalaya No. 1",
       teacherProfile: teacher
     };
     return res.json({
@@ -809,22 +1379,33 @@ app.post("/api/auth/login", (req, res) => {
   } else {
     const studentsList = Array.from(db.students.values());
     const student = studentsList.find(
-      (s) => s.id === identifier || s.email.toLowerCase() === String(identifier).toLowerCase()
-    ) || studentsList[0];
+      (s) =>
+        s.id.toLowerCase() === cleanId ||
+        s.email.toLowerCase() === cleanId ||
+        s.name.toLowerCase() === cleanId
+    );
     if (!student) {
-      return res.status(404).json({ error: "Student account not found" });
+      return res.status(401).json({ error: "Invalid credentials. No student account found with that email or ID." });
     }
-    if (password && student.password && student.password !== password) {
+    const expectedPassword = student.password || "password123";
+    if (password !== expectedPassword) {
       return res.status(401).json({ error: "Incorrect password for this student account." });
     }
     const classInfo = db.classes.get(student.classCode);
-    const enrichedStudent = { ...student, classInfo };
+    const enrichedStudent = {
+      ...student,
+      classInfo,
+      institute: student.institute || student.school || classInfo?.school || "Kendriya Vidyalaya No. 1, Model Cluster",
+      school: student.school || student.institute || classInfo?.school || "Kendriya Vidyalaya No. 1, Model Cluster"
+    };
     const authUser = {
       id: student.id,
       name: student.name,
       email: student.email,
       role: "student",
       classCode: student.classCode,
+      institute: enrichedStudent.institute,
+      school: enrichedStudent.school,
       studentProfile: enrichedStudent
     };
     return res.json({
@@ -844,6 +1425,132 @@ app.get("/api/class/:code", (req, res) => {
   }
   res.json({ classInfo });
 });
+app.post("/api/auth/register-teacher", (req, res) => {
+  const {
+    name,
+    email,
+    password,
+    department = "Senior Science & Mathematics",
+    instituteName,
+    isNewInstitute = false,
+    instituteType = "Government / Private School",
+    instituteLocation = "National",
+    initialClassGrade = "Class 12",
+    initialStream = "Science (PCM / PCB)"
+  } = req.body;
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: "Teacher full name is required." });
+  }
+  if (!email || !email.trim()) {
+    return res.status(400).json({ error: "Teacher email address is required." });
+  }
+  if (!password || password.length < 6) {
+    return res.status(400).json({ error: "Password must be at least 6 characters long." });
+  }
+  if (!instituteName || !instituteName.trim()) {
+    return res.status(400).json({ error: "Institute name is required. Please select or register your institute." });
+  }
+
+  const cleanInstituteName = instituteName.trim();
+  let targetInstitute = Array.from(db.institutes.values()).find(
+    (i) => i.name.toLowerCase() === cleanInstituteName.toLowerCase()
+  );
+
+  if (!targetInstitute) {
+    // Teachers have permission to register a new institute
+    targetInstitute = {
+      id: `inst-${Date.now()}`,
+      name: cleanInstituteName,
+      type: instituteType.trim() || "School / Educational Institute",
+      location: instituteLocation.trim() || "India",
+      addedBy: name.trim(),
+      classesCount: 1,
+      teachersCount: 1,
+      createdAt: new Date().toISOString()
+    };
+    db.institutes.set(targetInstitute.id, targetInstitute);
+  } else {
+    targetInstitute.teachersCount = (targetInstitute.teachersCount || 0) + 1;
+    targetInstitute.classesCount = (targetInstitute.classesCount || 0) + 1;
+  }
+
+  const teacherId = `teacher-${Date.now()}`;
+  const initials = name.trim().split(/\s+/).map((n) => n[0]).join("").toUpperCase().slice(0, 3) || "TCH";
+  const gradeNum = initialClassGrade.match(/\d+/)?.[0] || "12";
+  const generatedClassCode = `NCERT-${gradeNum}${initials}${Math.floor(10 + Math.random() * 90)}`;
+
+  const initialClass = {
+    classCode: generatedClassCode,
+    className: `${initialClassGrade}-A ${initialStream}`,
+    targetClass: initialClassGrade,
+    gradeLevel: initialClassGrade === "Class 10" || initialClassGrade === "Class 9" ? "Grade 9-10" : initialClassGrade === "Class 8" || initialClassGrade === "Class 7" || initialClassGrade === "Class 6" ? "Grade 6-8" : "Grade 11-12",
+    stream: initialStream,
+    curriculum: "NCERT / CBSE National Curriculum Framework 2024-25",
+    school: cleanInstituteName,
+    institute: cleanInstituteName,
+    teacherId,
+    teacherName: name.trim(),
+    academicYear: "2024-2025",
+    subjects: initialStream.includes("Science") ? ["Physics", "Chemistry", "Mathematics", "Biology"] : ["Mathematics", "Science"],
+    timetable: [
+      {
+        day: "Monday",
+        periods: [
+          { periodNumber: 1, time: "08:30 - 09:15 AM", subject: "Core Concept", topic: "NCERT Foundation & Diagnostic Assessment", teacher: name.trim(), room: "Room 101" },
+          { periodNumber: 2, time: "09:20 - 10:05 AM", subject: "Guided Practice", topic: "Formative Problem Solving", teacher: name.trim(), room: "Lab" }
+        ]
+      }
+    ],
+    syllabus: [
+      {
+        unitNumber: 1,
+        unitTitle: "Unit 1: Core Curriculum Mastery",
+        subject: "Core Subject",
+        chapters: ["Chapter 1: Principles & Foundations", "Chapter 2: Formulas & Applications"],
+        weightageMarks: 25,
+        totalPeriods: 30,
+        status: "In Progress"
+      }
+    ],
+    enrolledStudentIds: [],
+    enrolledCount: 0
+  };
+
+  db.classes.set(initialClass.classCode, initialClass);
+
+  const newTeacher = {
+    id: teacherId,
+    name: name.trim(),
+    email: email.trim(),
+    password,
+    role: "teacher",
+    department: department.trim(),
+    school: cleanInstituteName,
+    institute: cleanInstituteName,
+    classes: [initialClass]
+  };
+
+  db.teachers.set(teacherId, newTeacher);
+
+  const authUser = {
+    id: newTeacher.id,
+    name: newTeacher.name,
+    email: newTeacher.email,
+    role: "teacher",
+    school: cleanInstituteName,
+    institute: cleanInstituteName,
+    teacherProfile: newTeacher
+  };
+
+  res.status(201).json({
+    success: true,
+    user: authUser,
+    teacherProfile: newTeacher,
+    classes: [initialClass],
+    message: `Welcome, ${name}! Your teacher account and class code ${generatedClassCode} for ${cleanInstituteName} have been registered.`
+  });
+});
 app.post("/api/auth/register-student", (req, res) => {
   const {
     name,
@@ -851,6 +1558,7 @@ app.post("/api/auth/register-student", (req, res) => {
     password,
     studentClass,
     classCode,
+    instituteName,
     primaryLanguage = "en",
     category = "General",
     gender = "Other",
@@ -868,6 +1576,22 @@ app.post("/api/auth/register-student", (req, res) => {
   if (!studentClass) {
     return res.status(400).json({ error: "Please select your enrolled class (e.g. Class 12, Class 11, Class 10)." });
   }
+  if (!instituteName || !instituteName.trim()) {
+    return res.status(400).json({
+      error: "Please select your institute from the dropdown menu. Students can only join existing registered institutes."
+    });
+  }
+
+  const cleanInstituteName = instituteName.trim();
+  const existingInstitute = Array.from(db.institutes.values()).find(
+    (i) => i.name.toLowerCase() === cleanInstituteName.toLowerCase()
+  );
+  if (!existingInstitute) {
+    return res.status(400).json({
+      error: `Institute "${cleanInstituteName}" is not registered in the system. Students can only select existing registered institutes. Please ask your teacher to sign up your institute.`
+    });
+  }
+
   const cleanCode = classCode.trim().toUpperCase();
   const classInfo = db.classes.get(cleanCode);
   if (!classInfo) {
@@ -902,6 +1626,8 @@ app.post("/api/auth/register-student", (req, res) => {
     studentClass,
     classInfo,
     gradeLevel: resolvedGradeLevel,
+    institute: cleanInstituteName,
+    school: cleanInstituteName,
     primaryLanguage,
     avatarSeed,
     familyIncomeBracket,
@@ -927,6 +1653,8 @@ app.post("/api/auth/register-student", (req, res) => {
     email: newStudent.email,
     role: "student",
     classCode: cleanCode,
+    institute: cleanInstituteName,
+    school: cleanInstituteName,
     studentProfile: newStudent
   };
   res.json({
@@ -934,7 +1662,7 @@ app.post("/api/auth/register-student", (req, res) => {
     user: authUser,
     student: newStudent,
     classInfo,
-    message: `Successfully registered for ${classInfo.className} under ${classInfo.teacherName}!`
+    message: `Successfully registered for ${classInfo.className} at ${cleanInstituteName} under ${classInfo.teacherName}!`
   });
 });
 app.get("/api/teacher/classes", (req, res) => {
@@ -1052,6 +1780,372 @@ app.put("/api/students/:id", (req, res) => {
   db.students.set(req.params.id, updated);
   res.json({ student: updated });
 });
+// ==========================================
+// CLASSROOM RESOURCES (TEACHER & STUDENT SHARING)
+// ==========================================
+app.get("/api/class/:code/resources", (req, res) => {
+  const code = req.params.code.trim().toUpperCase();
+  const resources = db.classroomResources.get(code) || [];
+  res.json({ resources, classCode: code, count: resources.length });
+});
+
+app.post("/api/class/:code/resources", async (req, res) => {
+  try {
+    const code = req.params.code.trim().toUpperCase();
+    const {
+      title,
+      subject = "General Science & Math",
+      gradeLevel = "Grade 11-12",
+      chapter = "General Reference",
+      keyConcepts = [],
+      content = "",
+      mediaType = "text",
+      fileData = null,
+      mimeType = "",
+      fileName = "",
+      fileSize = 0,
+      sharedBy = "Class Contributor",
+      sharedByRole = "student"
+    } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: "Resource title is required." });
+    }
+    if (!content?.trim() && !fileData) {
+      return res.status(400).json({ error: "Please enter notes content or upload an image, video, or file." });
+    }
+
+    const analyzed = await analyzeUploadedResource({
+      title: title.trim(),
+      subject: subject.trim(),
+      gradeLevel: gradeLevel.trim(),
+      chapter: chapter.trim(),
+      content: content.trim(),
+      mediaType,
+      fileData,
+      mimeType,
+      fileName,
+      fileSize,
+      tags: keyConcepts
+    });
+
+    const newResource = {
+      id: `res-${Date.now()}`,
+      classCode: code,
+      title: title.trim(),
+      subject: subject.trim(),
+      gradeLevel: gradeLevel.trim(),
+      chapter: chapter.trim(),
+      keyConcepts: analyzed.keyConcepts.length > 0 ? analyzed.keyConcepts : (Array.isArray(keyConcepts) ? keyConcepts : keyConcepts.split(",").map(s => s.trim()).filter(Boolean)),
+      content: analyzed.finalContent,
+      aiExtractedContent: analyzed.aiExtractedContent,
+      mediaType: analyzed.mediaType,
+      mediaData: analyzed.mediaData,
+      mediaMeta: analyzed.mediaMeta,
+      sharedBy: sharedBy.trim(),
+      sharedByRole: sharedByRole === "teacher" ? "teacher" : "student",
+      createdAt: "Just now",
+      downloadCount: 1
+    };
+
+    if (!db.classroomResources.has(code)) {
+      db.classroomResources.set(code, []);
+    }
+    db.classroomResources.get(code).unshift(newResource);
+
+    res.status(201).json({
+      message: `Resource with ${analyzed.mediaType.toUpperCase()} content shared with classroom successfully! AI has indexed it for doubts and tests.`,
+      resource: newResource
+    });
+  } catch (err) {
+    console.error("Error in /api/class/:code/resources:", err);
+    res.status(500).json({ error: err.message || "Failed to process classroom resource upload" });
+  }
+});
+
+app.delete("/api/class/:code/resources/:id", (req, res) => {
+  const code = req.params.code.trim().toUpperCase();
+  const resId = req.params.id;
+  if (db.classroomResources.has(code)) {
+    const list = db.classroomResources.get(code);
+    db.classroomResources.set(code, list.filter(r => r.id !== resId));
+  }
+  res.json({ success: true, message: "Resource deleted from classroom." });
+});
+
+// ==========================================
+// LIBRARY RESOURCE DUMPS (STUDENTS & TEACHERS REPOSITORY)
+// ==========================================
+app.get("/api/resources/dumps", (req, res) => {
+  const { subject, grade, institute, search } = req.query;
+  let dumps = [...(db.resourceDumps || [])];
+
+  if (subject && subject !== "all") {
+    dumps = dumps.filter(d => d.subject.toLowerCase() === String(subject).toLowerCase());
+  }
+  if (grade && grade !== "all") {
+    dumps = dumps.filter(d => d.gradeLevel === grade);
+  }
+  if (institute && institute !== "all") {
+    dumps = dumps.filter(d => d.instituteName?.toLowerCase().includes(String(institute).toLowerCase()));
+  }
+  if (search && search.trim()) {
+    const term = search.toLowerCase();
+    dumps = dumps.filter(d => 
+      d.title.toLowerCase().includes(term) ||
+      d.content.toLowerCase().includes(term) ||
+      (d.aiExtractedContent && d.aiExtractedContent.toLowerCase().includes(term)) ||
+      (d.tags && d.tags.some(t => t.toLowerCase().includes(term)))
+    );
+  }
+
+  res.json({ dumps, count: dumps.length });
+});
+
+app.post("/api/resources/dumps", async (req, res) => {
+  try {
+    const {
+      title,
+      subject = "Science & Mathematics",
+      gradeLevel = "Grade 11-12",
+      chapter = "Topic Notes",
+      tags = [],
+      content = "",
+      mediaType = "text",
+      fileData = null,
+      mimeType = "",
+      fileName = "",
+      fileSize = 0,
+      uploadedBy = "Community Scholar",
+      uploadedByRole = "student",
+      instituteName = "Open Education Network",
+      fileType = "text/markdown"
+    } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: "Resource Dump title is required." });
+    }
+    if (!content?.trim() && !fileData) {
+      return res.status(400).json({ error: "Please provide document notes or upload a file, video, or image." });
+    }
+
+    const analyzed = await analyzeUploadedResource({
+      title: title.trim(),
+      subject: subject.trim(),
+      gradeLevel: gradeLevel.trim(),
+      chapter: chapter.trim(),
+      content: content.trim(),
+      mediaType,
+      fileData,
+      mimeType,
+      fileName,
+      fileSize,
+      tags
+    });
+
+    const newDump = {
+      id: `dump-${Date.now()}`,
+      title: title.trim(),
+      subject: subject.trim(),
+      gradeLevel: gradeLevel.trim(),
+      chapter: chapter.trim(),
+      tags: analyzed.keyConcepts.length > 0 ? analyzed.keyConcepts : (Array.isArray(tags) ? tags : tags.split(",").map(s => s.trim()).filter(Boolean)),
+      content: analyzed.finalContent,
+      aiExtractedContent: analyzed.aiExtractedContent,
+      mediaType: analyzed.mediaType,
+      mediaData: analyzed.mediaData,
+      mediaMeta: analyzed.mediaMeta,
+      uploadedBy: uploadedBy.trim(),
+      uploadedByRole: uploadedByRole === "teacher" ? "teacher" : "student",
+      instituteName: instituteName.trim(),
+      fileType: mimeType || fileType,
+      readCount: 1,
+      createdAt: "Just now"
+    };
+
+    db.resourceDumps.unshift(newDump);
+
+    res.status(201).json({
+      message: `Resource with ${analyzed.mediaType.toUpperCase()} uploaded to Knowledge Dump repository. AI will now index and read from this document!`,
+      dump: newDump
+    });
+  } catch (err) {
+    console.error("Error in /api/resources/dumps:", err);
+    res.status(500).json({ error: err.message || "Failed to upload resource dump" });
+  }
+});
+
+app.delete("/api/resources/dumps/:id", (req, res) => {
+  const dumpId = req.params.id;
+  db.resourceDumps = db.resourceDumps.filter(d => d.id !== dumpId);
+  res.json({ success: true, message: "Resource dump removed from library repository." });
+});
+
+// ==========================================
+// INSTITUTION COMMUNITY CHAT & DOUBTS
+// ==========================================
+app.get("/api/community/posts", (req, res) => {
+  const { institute, subject, search } = req.query;
+  let posts = [...(db.communityPosts || [])];
+
+  if (institute && institute !== "all") {
+    posts = posts.filter(p => p.instituteName?.toLowerCase().trim() === String(institute).toLowerCase().trim());
+  }
+  if (subject && subject !== "all") {
+    posts = posts.filter(p => p.subject?.toLowerCase() === String(subject).toLowerCase());
+  }
+  if (search && search.trim()) {
+    const term = search.toLowerCase();
+    posts = posts.filter(p => 
+      p.title.toLowerCase().includes(term) ||
+      p.content.toLowerCase().includes(term) ||
+      (p.tags && p.tags.some(t => t.toLowerCase().includes(term)))
+    );
+  }
+
+  res.json({ posts, count: posts.length });
+});
+
+app.post("/api/community/posts", (req, res) => {
+  const {
+    instituteName,
+    title,
+    content,
+    subject = "General",
+    gradeLevel = "Grade 11-12",
+    authorName = "Anonymous Student",
+    authorRole = "student",
+    authorId = "user-1",
+    tags = []
+  } = req.body;
+
+  if (!instituteName || !instituteName.trim()) {
+    return res.status(400).json({ error: "Institution name is required to post in the community forum." });
+  }
+  if (!title || !title.trim()) {
+    return res.status(400).json({ error: "Doubt question title is required." });
+  }
+  if (!content || !content.trim()) {
+    return res.status(400).json({ error: "Please describe your question or doubt." });
+  }
+
+  const newPost = {
+    id: `post-${Date.now()}`,
+    instituteName: instituteName.trim(),
+    title: title.trim(),
+    content: content.trim(),
+    subject: subject.trim(),
+    gradeLevel: gradeLevel.trim(),
+    authorName: authorName.trim(),
+    authorRole: authorRole === "teacher" ? "teacher" : "student",
+    authorId,
+    tags: Array.isArray(tags) ? tags : tags.split(",").map(t => t.trim()).filter(Boolean),
+    upvotes: 0,
+    upvotedBy: [],
+    createdAt: "Just now",
+    answers: []
+  };
+
+  db.communityPosts.unshift(newPost);
+
+  res.status(201).json({
+    message: "Doubt shared to your institution's community chat!",
+    post: newPost
+  });
+});
+
+app.post("/api/community/posts/:id/answers", (req, res) => {
+  const postId = req.params.id;
+  const {
+    authorName = "Community Helper",
+    authorRole = "student",
+    authorId = "user-1",
+    content
+  } = req.body;
+
+  if (!content || !content.trim()) {
+    return res.status(400).json({ error: "Answer content cannot be empty." });
+  }
+
+  const post = db.communityPosts.find(p => p.id === postId);
+  if (!post) {
+    return res.status(404).json({ error: "Doubt thread not found." });
+  }
+
+  const newAnswer = {
+    id: `ans-${Date.now()}`,
+    authorName: authorName.trim(),
+    authorRole: authorRole === "teacher" ? "teacher" : "student",
+    authorId,
+    content: content.trim(),
+    isVerified: authorRole === "teacher", // Auto-verify if answered by teacher
+    upvotes: 0,
+    upvotedBy: [],
+    createdAt: "Just now"
+  };
+
+  post.answers.push(newAnswer);
+
+  res.status(201).json({
+    message: "Answer posted to community doubt thread!",
+    answer: newAnswer,
+    post
+  });
+});
+
+app.post("/api/community/posts/:id/upvote", (req, res) => {
+  const postId = req.params.id;
+  const { userId = "user-anon" } = req.body;
+  const post = db.communityPosts.find(p => p.id === postId);
+  if (!post) {
+    return res.status(404).json({ error: "Post not found" });
+  }
+
+  post.upvotedBy = post.upvotedBy || [];
+  if (post.upvotedBy.includes(userId)) {
+    post.upvotedBy = post.upvotedBy.filter(u => u !== userId);
+    post.upvotes = Math.max(0, post.upvotes - 1);
+  } else {
+    post.upvotedBy.push(userId);
+    post.upvotes += 1;
+  }
+
+  res.json({ upvotes: post.upvotes, isUpvoted: post.upvotedBy.includes(userId) });
+});
+
+app.post("/api/community/posts/:id/answers/:answerId/upvote", (req, res) => {
+  const { id: postId, answerId } = req.params;
+  const { userId = "user-anon" } = req.body;
+  const post = db.communityPosts.find(p => p.id === postId);
+  if (!post) return res.status(404).json({ error: "Post not found" });
+
+  const answer = post.answers.find(a => a.id === answerId);
+  if (!answer) return res.status(404).json({ error: "Answer not found" });
+
+  answer.upvotedBy = answer.upvotedBy || [];
+  if (answer.upvotedBy.includes(userId)) {
+    answer.upvotedBy = answer.upvotedBy.filter(u => u !== userId);
+    answer.upvotes = Math.max(0, answer.upvotes - 1);
+  } else {
+    answer.upvotedBy.push(userId);
+    answer.upvotes += 1;
+  }
+
+  res.json({ upvotes: answer.upvotes, isUpvoted: answer.upvotedBy.includes(userId) });
+});
+
+app.post("/api/community/posts/:id/answers/:answerId/verify", (req, res) => {
+  const { id: postId, answerId } = req.params;
+  const post = db.communityPosts.find(p => p.id === postId);
+  if (!post) return res.status(404).json({ error: "Post not found" });
+
+  const answer = post.answers.find(a => a.id === answerId);
+  if (!answer) return res.status(404).json({ error: "Answer not found" });
+
+  answer.isVerified = !answer.isVerified;
+  res.json({ isVerified: answer.isVerified, message: answer.isVerified ? "Answer verified by teacher!" : "Verification removed." });
+});
+
 app.get("/api/oer/corpus", (req, res) => {
   const { subject, grade } = req.query;
   let results = [...OER_CORPUS];
@@ -1063,6 +2157,7 @@ app.get("/api/oer/corpus", (req, res) => {
   }
   res.json({ corpus: results });
 });
+
 app.post("/api/doubt/solve", async (req, res) => {
   try {
     const {
@@ -1071,6 +2166,8 @@ app.post("/api/doubt/solve", async (req, res) => {
       language = "en",
       explanationStyle = "step-by-step",
       studentId = "student-1",
+      classCode,
+      instituteName,
       imageData,
       // optional base64 image of handwritten work
       previousContext = []
@@ -1078,14 +2175,24 @@ app.post("/api/doubt/solve", async (req, res) => {
     if (!question && !imageData) {
       return res.status(400).json({ error: "Question text or image is required." });
     }
-    const { docs, citations } = retrieveRelevantOerDocs(question || "Math & Science concepts", gradeLevel);
+
+    const student = db.students.get(studentId);
+    const effectiveClassCode = classCode || student?.classCode || "";
+    const effectiveInstitute = instituteName || student?.instituteName || "";
+
+    const { docs, citations } = retrieveRelevantOerDocs(
+      question || "Math & Science concepts",
+      gradeLevel,
+      effectiveClassCode,
+      effectiveInstitute
+    );
+
     const contextText = docs.map(
-      (d) => `[SOURCE: ${d.title} | ${d.chapter} | ${d.section} | Reference: ${d.pageOrRef} | License: ${d.license}]
+      (d) => `[SOURCE (${d.sourceTypeLabel || 'Curriculum'}): ${d.title} | ${d.chapter} | ${d.section} | Reference: ${d.pageOrRef} | License: ${d.license}]
 Content:
 ${d.content}`
     ).join("\n\n---\n\n");
     const langName = SUPPORTED_LANGUAGES.find((l) => l.code === language)?.name || "English";
-    const student = db.students.get(studentId);
     if (student) {
       student.totalDoubtsAsked += 1;
       student.lastActive = "Just now";
@@ -1099,14 +2206,14 @@ ${d.content}`
     ];
     let groundingStatus = "verified_grounded";
     if (ai) {
-      const systemInstruction = `You are a patient, pedagogically grounded AI tutor designed for equitable education access for students in under-resourced schools.
-Your primary directive is to provide clear, level-appropriate explanations STRICTLY GROUNDED in verified NCERT National Curriculum textbooks (Classes 6 to 12 across Mathematics, Physics, Chemistry, and Biology).
+      const systemInstruction = `You are a patient, pedagogically grounded AI tutor designed for equitable education access for students.
+Your primary directive is to provide clear, level-appropriate explanations STRICTLY GROUNDED in verified educational curriculum frameworks, classroom-shared notes uploaded by teachers and peers, and community resource dumps.
 
 STRICT RULES:
 1. Target Grade Level: ${gradeLevel}. Adjust vocabulary, pacing, and complexity specifically for this grade.
 2. Target Output Language: ${langName} (${language}). Explain the entire answer in ${langName}. If technical terms are used, you may provide English transliteration or bilingual keywords where helpful for clarity.
 3. Explanation Style: ${explanationStyle} (e.g. step-by-step breakdown, simple analogy, or prerequisite basics).
-4. CITATION REQUIREMENT: You MUST explicitly reference the provided NCERT textbook sources (e.g. "According to NCERT Class 12 Mathematics Chapter 7 Integrals...").
+4. CITATION REQUIREMENT: You MUST explicitly reference the provided curriculum chapters, teacher/student classroom notes, or resource dump passages (e.g. "According to the classroom notes on Wave Optics..." or "Referencing Senior Secondary Mathematics Chapter 7 Integrals...").
 5. HONESTY: If the question cannot be grounded in standard secondary/high school curriculum or the provided corpus, politely explain what foundational concept applies rather than fabricating facts.
 6. NO MOCK JARGON: Keep the tone encouraging, supportive, and crystal clear.
 7. Format with clear numbered steps, bold highlights, and clean typography.`;
@@ -1115,13 +2222,13 @@ STRICT RULES:
 
 ${imageData ? "[Student uploaded an image of their handwritten work or textbook problem]" : ""}
 
-OPEN EDUCATIONAL REFERENCE PASSAGES (Ground your answer strictly in these):
+OPEN REFERENCE PASSAGES & CLASSROOM SHARED NOTES (Ground your answer strictly in these):
 ${contextText}
 
 Previous conversation context (if any):
 ${JSON.stringify(previousContext.slice(-3))}
 
-Provide a step-by-step grounded explanation in ${langName} citing the exact source material.`;
+Provide a step-by-step grounded explanation in ${langName} citing the exact source material and classroom resources.`;
       let contentsPayload = promptContent;
       if (imageData) {
         const base64Clean = imageData.replace(/^data:image\/\w+;base64,/, "");
@@ -1148,7 +2255,7 @@ Provide a step-by-step grounded explanation in ${langName} citing the exact sour
           // Low temperature for high factual consistency
         }
       });
-      explanation = response.text || "Here is a step-by-step explanation grounded in open textbook resources.";
+      explanation = response.text || "Here is a step-by-step explanation grounded in open textbook resources and classroom materials.";
       try {
         const followUpPrompt = `Based on the explanation given above for topic "${question}", provide exactly 3 helpful, one-sentence follow-up questions a student might naturally ask to clarify confusion. Return ONLY a JSON array of strings.`;
         const followUpRes = await ai.models.generateContent({
@@ -1177,7 +2284,7 @@ ${matchedDoc.summary}
 **Step 1: Understand the Given Quantities**
 Look closely at the components from ${matchedDoc.chapter} (${matchedDoc.section}).
 
-**Step 2: Apply the Open Curriculum Formula**
+**Step 2: Apply the Open Curriculum Formula & Classroom Notes**
 Referencing ${matchedDoc.pageOrRef}:
 \`\`\`
 ${matchedDoc.content.split("\n").slice(0, 4).join("\n")}
@@ -1186,10 +2293,10 @@ ${matchedDoc.content.split("\n").slice(0, 4).join("\n")}
 **Step 3: Solve Step-by-Step**
 Work through the equation step-by-step to arrive at the final simplified value. Verify with equivalent balance on both sides.
 
-**Verified Open Source:**
-- **Textbook:** ${matchedDoc.title}
-- **Section:** ${matchedDoc.section} (${matchedDoc.pageOrRef})
-- **License:** ${matchedDoc.license}`;
+**Verified Educational Source:**
+- **Source Material:** ${matchedDoc.title}
+- **Section / Origin:** ${matchedDoc.section} (${matchedDoc.pageOrRef})
+- **License / Classification:** ${matchedDoc.license}`;
     }
     db.doubtHistory.push({
       id: `doubt-${Date.now()}`,
@@ -1204,7 +2311,7 @@ Work through the equation step-by-step to arrive at the final simplified value. 
       explanation,
       citations,
       groundingStatus,
-      groundingReasoning: `Grounded in ${citations.length} verified open educational curriculum sources (${citations.map((c) => c.publisher).join(", ")}).`,
+      groundingReasoning: `Grounded in ${citations.length} verified educational sources and classroom materials (${citations.map((c) => c.publisher).join(", ")}).`,
       suggestedFollowUps,
       language,
       gradeLevel
@@ -1216,8 +2323,9 @@ Work through the equation step-by-step to arrive at the final simplified value. 
 });
 app.post("/api/practice/generate", async (req, res) => {
   try {
-    const { studentId = "student-1", topicId, requestedDifficulty } = req.body;
+    const { studentId = "student-1", topicId, requestedDifficulty, classCode } = req.body;
     const student = db.students.get(studentId);
+    const effectiveClassCode = classCode || student?.classCode;
     let targetTopic = student?.masteryList.find((t) => t.topicId === topicId);
     if (!targetTopic && student?.masteryList && student.masteryList.length > 0) {
       const sorted = [...student.masteryList].sort((a, b) => a.masteryPercentage - b.masteryPercentage);
@@ -1235,11 +2343,32 @@ app.post("/api/practice/generate", async (req, res) => {
         difficulty = "Intermediate";
       }
     }
+
+    // Look for classroom-shared resources first
+    let classResource = null;
+    if (effectiveClassCode && db.classroomResources.has(effectiveClassCode)) {
+      const classList = db.classroomResources.get(effectiveClassCode);
+      classResource = classList.find(r => 
+        (targetTopic && (r.subject.toLowerCase() === targetTopic.subject.toLowerCase() || (r.keyConcepts && r.keyConcepts.some(k => targetTopic.topicName.toLowerCase().includes(k.toLowerCase())))))
+      ) || classList[0];
+    }
+
     const matchingDocs = OER_CORPUS.filter(
       (d) => d.keyConcepts.some((k) => targetTopic?.topicName.toLowerCase().includes(k.toLowerCase())) || d.subject.toLowerCase() === targetTopic?.subject.toLowerCase()
     );
     const primaryDoc = matchingDocs[0] || OER_CORPUS[0];
-    const citation = {
+
+    const citation = classResource ? {
+      id: `cite-practice-${classResource.id}`,
+      sourceName: classResource.title,
+      publisher: `Classroom Resource (Shared by ${classResource.sharedBy})`,
+      chapter: classResource.chapter,
+      section: `Class ${effectiveClassCode}`,
+      pageOrRef: `Classroom Shared Notes [${classResource.sharedBy}]`,
+      license: "Classroom Open Share",
+      excerptSnippet: classResource.content.slice(0, 180) + "...",
+      relevanceScore: 99
+    } : {
       id: `cite-practice-${primaryDoc.id}`,
       sourceName: primaryDoc.title,
       publisher: primaryDoc.publisher,
@@ -1250,6 +2379,10 @@ app.post("/api/practice/generate", async (req, res) => {
       excerptSnippet: primaryDoc.content.slice(0, 180) + "...",
       relevanceScore: 95
     };
+
+    const groundingContent = classResource ? classResource.content : primaryDoc.content;
+    const groundingTitle = classResource ? `${classResource.title} (Classroom Notes by ${classResource.sharedBy})` : `${primaryDoc.title} (${primaryDoc.chapter}, ${primaryDoc.section})`;
+
     const ai = getGeminiClient();
     let questionData = {
       id: `q-${Date.now()}`,
@@ -1266,17 +2399,17 @@ app.post("/api/practice/generate", async (req, res) => {
       groundedCitation: citation
     };
     if (ai) {
-      const prompt = `Generate a single multiple-choice adaptive practice question for a student.
+      const prompt = `Generate a single multiple-choice adaptive practice test question for a student.
 Topic: ${targetTopic?.topicName || "Linear Equations & Fractions"}
 Subject: ${targetTopic?.subject || "Mathematics"}
 Difficulty Level: ${difficulty}
 Is Step-Down Prerequisite after wrong answer: ${isStepDownPrerequisite}
-Grounding Textbook: ${primaryDoc.title} (${primaryDoc.chapter}, ${primaryDoc.section})
+Grounding Source (Classroom Resource / Curriculum): ${groundingTitle}
 
-Textbook Reference Passage:
-${primaryDoc.content}
+Reference Notes & Source Passage:
+${groundingContent}
 
-Generate a clear, pedagogical question with 4 options, the exact 0-based index of the correct option, a step-by-step worked explanation, and a helpful hint.`;
+Generate a clear, pedagogical question strictly testing concepts from the provided classroom resource/curriculum notes, with 4 options, the exact 0-based index of the correct option, a step-by-step worked explanation, and a helpful hint.`;
       const response = await ai.models.generateContent({
         model: "gemini-3.7-flash",
         contents: prompt,

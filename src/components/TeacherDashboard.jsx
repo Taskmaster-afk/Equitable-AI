@@ -89,7 +89,7 @@ export const TeacherDashboard = ({
       const res = await api.generateLessonPlan({
         topicName: topic.topicName,
         strugglingCount: topic.strugglingStudentsCount,
-        weakConcepts: ["NCERT Derivation Steps", "Formula sign conventions and graph plots"]
+        weakConcepts: ["Curriculum Derivation Steps", "Formula sign conventions and graph plots"]
       });
       setGeneratedLessonPlan(res.lessonPlan);
     } catch (err) {
@@ -111,6 +111,10 @@ export const TeacherDashboard = ({
             <span className="text-[#E5E7EB]">&bull;</span>
             <span className="text-xs font-semibold text-[#1A1A1A]">
               {currentTeacher?.name || "Dr. Rajesh Varma"} ({currentTeacher?.department || "Senior Science HOD"})
+            </span>
+            <span className="text-[#E5E7EB]">&bull;</span>
+            <span className="text-xs text-[#4B5563] font-medium">
+              🏫 {currentTeacher?.school || currentTeacher?.institute || "Kendriya Vidyalaya No. 1"}
             </span>
           </div>
           <h2 className="text-lg font-bold text-[#1A1A1A] tracking-tight">
