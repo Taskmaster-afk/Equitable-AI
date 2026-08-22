@@ -6,8 +6,58 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import { OER_CORPUS, SUPPORTED_LANGUAGES } from "./src/data/oerKnowledgeBase.js";
 import { SCHOLARSHIP_SCHEMES } from "./src/data/scholarshipDatabase.js";
+import { connectDB, isMongoConnected, getMongoStatus } from "./src/db/connection.js";
+import {
+  inMemDb as db,
+  seedMongoDatabase,
+  getInstitutes,
+  getInstituteById,
+  createInstitute,
+  updateInstitute,
+  getTeachers,
+  getTeacherById,
+  getTeacherByEmail,
+  createTeacher,
+  updateTeacher,
+  getStudents,
+  getStudentById,
+  getStudentByEmail,
+  createStudent,
+  updateStudent,
+  getClasses,
+  getClassByCode,
+  getClassesByTeacher,
+  createClass,
+  updateClass,
+  getClassroomResources,
+  getAllClassroomResources,
+  createClassroomResource,
+  deleteClassroomResource,
+  getResourceDumps,
+  createResourceDump,
+  deleteResourceDump,
+  getCommunityPosts,
+  getCommunityPostById,
+  createCommunityPost,
+  addPostAnswer,
+  upvotePost,
+  upvoteAnswer,
+  verifyAnswer,
+  recordDoubt,
+  recordPracticeLog
+} from "./src/db/dataService.js";
+import {
+  Institute,
+  Teacher,
+  Student,
+  ClassModel,
+  ClassroomResource,
+  ResourceDump,
+  CommunityPost
+} from "./src/db/schemas.js";
 dotenv.config();
 const app = express();
+
 const PORT = 3e3;
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -120,11 +170,25 @@ const CONCEPT_ONTOLOGY = {
   "pcr": ["biotechnology", "polymerase chain reaction", "taq polymerase", "denaturation", "annealing", "extension", "recombinant DNA"],
   "photosynthesis": ["life processes", "chlorophyll", "light reaction", "dark reaction", "calvin cycle", "stomata", "glucose"],
   "respiration": ["life processes", "cellular respiration", "ATP", "glycolysis", "mitochondria", "aerobic"],
-  "cell": ["cell biology", "fluid mosaic model", "cell membrane", "organelles", "nucleus", "mitochondria"]
+  "cell": ["cell biology", "fluid mosaic model", "cell membrane", "organelles", "nucleus", "mitochondria"],
+  // Multilingual Indian Curriculum Keywords
+  "न्यूटन": ["newton", "force", "motion", "laws of motion", "f=ma", "momentum", "संवेग"],
+  "गति": ["motion", "kinematics", "velocity", "acceleration", "laws of motion"],
+  "बल": ["force", "newton", "f=ma", "momentum", "laws of motion"],
+  "संवेग": ["momentum", "impulse", "newton", "force", "f=ma"],
+  "प्रकाश संश्लेषण": ["photosynthesis", "chlorophyll", "light reaction", "calvin cycle", "stomata", "glucose"],
+  "प्रकाश": ["optics", "wave optics", "reflection", "refraction", "interference"],
+  "विद्युत": ["current electricity", "ohm's law", "kirchhoff", "resistance", "potential"],
+  "समाकलन": ["integrals", "calculus", "integration by parts", "ilate", "definite integral"],
+  "अवकलन": ["derivatives", "calculus", "differentiation", "chain rule"],
+  "कोशिका": ["cell", "cell biology", "mitochondria", "cell membrane", "nucleus"],
+  "डीएनए": ["dna", "genetics", "semiconservative", "replication", "meselson stahl"]
 };
 
 function expandQueryConcepts(query) {
-  const words = query.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(w => w.length > 2);
+  const queryLower = query.toLowerCase();
+  // Support Unicode letters across all supported languages (Devanagari, Tamil, Bengali, Telugu, Gujarati, etc.)
+  const words = queryLower.replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(w => w.length >= 2);
   const concepts = new Set(words);
   
   for (const word of words) {
@@ -135,9 +199,8 @@ function expandQueryConcepts(query) {
     }
   }
   
-  const queryLower = query.toLowerCase();
   for (const key of Object.keys(CONCEPT_ONTOLOGY)) {
-    if (queryLower.includes(key)) {
+    if (queryLower.includes(key.toLowerCase())) {
       for (const related of CONCEPT_ONTOLOGY[key]) {
         concepts.add(related.toLowerCase());
       }
@@ -146,14 +209,33 @@ function expandQueryConcepts(query) {
   
   return Array.from(concepts);
 }
-function getGeminiClient() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.warn("GEMINI_API_KEY is not set. Offline/fallback grounded mode will be used.");
+const GEMINI_MODELS = [
+  "gemini-3.6-flash",
+  "gemini-1.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-pro",
+  "gemini-3.7-flash"
+];
+
+function isGreetingOrCasualMessage(text) {
+  if (!text || typeof text !== "string") return false;
+  const clean = text.toLowerCase().trim().replace(/[^\p{L}\p{N}\s]/gu, "");
+  const greetings = [
+    "hey", "hi", "hello", "how are you", "hey how are you", "how r u", "how do you do",
+    "good morning", "good afternoon", "good evening", "namaste", "what is your name",
+    "who are you", "what can you do", "help", "thanks", "thank you", "bye", "ok", "okay",
+    "नमस्ते", "प्रणाम", "हेलो", "हाय"
+  ];
+  return greetings.some(g => clean === g || clean === `${g} there` || clean === `hey ${g}` || clean === `hello ${g}`);
+}
+
+function getGeminiClient(customKey = null) {
+  const apiKey = customKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === "" || apiKey.includes("MY_GEMINI_API_KEY")) {
     return null;
   }
   return new GoogleGenAI({
-    apiKey,
+    apiKey: apiKey.trim(),
     httpOptions: {
       headers: {
         "User-Agent": "aistudio-build"
@@ -161,6 +243,30 @@ function getGeminiClient() {
     }
   });
 }
+
+async function callGeminiWithFallback(ai, requestConfig) {
+  if (!ai) return null;
+  let lastError = null;
+  const initialModel = requestConfig.model || "gemini-3.6-flash";
+  const modelsToTry = [initialModel, ...GEMINI_MODELS.filter(m => m !== initialModel)];
+
+  for (const model of modelsToTry) {
+    try {
+      const response = await ai.models.generateContent({
+        ...requestConfig,
+        model
+      });
+      if (response && response.text) {
+        return response;
+      }
+    } catch (err) {
+      lastError = err;
+      console.warn(`[Gemini AI] Model ${model} encountered notice: ${err.message}. Trying next candidate model...`);
+    }
+  }
+  throw lastError;
+}
+
 
 // Multimodal Resource Analyzer using Gemini 3.7 Flash
 async function analyzeUploadedResource({
@@ -213,8 +319,8 @@ Also provide a concise list of 4-6 key concepts covered.`;
 Also provide a concise list of 4-6 key concepts covered.`;
         }
 
-        const response = await ai.models.generateContent({
-          model: "gemini-3.7-flash",
+        const response = await callGeminiWithFallback(ai, {
+          model: "gemini-2.5-flash",
           contents: {
             parts: [
               {
@@ -256,17 +362,8 @@ Also provide a concise list of 4-6 key concepts covered.`;
     keyConcepts: extractedConcepts
   };
 }
-const db = {
-  institutes: /* @__PURE__ */ new Map(),
-  students: /* @__PURE__ */ new Map(),
-  teachers: /* @__PURE__ */ new Map(),
-  classes: /* @__PURE__ */ new Map(),
-  classroomResources: /* @__PURE__ */ new Map(), // classCode -> Array of shared notes/resources
-  resourceDumps: [], // Library resource dump files
-  communityPosts: [], // Institutional doubt and community posts
-  doubtHistory: [],
-  practiceLogs: []
-};
+// In-memory baseline and MongoDB Data Access Layer is imported from ./src/db/dataService.js
+
 function seedInitialData() {
   const initialInstitutes = [
     {
@@ -1354,7 +1451,7 @@ Key Limits:
 seedInitialData();
 
 function retrieveRelevantOerDocs(query, gradeLevel, classCode, instituteName) {
-  const queryWords = query.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2);
+  const queryWords = query.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length >= 2);
   const expandedConcepts = expandQueryConcepts(query);
   
   // 1. Gather all searchable items: Corpus + Classroom shared resources + Resource dumps
@@ -1505,23 +1602,42 @@ function retrieveRelevantOerDocs(query, gradeLevel, classCode, instituteName) {
     expandedConcepts: expandedConcepts.slice(0, 8)
   };
 }
-app.get("/api/health", (_req, res) => {
+app.get("/api/health", async (_req, res) => {
+  const isConnected = isMongoConnected();
+  let studentsCount = db.students.size;
+  let teachersCount = db.teachers.size;
+  let classesCount = db.classes.size;
+  let institutesCount = db.institutes.size;
+
+  if (isConnected) {
+    try {
+      studentsCount = await Student.countDocuments();
+      teachersCount = await Teacher.countDocuments();
+      classesCount = await ClassModel.countDocuments();
+      institutesCount = await Institute.countDocuments();
+    } catch (err) {
+      console.warn("MongoDB count error in health:", err.message);
+    }
+  }
+
   res.json({
     status: "ok",
     aiEnabled: !!process.env.GEMINI_API_KEY,
+    mongoConnected: isConnected,
+    mongoStatus: getMongoStatus(),
     oerDocsCount: OER_CORPUS.length,
     scholarshipsCount: SCHOLARSHIP_SCHEMES.length,
-    activeStudents: db.students.size,
-    activeTeachers: db.teachers.size,
-    activeClasses: db.classes.size,
-    activeInstitutes: db.institutes.size
+    activeStudents: studentsCount,
+    activeTeachers: teachersCount,
+    activeClasses: classesCount,
+    activeInstitutes: institutesCount
   });
 });
-app.get("/api/institutes", (_req, res) => {
-  const institutesList = Array.from(db.institutes.values());
+app.get("/api/institutes", async (_req, res) => {
+  const institutesList = await getInstitutes();
   res.json({ institutes: institutesList });
 });
-app.post("/api/institutes", (req, res) => {
+app.post("/api/institutes", async (req, res) => {
   const {
     name,
     type = "University / Higher Education",
@@ -1536,7 +1652,7 @@ app.post("/api/institutes", (req, res) => {
     return res.status(400).json({ error: "Institute name is required." });
   }
   const cleanName = name.trim();
-  const existing = Array.from(db.institutes.values()).find(
+  const existing = (await getInstitutes()).find(
     (i) => i.name.toLowerCase() === cleanName.toLowerCase()
   );
   if (existing) {
@@ -1556,7 +1672,7 @@ app.post("/api/institutes", (req, res) => {
     teachersCount: 1,
     createdAt: new Date().toISOString()
   };
-  db.institutes.set(newInst.id, newInst);
+  await createInstitute(newInst);
   res.status(201).json({ success: true, institute: newInst, message: `Institute "${cleanName}" registered successfully!` });
 });
 app.get("/api/teachers", (_req, res) => {
@@ -2054,7 +2170,7 @@ app.get("/api/class/:code", (req, res) => {
   }
   res.json({ classInfo });
 });
-app.post("/api/auth/register-teacher", (req, res) => {
+app.post("/api/auth/register-teacher", async (req, res) => {
   const {
     name,
     email,
@@ -2085,7 +2201,7 @@ app.post("/api/auth/register-teacher", (req, res) => {
   }
 
   const cleanInstituteName = instituteName.trim();
-  let targetInstitute = Array.from(db.institutes.values()).find(
+  let targetInstitute = (await getInstitutes()).find(
     (i) => i.name.toLowerCase() === cleanInstituteName.toLowerCase()
   );
 
@@ -2106,13 +2222,14 @@ app.post("/api/auth/register-teacher", (req, res) => {
       teachersCount: 1,
       createdAt: new Date().toISOString()
     };
-    db.institutes.set(targetInstitute.id, targetInstitute);
+    await createInstitute(targetInstitute);
   } else {
     targetInstitute.teachersCount = (targetInstitute.teachersCount || 0) + 1;
     targetInstitute.classesCount = (targetInstitute.classesCount || 0) + 1;
     if (customCurriculum && !targetInstitute.customCurriculum) {
       targetInstitute.customCurriculum = customCurriculum;
     }
+    await updateInstitute(targetInstitute.id, targetInstitute);
   }
 
   const teacherId = `teacher-${Date.now()}`;
@@ -2172,7 +2289,7 @@ app.post("/api/auth/register-teacher", (req, res) => {
     enrolledCount: 0
   };
 
-  db.classes.set(initialClass.classCode, initialClass);
+  await createClass(initialClass);
 
   const newTeacher = {
     id: teacherId,
@@ -2186,7 +2303,7 @@ app.post("/api/auth/register-teacher", (req, res) => {
     classes: [initialClass]
   };
 
-  db.teachers.set(teacherId, newTeacher);
+  await createTeacher(newTeacher);
 
   const authUser = {
     id: newTeacher.id,
@@ -2208,7 +2325,7 @@ app.post("/api/auth/register-teacher", (req, res) => {
     message: `Welcome, ${name}! Your faculty account and classroom code ${generatedClassCode} for ${cleanInstituteName} have been created.`
   });
 });
-app.post("/api/auth/register-student", (req, res) => {
+app.post("/api/auth/register-student", async (req, res) => {
   const {
     name,
     email,
@@ -2240,7 +2357,7 @@ app.post("/api/auth/register-student", (req, res) => {
   }
 
   const cleanInstituteName = instituteName.trim();
-  const existingInstitute = Array.from(db.institutes.values()).find(
+  const existingInstitute = (await getInstitutes()).find(
     (i) => i.name.toLowerCase() === cleanInstituteName.toLowerCase()
   );
   if (!existingInstitute) {
@@ -2250,7 +2367,7 @@ app.post("/api/auth/register-student", (req, res) => {
   }
 
   const cleanCode = classCode.trim().toUpperCase();
-  const classInfo = db.classes.get(cleanCode);
+  const classInfo = await getClassByCode(cleanCode);
   if (!classInfo) {
     return res.status(400).json({
       error: `Class Code "${cleanCode}" was not found. Please verify the code provided by your instructor or teacher (e.g. UNIV-UG1 or NCERT-12A).`
@@ -2301,10 +2418,12 @@ app.post("/api/auth/register-student", (req, res) => {
     lastActive: "Just now",
     masteryList: initialMastery
   };
-  db.students.set(studentId, newStudent);
+  await createStudent(newStudent);
+  if (!classInfo.enrolledStudentIds) classInfo.enrolledStudentIds = [];
   if (!classInfo.enrolledStudentIds.includes(studentId)) {
     classInfo.enrolledStudentIds.push(studentId);
     classInfo.enrolledCount = classInfo.enrolledStudentIds.length;
+    await updateClass(cleanCode, classInfo);
   }
   const authUser = {
     id: studentId,
@@ -2346,7 +2465,7 @@ app.get("/api/teacher/classes", (req, res) => {
   );
   res.json({ classes: teacherClasses });
 });
-app.post("/api/teacher/create-class", (req, res) => {
+app.post("/api/teacher/create-class", async (req, res) => {
   const {
     className,
     targetClass = "Undergraduate Year 1",
@@ -2365,13 +2484,13 @@ app.post("/api/teacher/create-class", (req, res) => {
   const defaultCodePrefix = isUniv ? "UNIV" : "NCERT";
   const generatedCode = customCode ? customCode.trim().toUpperCase() : `${defaultCodePrefix}-${Math.floor(100 + Math.random() * 900)}`;
 
-  if (db.classes.has(generatedCode)) {
+  if (await getClassByCode(generatedCode)) {
     return res.status(400).json({
       error: `Class code ${generatedCode} already exists. Please choose a different code.`
     });
   }
 
-  const instObj = Array.from(db.institutes.values()).find(
+  const instObj = (await getInstitutes()).find(
     (i) => i.name.toLowerCase() === (school || "").toLowerCase()
   );
   const resolvedCurriculum = curriculum || (instObj ? instObj.curriculum : (isUniv ? "University Undergraduate Degree (Semester / CBCS Credit System)" : "CBSE / NCERT National Curriculum Framework (NCF 2023-25)"));
@@ -2405,10 +2524,10 @@ app.post("/api/teacher/create-class", (req, res) => {
           {
             periodNumber: 2,
             time: "11:00 - 12:30 PM",
-            subject: isUniv ? "Analytical Problem Session" : "Mathematics",
-            topic: "Foundations & Worked Derivations",
+            subject: isUniv ? "Lab Practicum & Discussion" : "Guided Practice",
+            topic: "Analytical Problem Solving & Discussion",
             teacher: teacherName,
-            room: isUniv ? "Lab 2" : "Room 101"
+            room: isUniv ? "Computational Lab" : "Lab"
           }
         ]
       }
@@ -2427,10 +2546,12 @@ app.post("/api/teacher/create-class", (req, res) => {
     enrolledStudentIds: [],
     enrolledCount: 0
   };
-  db.classes.set(generatedCode, newClass);
-  const teacher = db.teachers.get(teacherId);
+  await createClass(newClass);
+  const teacher = await getTeacherById(teacherId);
   if (teacher) {
-    teacher.classes.push(newClass);
+    if (!teacher.classes) teacher.classes = [];
+    teacher.classes.push(newClass.classCode || newClass);
+    await updateTeacher(teacherId, teacher);
   }
   res.json({ success: true, classInfo: newClass });
 });
@@ -2523,9 +2644,9 @@ app.put("/api/students/:id", (req, res) => {
 // ==========================================
 // CLASSROOM RESOURCES (TEACHER & STUDENT SHARING)
 // ==========================================
-app.get("/api/class/:code/resources", (req, res) => {
+app.get("/api/class/:code/resources", async (req, res) => {
   const code = req.params.code.trim().toUpperCase();
-  const resources = db.classroomResources.get(code) || [];
+  const resources = await getClassroomResources(code);
   res.json({ resources, classCode: code, count: resources.length });
 });
 
@@ -2588,10 +2709,7 @@ app.post("/api/class/:code/resources", async (req, res) => {
       downloadCount: 1
     };
 
-    if (!db.classroomResources.has(code)) {
-      db.classroomResources.set(code, []);
-    }
-    db.classroomResources.get(code).unshift(newResource);
+    await createClassroomResource(newResource);
 
     res.status(201).json({
       message: `Resource with ${analyzed.mediaType.toUpperCase()} content shared with classroom successfully! AI has indexed it for doubts and tests.`,
@@ -2603,26 +2721,20 @@ app.post("/api/class/:code/resources", async (req, res) => {
   }
 });
 
-app.delete("/api/class/:code/resources/:id", (req, res) => {
+app.delete("/api/class/:code/resources/:id", async (req, res) => {
   const code = req.params.code.trim().toUpperCase();
   const resId = req.params.id;
-  if (db.classroomResources.has(code)) {
-    const list = db.classroomResources.get(code);
-    db.classroomResources.set(code, list.filter(r => r.id !== resId));
-  }
+  await deleteClassroomResource(resId, code);
   res.json({ success: true, message: "Resource deleted from classroom." });
 });
 
 // ==========================================
 // LIBRARY RESOURCE DUMPS (STUDENTS & TEACHERS REPOSITORY)
 // ==========================================
-app.get("/api/resources/dumps", (req, res) => {
+app.get("/api/resources/dumps", async (req, res) => {
   const { subject, grade, institute, search } = req.query;
-  let dumps = [...(db.resourceDumps || [])];
+  let dumps = await getResourceDumps({ subject });
 
-  if (subject && subject !== "all") {
-    dumps = dumps.filter(d => d.subject.toLowerCase() === String(subject).toLowerCase());
-  }
   if (grade && grade !== "all") {
     dumps = dumps.filter(d => d.gradeLevel === grade);
   }
@@ -2703,7 +2815,7 @@ app.post("/api/resources/dumps", async (req, res) => {
       createdAt: "Just now"
     };
 
-    db.resourceDumps.unshift(newDump);
+    await createResourceDump(newDump);
 
     res.status(201).json({
       message: `Resource with ${analyzed.mediaType.toUpperCase()} uploaded to Knowledge Dump repository. AI will now index and read from this document!`,
@@ -2715,25 +2827,19 @@ app.post("/api/resources/dumps", async (req, res) => {
   }
 });
 
-app.delete("/api/resources/dumps/:id", (req, res) => {
+app.delete("/api/resources/dumps/:id", async (req, res) => {
   const dumpId = req.params.id;
-  db.resourceDumps = db.resourceDumps.filter(d => d.id !== dumpId);
+  await deleteResourceDump(dumpId);
   res.json({ success: true, message: "Resource dump removed from library repository." });
 });
 
 // ==========================================
 // INSTITUTION COMMUNITY CHAT & DOUBTS
 // ==========================================
-app.get("/api/community/posts", (req, res) => {
+app.get("/api/community/posts", async (req, res) => {
   const { institute, subject, search } = req.query;
-  let posts = [...(db.communityPosts || [])];
+  let posts = await getCommunityPosts({ institute, subject });
 
-  if (institute && institute !== "all") {
-    posts = posts.filter(p => p.instituteName?.toLowerCase().trim() === String(institute).toLowerCase().trim());
-  }
-  if (subject && subject !== "all") {
-    posts = posts.filter(p => p.subject?.toLowerCase() === String(subject).toLowerCase());
-  }
   if (search && search.trim()) {
     const term = search.toLowerCase();
     posts = posts.filter(p => 
@@ -2746,7 +2852,7 @@ app.get("/api/community/posts", (req, res) => {
   res.json({ posts, count: posts.length });
 });
 
-app.post("/api/community/posts", (req, res) => {
+app.post("/api/community/posts", async (req, res) => {
   const {
     instituteName,
     title,
@@ -2786,7 +2892,7 @@ app.post("/api/community/posts", (req, res) => {
     answers: []
   };
 
-  db.communityPosts.unshift(newPost);
+  await createCommunityPost(newPost);
 
   res.status(201).json({
     message: "Doubt shared to your institution's community chat!",
@@ -2794,7 +2900,7 @@ app.post("/api/community/posts", (req, res) => {
   });
 });
 
-app.post("/api/community/posts/:id/answers", (req, res) => {
+app.post("/api/community/posts/:id/answers", async (req, res) => {
   const postId = req.params.id;
   const {
     authorName = "Community Helper",
@@ -2807,7 +2913,7 @@ app.post("/api/community/posts/:id/answers", (req, res) => {
     return res.status(400).json({ error: "Answer content cannot be empty." });
   }
 
-  const post = db.communityPosts.find(p => p.id === postId);
+  const post = await getCommunityPostById(postId);
   if (!post) {
     return res.status(404).json({ error: "Doubt thread not found." });
   }
@@ -2824,66 +2930,48 @@ app.post("/api/community/posts/:id/answers", (req, res) => {
     createdAt: "Just now"
   };
 
-  post.answers.push(newAnswer);
+  const updatedPost = await addPostAnswer(postId, newAnswer);
 
   res.status(201).json({
     message: "Answer posted to community doubt thread!",
     answer: newAnswer,
-    post
+    post: updatedPost || post
   });
 });
 
-app.post("/api/community/posts/:id/upvote", (req, res) => {
+app.post("/api/community/posts/:id/upvote", async (req, res) => {
   const postId = req.params.id;
   const { userId = "user-anon" } = req.body;
-  const post = db.communityPosts.find(p => p.id === postId);
+  const post = await getCommunityPostById(postId);
   if (!post) {
     return res.status(404).json({ error: "Post not found" });
   }
 
-  post.upvotedBy = post.upvotedBy || [];
-  if (post.upvotedBy.includes(userId)) {
-    post.upvotedBy = post.upvotedBy.filter(u => u !== userId);
-    post.upvotes = Math.max(0, post.upvotes - 1);
-  } else {
-    post.upvotedBy.push(userId);
-    post.upvotes += 1;
-  }
-
-  res.json({ upvotes: post.upvotes, isUpvoted: post.upvotedBy.includes(userId) });
+  const updated = await upvotePost(postId, userId);
+  res.json({ upvotes: updated.upvotes, isUpvoted: (updated.upvotedBy || []).includes(userId) });
 });
 
-app.post("/api/community/posts/:id/answers/:answerId/upvote", (req, res) => {
+app.post("/api/community/posts/:id/answers/:answerId/upvote", async (req, res) => {
   const { id: postId, answerId } = req.params;
   const { userId = "user-anon" } = req.body;
-  const post = db.communityPosts.find(p => p.id === postId);
+  const post = await getCommunityPostById(postId);
   if (!post) return res.status(404).json({ error: "Post not found" });
 
-  const answer = post.answers.find(a => a.id === answerId);
-  if (!answer) return res.status(404).json({ error: "Answer not found" });
-
-  answer.upvotedBy = answer.upvotedBy || [];
-  if (answer.upvotedBy.includes(userId)) {
-    answer.upvotedBy = answer.upvotedBy.filter(u => u !== userId);
-    answer.upvotes = Math.max(0, answer.upvotes - 1);
-  } else {
-    answer.upvotedBy.push(userId);
-    answer.upvotes += 1;
-  }
-
-  res.json({ upvotes: answer.upvotes, isUpvoted: answer.upvotedBy.includes(userId) });
+  const updated = await upvoteAnswer(postId, answerId, userId);
+  const ans = (updated.answers || []).find(a => a.id === answerId);
+  res.json({ upvotes: ans ? ans.upvotes : 0, isUpvoted: ans ? (ans.upvotedBy || []).includes(userId) : false });
 });
 
-app.post("/api/community/posts/:id/answers/:answerId/verify", (req, res) => {
+app.post("/api/community/posts/:id/answers/:answerId/verify", async (req, res) => {
   const { id: postId, answerId } = req.params;
-  const post = db.communityPosts.find(p => p.id === postId);
+  const post = await getCommunityPostById(postId);
   if (!post) return res.status(404).json({ error: "Post not found" });
 
-  const answer = post.answers.find(a => a.id === answerId);
-  if (!answer) return res.status(404).json({ error: "Answer not found" });
+  const ans = (post.answers || []).find(a => a.id === answerId);
+  const nextVerified = ans ? !ans.isVerified : true;
+  await verifyAnswer(postId, answerId, nextVerified);
 
-  answer.isVerified = !answer.isVerified;
-  res.json({ isVerified: answer.isVerified, message: answer.isVerified ? "Answer verified by teacher!" : "Verification removed." });
+  res.json({ isVerified: nextVerified, message: nextVerified ? "Answer verified by teacher!" : "Verification removed." });
 });
 
 app.get("/api/oer/corpus", (req, res) => {
@@ -3274,12 +3362,20 @@ app.post("/api/doubt/solve", async (req, res) => {
     const effectiveClassCode = classCode || student?.classCode || "";
     const effectiveInstitute = instituteName || student?.instituteName || "";
 
-    const { docs, citations } = retrieveRelevantOerDocs(
-      question || "Math & Science concepts",
-      gradeLevel,
-      effectiveClassCode,
-      effectiveInstitute
-    );
+    const isGreeting = isGreetingOrCasualMessage(question) && !imageData;
+    let docs = [];
+    let citations = [];
+
+    if (!isGreeting) {
+      const retrieval = retrieveRelevantOerDocs(
+        question || "Math & Science concepts",
+        gradeLevel,
+        effectiveClassCode,
+        effectiveInstitute
+      );
+      docs = retrieval.docs;
+      citations = retrieval.citations;
+    }
 
     const contextText = docs.map(
       (d) => `[SOURCE (${d.sourceTypeLabel || 'Curriculum'}): ${d.title} | ${d.chapter} | ${d.section} | Reference: ${d.pageOrRef} | License: ${d.license}]
@@ -3292,8 +3388,26 @@ ${d.content}`
       student.lastActive = "Just now";
     }
 
-    const matchedDoc = docs[0] || OER_CORPUS[0];
-    let explanation = `### Step-by-Step Explanation (Grounded in ${matchedDoc.title})
+    let explanation = "";
+    let suggestedFollowUps = [
+      "How do I solve ∫ x · e^x dx using integration by parts (ILATE)?",
+      "Why does a fielder pull hands back when catching a ball (Newton's 2nd Law)?",
+      "What are the key differences between SN1 and SN2 reaction mechanisms?"
+    ];
+    let groundingStatus = isGreeting ? "conversational" : "verified_grounded";
+    let groundingReasoning = isGreeting
+      ? "AI Tutor ready to help with any curriculum topic or homework problem."
+      : `Grounded in ${citations.length} verified educational sources and classroom materials (${citations.map((c) => c.publisher).join(", ")}).`;
+
+    if (isGreeting) {
+      explanation = `Hello! 👋 I am your AI Curriculum & Classroom Tutor.
+
+I am here to help you understand concepts, solve problems step-by-step, and prepare for your exams in **Physics, Chemistry, Mathematics, and Biology** across Class 6 to 12 and beyond.
+
+What subject or topic would you like to explore today? You can also upload a photo of any textbook problem or handwritten work!`;
+    } else {
+      const matchedDoc = docs[0] || OER_CORPUS[0];
+      explanation = `### Step-by-Step Explanation (Grounded in ${matchedDoc.title})
 
 **Core Principle:**
 ${matchedDoc.summary}
@@ -3314,18 +3428,27 @@ Work through the equation step-by-step to arrive at the final simplified value. 
 - **Source Material:** ${matchedDoc.title}
 - **Section / Origin:** ${matchedDoc.section} (${matchedDoc.pageOrRef})
 - **License / Classification:** ${matchedDoc.license}`;
-
-    let suggestedFollowUps = [
-      "Could you explain this with a real-world daily life analogy?",
-      "I am confused about Step 2, could you break it down into smaller steps?",
-      "Can you give me a simple practice question to test if I got it?"
-    ];
-    let groundingStatus = "verified_grounded";
+    }
 
     const ai = getGeminiClient();
     if (ai) {
       try {
-        const systemInstruction = `You are a patient, pedagogically grounded AI tutor designed for equitable education access for students.
+        if (isGreeting) {
+          const response = await callGeminiWithFallback(ai, {
+            model: "gemini-3.6-flash",
+            contents: `The student sent the greeting: "${question}".
+Previous conversation: ${JSON.stringify(previousContext.slice(-3))}
+
+Respond warmly, politely, and enthusiastically in ${langName} as "Equitable-AI Tutor". Ask what science, math, or biology topic or homework problem they would like help solving today! Keep the response concise, friendly, and helpful.`,
+            config: {
+              temperature: 0.7
+            }
+          });
+          if (response && response.text) {
+            explanation = response.text;
+          }
+        } else {
+          const systemInstruction = `You are a patient, pedagogically grounded AI tutor designed for equitable education access for students.
 Your primary directive is to provide clear, level-appropriate explanations STRICTLY GROUNDED in verified educational curriculum frameworks, classroom-shared notes uploaded by teachers and peers, and community resource dumps.
 
 STRICT RULES:
@@ -3335,8 +3458,8 @@ STRICT RULES:
 4. CITATION REQUIREMENT: You MUST explicitly reference the provided curriculum chapters, teacher/student classroom notes, or resource dump passages (e.g. "According to the classroom notes on Wave Optics..." or "Referencing Senior Secondary Mathematics Chapter 7 Integrals...").
 5. HONESTY: If the question cannot be grounded in standard secondary/high school curriculum or the provided corpus, politely explain what foundational concept applies rather than fabricating facts.
 6. NO MOCK JARGON: Keep the tone encouraging, supportive, and crystal clear.
-7. Format with clear numbered steps, bold highlights, and clean typography.`;
-        const promptContent = `Student Doubt / Question:
+7. Format with clear numbered steps, bold highlights, and clean typography with LaTeX math ($...$ or $$...$$).`;
+          const promptContent = `Student Doubt / Question:
 "${question}"
 
 ${imageData ? "[Student uploaded an image of their handwritten work or textbook problem]" : ""}
@@ -3348,65 +3471,65 @@ Previous conversation context (if any):
 ${JSON.stringify(previousContext.slice(-3))}
 
 Provide a step-by-step grounded explanation in ${langName} citing the exact source material and classroom resources.`;
-        let contentsPayload = promptContent;
-        if (imageData) {
-          const base64Clean = imageData.replace(/^data:image\/\w+;base64,/, "");
-          contentsPayload = {
-            parts: [
-              {
-                inlineData: {
-                  mimeType: "image/png",
-                  data: base64Clean
+          let contentsPayload = promptContent;
+          if (imageData) {
+            const base64Clean = imageData.replace(/^data:image\/\w+;base64,/, "");
+            contentsPayload = {
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: "image/png",
+                    data: base64Clean
+                  }
+                },
+                {
+                  text: promptContent
                 }
-              },
-              {
-                text: promptContent
-              }
-            ]
-          };
-        }
-        const response = await ai.models.generateContent({
-          model: "gemini-3.7-flash",
-          contents: contentsPayload,
-          config: {
-            systemInstruction,
-            temperature: 0.3
+              ]
+            };
           }
-        });
-        if (response && response.text) {
-          explanation = response.text;
-        }
-
-        try {
-          const followUpPrompt = `Based on the explanation given above for topic "${question}", provide exactly 3 helpful, one-sentence follow-up questions a student might naturally ask to clarify confusion. Return ONLY a JSON array of strings.`;
-          const followUpRes = await ai.models.generateContent({
-            model: "gemini-3.7-flash",
-            contents: followUpPrompt,
+          const response = await callGeminiWithFallback(ai, {
+            model: "gemini-3.6-flash",
+            contents: contentsPayload,
             config: {
-              responseMimeType: "application/json",
-              responseSchema: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING }
-              }
+              systemInstruction,
+              temperature: 0.3
             }
           });
-          if (followUpRes.text) {
-            suggestedFollowUps = JSON.parse(followUpRes.text.trim());
+          if (response && response.text) {
+            explanation = response.text;
           }
-        } catch (e) {
-          // Keep default follow-up questions if rate limited
+
+          try {
+            const followUpPrompt = `Based on the explanation given above for topic "${question}", provide exactly 3 helpful, one-sentence follow-up questions a student might naturally ask to clarify confusion. Return ONLY a JSON array of strings.`;
+            const followUpRes = await callGeminiWithFallback(ai, {
+              model: "gemini-3.6-flash",
+              contents: followUpPrompt,
+              config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING }
+                }
+              }
+            });
+            if (followUpRes && followUpRes.text) {
+              suggestedFollowUps = JSON.parse(followUpRes.text.trim());
+            }
+          } catch (e) {
+            // Keep default follow-up questions if rate limited
+          }
         }
       } catch (aiErr) {
-        console.warn("AI generation rate-limited or unavailable for doubt solve (falling back to grounded corpus):", aiErr.message);
-        // explanation is already set with verified grounded textbook solution
+        console.warn("AI generation rate-limited or unavailable for doubt solve (falling back):", aiErr.message);
       }
     }
 
-    db.doubtHistory.push({
+    await recordDoubt({
       id: `doubt-${Date.now()}`,
       studentId,
-      question,
-      response: explanation,
+      doubtQuery: question,
+      responseSummary: explanation.slice(0, 300),
       citations,
       language,
       timestamp: new Date().toISOString()
@@ -3512,8 +3635,8 @@ Reference Notes & Source Passage:
 ${groundingContent}
 
 Generate a clear, pedagogical question strictly testing concepts from the provided classroom resource/curriculum notes, with 4 options, the exact 0-based index of the correct option, a step-by-step worked explanation, and a helpful hint.`;
-        const response = await ai.models.generateContent({
-          model: "gemini-3.7-flash",
+        const response = await callGeminiWithFallback(ai, {
+          model: "gemini-2.5-flash",
           contents: prompt,
           config: {
             responseMimeType: "application/json",
@@ -3533,7 +3656,7 @@ Generate a clear, pedagogical question strictly testing concepts from the provid
             }
           }
         });
-        if (response.text) {
+        if (response && response.text) {
           const parsed = JSON.parse(response.text.trim());
           if (parsed && parsed.questionText && Array.isArray(parsed.options) && parsed.options.length >= 2) {
             questionData = {
@@ -3576,38 +3699,41 @@ Generate a clear, pedagogical question strictly testing concepts from the provid
     res.json({ question: fallbackQ, targetTopic: null });
   }
 });
-app.post("/api/practice/submit", (req, res) => {
+app.post("/api/practice/submit", async (req, res) => {
   const { studentId = "student-1", topicId, isCorrect, difficulty } = req.body;
-  const student = db.students.get(studentId);
+  const student = (await getStudentById(studentId)) || db.students.get(studentId);
   if (!student) {
     return res.status(404).json({ error: "Student not found" });
   }
-  const topic = student.masteryList.find((t) => t.topicId === topicId);
+  const topic = (student.masteryList || []).find((t) => t.topicId === topicId);
   if (topic) {
-    topic.attemptsCount += 1;
+    topic.attemptsCount = (topic.attemptsCount || 0) + 1;
     topic.lastAttemptedAt = "Just now";
     if (isCorrect) {
-      topic.recentStreak = topic.recentStreak > 0 ? topic.recentStreak + 1 : 1;
+      topic.recentStreak = (topic.recentStreak || 0) > 0 ? topic.recentStreak + 1 : 1;
       const delta = difficulty === "Advanced" ? 8 : difficulty === "Intermediate" ? 5 : 3;
-      topic.masteryPercentage = Math.min(100, topic.masteryPercentage + delta);
-      if (topic.masteryPercentage > 80) {
+      topic.masteryPercentage = Math.min(100, (topic.masteryPercentage || 50) + delta);
+      if (topic.weakConcepts && topic.masteryPercentage > 80) {
         topic.weakConcepts = topic.weakConcepts.slice(1);
       }
     } else {
-      topic.recentStreak = topic.recentStreak < 0 ? topic.recentStreak - 1 : -1;
+      topic.recentStreak = (topic.recentStreak || 0) < 0 ? topic.recentStreak - 1 : -1;
       const delta = difficulty === "Advanced" ? 3 : 6;
-      topic.masteryPercentage = Math.max(10, topic.masteryPercentage - delta);
+      topic.masteryPercentage = Math.max(10, (topic.masteryPercentage || 50) - delta);
     }
   }
-  student.totalPracticeCompleted += 1;
-  db.practiceLogs.push({
+  student.totalPracticeCompleted = (student.totalPracticeCompleted || 0) + 1;
+  const logEntry = {
     id: `log-${Date.now()}`,
     studentId,
     topicId,
     isCorrect,
     difficulty,
-    timestamp: (/* @__PURE__ */ new Date()).toISOString()
-  });
+    timestamp: new Date().toISOString()
+  };
+  await updateStudent(studentId, student);
+  await recordPracticeLog(logEntry);
+
   res.json({
     success: true,
     updatedTopic: topic,
@@ -3779,11 +3905,11 @@ Structure the response with:
 3. 5-Minute Pair Practice Problem with Prerequisite Scaffolding
 4. 2-Minute Formative Check Question with Diagnostic Distractors.
 Keep it direct, actionable, practical, and highly pedagogical.`;
-      const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
+      const response = await callGeminiWithFallback(ai, {
+        model: "gemini-2.5-flash",
         contents: prompt
       });
-      lessonPlan = response.text || "15-Minute Remediation Plan ready for classroom delivery.";
+      lessonPlan = response?.text || "15-Minute Remediation Plan ready for classroom delivery.";
     } else {
       lessonPlan = `### 15-Minute Rapid Remediation Plan: ${topicName}
 
@@ -3885,6 +4011,10 @@ app.post("/api/scholarships/match", (req, res) => {
   res.json({ matches: results });
 });
 async function startServer() {
+  console.log("🔄 Initializing Equitable-AI services & connecting database...");
+  await connectDB();
+  await seedMongoDatabase();
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

@@ -1,0 +1,193 @@
+import mongoose from "mongoose";
+
+const InstituteSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  name: { type: String, required: true },
+  type: { type: String, default: "General Institution" },
+  tier: { type: String, default: "Secondary" },
+  location: { type: String, default: "National / Global" },
+  curriculum: { type: String, default: "National Standards Framework" },
+  classesCount: { type: Number, default: 0 },
+  teachersCount: { type: Number, default: 0 }
+}, { timestamps: true });
+
+const TeacherSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true, lowercase: true, index: true },
+  password: { type: String },
+  passwordHash: { type: String },
+  role: { type: String, default: "teacher" },
+  school: { type: String, default: "" },
+  institute: { type: String, default: "" },
+  instituteId: { type: String, default: "" },
+  department: { type: String, default: "Academic Faculty" },
+  curriculum: { type: String, default: "" },
+  classes: [{ type: mongoose.Schema.Types.Mixed }],
+  firstClassCode: { type: String, default: "" }
+}, { timestamps: true, strict: false });
+
+const StudentSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true, lowercase: true, index: true },
+  password: { type: String },
+  passwordHash: { type: String },
+  role: { type: String, default: "student" },
+  gradeLevel: { type: String, default: "Grade 11-12" },
+  stream: { type: String, default: "Science" },
+  classCode: { type: String, index: true },
+  school: { type: String, default: "" },
+  institute: { type: String, default: "" },
+  primaryLanguage: { type: String, default: "en" },
+  category: { type: String, default: "General" },
+  gender: { type: String, default: "Unspecified" },
+  familyIncome: { type: String, default: "" },
+  familyIncomeAnnual: { type: Number, default: 150000 },
+  academicScorePercent: { type: Number, default: 75 },
+  firstGenerationLearner: { type: Boolean, default: false },
+  masteryList: [{
+    topicId: { type: String, required: true },
+    topicName: { type: String, required: true },
+    subject: { type: String, required: true },
+    gradeLevel: { type: String, default: "Grade 11-12" },
+    masteryPercent: { type: Number, default: 50 },
+    questionsAttempted: { type: Number, default: 0 },
+    questionsCorrect: { type: Number, default: 0 },
+    lastAttempted: { type: String, default: "" },
+    recentPerformance: { type: String, default: "steady" }
+  }],
+  practiceStats: {
+    totalQuestionsAttempted: { type: Number, default: 0 },
+    totalCorrect: { type: Number, default: 0 },
+    currentStreak: { type: Number, default: 0 },
+    bestStreak: { type: Number, default: 0 },
+    recentAccuracy: { type: Number, default: 0 }
+  },
+  recentStreak: { type: Number, default: 0 },
+  flagged: { type: Boolean, default: false },
+  flagReason: { type: String, default: "" },
+  flagIntervention: { type: String, default: "" },
+  severity: { type: String, default: "on_track" },
+  primaryIssue: { type: String, default: "" },
+  doubtHistory: [{
+    id: { type: String, required: true },
+    doubtQuery: { type: String, required: true },
+    timestamp: { type: Date, default: Date.now },
+    topicId: { type: String, default: "" },
+    language: { type: String, default: "en" },
+    responseSummary: { type: String, default: "" }
+  }],
+  practiceLogs: [{
+    id: { type: String, required: true },
+    topicId: { type: String, required: true },
+    difficulty: { type: String, default: "Intermediate" },
+    isCorrect: { type: Boolean, default: false },
+    timestamp: { type: Date, default: Date.now },
+    studentAnswerIndex: { type: Number, default: -1 },
+    questionId: { type: String, default: "" }
+  }]
+}, { timestamps: true });
+
+const ClassSchema = new mongoose.Schema({
+  classCode: { type: String, required: true, unique: true, index: true },
+  className: { type: String, required: true },
+  gradeLevel: { type: String, default: "Grade 11-12" },
+  stream: { type: String, default: "Science" },
+  teacherId: { type: String, index: true },
+  teacherName: { type: String, default: "Teacher" },
+  school: { type: String, default: "" },
+  institute: { type: String, default: "" },
+  studentsCount: { type: Number, default: 0 },
+  timetable: [{
+    day: { type: String, required: true },
+    periods: [{
+      periodNumber: { type: Number },
+      time: { type: String },
+      subject: { type: String },
+      topic: { type: String },
+      teacher: { type: String },
+      room: { type: String }
+    }]
+  }]
+}, { timestamps: true });
+
+const ClassroomResourceSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  classCode: { type: String, required: true, index: true },
+  title: { type: String, required: true },
+  subject: { type: String, default: "General" },
+  gradeLevel: { type: String, default: "Grade 11-12" },
+  chapter: { type: String, default: "" },
+  keyConcepts: [{ type: String }],
+  content: { type: String, default: "" },
+  finalContent: { type: String, default: "" },
+  mediaType: { type: String, default: "text" },
+  mediaMeta: {
+    fileName: String,
+    fileSize: Number,
+    mimeType: String,
+    uploadedAt: String
+  },
+  fileData: { type: String, default: null },
+  authorName: { type: String, default: "Faculty" },
+  authorRole: { type: String, default: "teacher" },
+  authorId: { type: String, default: "" }
+}, { timestamps: true });
+
+const ResourceDumpSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  title: { type: String, required: true },
+  subject: { type: String, default: "General" },
+  gradeLevel: { type: String, default: "Grade 11-12" },
+  chapter: { type: String, default: "" },
+  tags: [{ type: String }],
+  content: { type: String, default: "" },
+  finalContent: { type: String, default: "" },
+  mediaType: { type: String, default: "text" },
+  mediaMeta: {
+    fileName: String,
+    fileSize: Number,
+    mimeType: String,
+    uploadedAt: String
+  },
+  fileData: { type: String, default: null },
+  authorName: { type: String, default: "Scholar" },
+  authorRole: { type: String, default: "student" },
+  authorId: { type: String, default: "" },
+  instituteName: { type: String, default: "Open Education Network" }
+}, { timestamps: true });
+
+const CommunityPostSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  instituteName: { type: String, required: true, index: true },
+  title: { type: String, required: true },
+  content: { type: String, required: true },
+  subject: { type: String, default: "General" },
+  gradeLevel: { type: String, default: "Grade 11-12" },
+  authorName: { type: String, default: "Scholar" },
+  authorRole: { type: String, default: "student" },
+  authorId: { type: String, default: "" },
+  tags: [{ type: String }],
+  upvotes: { type: Number, default: 0 },
+  upvotedBy: [{ type: String }],
+  answers: [{
+    id: { type: String, required: true },
+    authorName: { type: String, default: "Scholar" },
+    authorRole: { type: String, default: "student" },
+    authorId: { type: String, default: "" },
+    content: { type: String, required: true },
+    upvotes: { type: Number, default: 0 },
+    upvotedBy: [{ type: String }],
+    isTeacherVerified: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now }
+  }]
+}, { timestamps: true });
+
+export const Institute = mongoose.models.Institute || mongoose.model("Institute", InstituteSchema);
+export const Teacher = mongoose.models.Teacher || mongoose.model("Teacher", TeacherSchema);
+export const Student = mongoose.models.Student || mongoose.model("Student", StudentSchema);
+export const ClassModel = mongoose.models.Class || mongoose.model("Class", ClassSchema);
+export const ClassroomResource = mongoose.models.ClassroomResource || mongoose.model("ClassroomResource", ClassroomResourceSchema);
+export const ResourceDump = mongoose.models.ResourceDump || mongoose.model("ResourceDump", ResourceDumpSchema);
+export const CommunityPost = mongoose.models.CommunityPost || mongoose.model("CommunityPost", CommunityPostSchema);
