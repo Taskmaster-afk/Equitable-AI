@@ -37,20 +37,24 @@ export const TeacherDashboard = ({
   const [copiedCode, setCopiedCode] = useState(null);
   useEffect(() => {
     loadClassesAndInsights();
-  }, [selectedClassCode]);
+  }, [selectedClassCode, currentTeacher?.id]);
   const loadClassesAndInsights = async () => {
     setIsLoading(true);
     try {
+      const teacherId = currentTeacher?.id;
       const [classesRes, insightsRes] = await Promise.all([
-        api.getTeacherClasses(currentTeacher?.id || "teacher-1"),
-        api.getTeacherInsights(selectedClassCode)
+        api.getTeacherClasses(teacherId),
+        api.getTeacherInsights(selectedClassCode, teacherId)
       ]);
-      setTeacherClasses(classesRes.classes);
-      setFlaggedStudents(insightsRes.flaggedStudents);
-      setHeatmap(insightsRes.heatmap);
-      setClassOverview(insightsRes.classOverview);
+      setTeacherClasses(classesRes?.classes || []);
+      setFlaggedStudents(insightsRes?.flaggedStudents || []);
+      setHeatmap(insightsRes?.heatmap || []);
+      setClassOverview(insightsRes?.classOverview || null);
     } catch (err) {
       console.error("Failed to load teacher insights:", err);
+      setTeacherClasses([]);
+      setFlaggedStudents([]);
+      setHeatmap([]);
     } finally {
       setIsLoading(false);
     }
@@ -63,14 +67,14 @@ export const TeacherDashboard = ({
         className: newClassName,
         gradeLevel: newGradeLevel,
         stream: newStream,
-        teacherId: currentTeacher?.id || "teacher-1",
-        teacherName: currentTeacher?.name || "Dr. Rajesh Varma",
-        school: currentTeacher?.school || "Kendriya Vidyalaya No. 1"
+        teacherId: currentTeacher?.id,
+        teacherName: currentTeacher?.name || "Teacher",
+        school: currentTeacher?.school || currentTeacher?.institute || "School"
       });
       setShowCreateClassModal(false);
       setNewClassName("");
       const updatedClasses = await api.getTeacherClasses(currentTeacher?.id);
-      setTeacherClasses(updatedClasses.classes);
+      setTeacherClasses(updatedClasses.classes || []);
       setSelectedClassCode(res.classInfo.classCode);
     } catch (err) {
       console.error("Error creating new class code:", err);
@@ -271,11 +275,18 @@ export const TeacherDashboard = ({
                       <div className={`w-2.5 h-2.5 rounded-full ${isHigh ? "bg-rose-600" : isMedium ? "bg-amber-500" : "bg-emerald-500"}`} />
 
                       <div>
-                        <h4 className="font-bold text-[#1A1A1A] text-sm">
-                          {flag.studentName}
-                        </h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-[#1A1A1A] text-sm">
+                            {flag.studentName}
+                          </h4>
+                          {flag.classCode && (
+                            <span className="bg-[#F0F2F5] text-[#374151] border border-[#E5E7EB] px-1.5 py-0.2 text-[10px] font-mono font-bold">
+                              {flag.classCode}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[#6B7280] text-xs">
-                          {flag.gradeLevel} &bull; {flag.primaryIssue}
+                          {flag.studentClass || flag.gradeLevel} &bull; {flag.primaryIssue}
                         </p>
                       </div>
                     </div>
@@ -318,19 +329,21 @@ export const TeacherDashboard = ({
                         </div>
                       </div>
 
-                      {
-      /* Weak Topics Tagging */
-    }
-                      {flag.weakTopics.length > 0 && <div>
+                      {/* Weak Topics Tagging */}
+                      {flag.weakTopics && flag.weakTopics.length > 0 && (
+                        <div>
                           <span className="text-[10px] uppercase font-bold text-[#9CA3AF] block mb-1">
                             Weak Subject Concepts:
                           </span>
                           <div className="flex gap-1.5 flex-wrap">
-                            {flag.weakTopics.map((t, idx) => <span key={idx} className="bg-rose-50 border border-rose-200 text-rose-800 text-[11px] px-2 py-0.5">
+                            {(flag.weakTopics || []).map((t, idx) => (
+                              <span key={idx} className="bg-rose-50 border border-rose-200 text-rose-800 text-[11px] px-2 py-0.5">
                                 {t}
-                              </span>)}
+                              </span>
+                            ))}
                           </div>
-                        </div>}
+                        </div>
+                      )}
 
                       <div className="flex items-center justify-between pt-2 border-t border-[#E5E7EB]">
                         <span className="text-[11px] text-[#9CA3AF]">

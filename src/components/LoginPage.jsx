@@ -17,12 +17,27 @@ import {
   PlusCircle,
   Sparkles,
   BookOpen,
-  HelpCircle
+  HelpCircle,
+  Globe,
+  Layers,
+  Sliders,
+  Edit3,
+  Search,
+  Award,
+  FileText,
+  ShieldCheck
 } from "lucide-react";
 import { api } from "../services/api";
 import { SUPPORTED_LANGUAGES } from "../data/oerKnowledgeBase";
+import {
+  WORLDWIDE_CURRICULUMS,
+  CURRICULUM_CATEGORIES,
+  ACADEMIC_TIERS,
+  INSTITUTION_CATEGORIES,
+  DEFAULT_CUSTOM_CURRICULUM
+} from "../data/curriculumStandards";
 
-export const LoginPage = ({ onLoginSuccess }) => {
+export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
   const [selectedRole, setSelectedRole] = useState("student"); // "student" | "teacher"
   const [studentMode, setStudentMode] = useState("login"); // "login" | "register"
   const [teacherMode, setTeacherMode] = useState("login"); // "login" | "register"
@@ -41,9 +56,9 @@ export const LoginPage = ({ onLoginSuccess }) => {
   const [regPassword, setRegPassword] = useState("");
   const [regConfirmPassword, setRegConfirmPassword] = useState("");
   const [showRegPassword, setShowRegPassword] = useState(false);
-  const [regStudentClass, setRegStudentClass] = useState("Class 12");
-  const [regClassCode, setRegClassCode] = useState("NCERT-12A");
-  const [regStudentInstitute, setRegStudentInstitute] = useState("Kendriya Vidyalaya No. 1, Model Cluster");
+  const [regStudentClass, setRegStudentClass] = useState("Undergraduate Year 1");
+  const [regClassCode, setRegClassCode] = useState("UNIV-UG1");
+  const [regStudentInstitute, setRegStudentInstitute] = useState("Indian Institute of Technology (IIT Delhi)");
   const [regLanguage, setRegLanguage] = useState("en");
   const [regCategory, setRegCategory] = useState("General");
   const [regGender, setRegGender] = useState("Male");
@@ -66,14 +81,24 @@ export const LoginPage = ({ onLoginSuccess }) => {
   const [teacherRegPassword, setTeacherRegPassword] = useState("");
   const [teacherRegConfirmPassword, setTeacherRegConfirmPassword] = useState("");
   const [showTeacherRegPassword, setShowTeacherRegPassword] = useState(false);
-  const [teacherRegDepartment, setTeacherRegDepartment] = useState("Senior Science & Physics Lead");
-  const [teacherInstituteChoice, setTeacherInstituteChoice] = useState("existing"); // "existing" | "new"
-  const [teacherExistingInstitute, setTeacherExistingInstitute] = useState("Kendriya Vidyalaya No. 1, Model Cluster");
+  const [teacherRegDepartment, setTeacherRegDepartment] = useState("Computer Science & AI Faculty Lead");
+  const [teacherInstituteChoice, setTeacherInstituteChoice] = useState("new"); // "existing" | "new"
+  const [teacherExistingInstitute, setTeacherExistingInstitute] = useState("Indian Institute of Technology (IIT Delhi)");
   const [teacherNewInstituteName, setTeacherNewInstituteName] = useState("");
-  const [teacherNewInstituteType, setTeacherNewInstituteType] = useState("Government School (KVS/JNV)");
-  const [teacherNewInstituteLocation, setTeacherNewInstituteLocation] = useState("Bhopal, Madhya Pradesh");
-  const [teacherInitialGrade, setTeacherInitialGrade] = useState("Class 12");
-  const [teacherInitialStream, setTeacherInitialStream] = useState("Science (PCM / PCB)");
+  const [teacherNewInstituteType, setTeacherNewInstituteType] = useState("University / Higher Education");
+  const [teacherInstituteTier, setTeacherInstituteTier] = useState("Higher Education");
+  const [teacherNewInstituteLocation, setTeacherNewInstituteLocation] = useState("Global / National Campus");
+  
+  // Curriculum Selection State
+  const [teacherCurriculum, setTeacherCurriculum] = useState("University Undergraduate Degree (Semester / CBCS Credit System)");
+  const [isCustomCurriculum, setIsCustomCurriculum] = useState(false);
+  const [curriculumSearchQuery, setCurriculumSearchQuery] = useState("");
+  const [selectedCurriculumCategory, setSelectedCurriculumCategory] = useState("All");
+  const [customCurriculumData, setCustomCurriculumData] = useState({ ...DEFAULT_CUSTOM_CURRICULUM });
+
+  // Initial Class Setup State
+  const [teacherInitialGrade, setTeacherInitialGrade] = useState("Undergraduate Year 1");
+  const [teacherInitialStream, setTeacherInitialStream] = useState("Computer Science & Engineering (B.Tech/BS)");
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
@@ -133,6 +158,55 @@ export const LoginPage = ({ onLoginSuccess }) => {
     if (!verifiedClass) {
       return { matches: false, message: "Class code has not been verified yet." };
     }
+
+    const sCls = (regStudentClass || "").trim().toLowerCase();
+    const tCls = (verifiedClass.targetClass || verifiedClass.className || "").trim().toLowerCase();
+    const cCode = (verifiedClass.classCode || "").trim().toLowerCase();
+
+    // Exact string match
+    if (sCls === tCls) {
+      return {
+        matches: true,
+        message: `Class match verified: Your selected academic level "${regStudentClass}" matches Class Code "${verifiedClass.classCode}" (${verifiedClass.className}).`
+      };
+    }
+
+    const isStudentUniv = /undergraduate|postgraduate|doctoral|polytech|degree|college|freshman|sophomore|junior|senior|ug/i.test(regStudentClass);
+    const isTargetUniv = /undergraduate|postgraduate|doctoral|polytech|degree|college|univ|freshman|sophomore|junior|senior|cs-101|med-mbbs/i.test(tCls) || /univ|ug|pg|med|eng|cs/i.test(cCode);
+
+    // Cross-tier check
+    if (isStudentUniv && !isTargetUniv && /class\s*(12|11|10|9|8|7|6)/i.test(tCls)) {
+      return {
+        matches: false,
+        message: `Academic Tier Mismatch: You selected "${regStudentClass}" (Higher Education), but class code "${verifiedClass.classCode}" is for "${verifiedClass.targetClass || verifiedClass.className}" (Secondary / School). Students are strictly restricted to classes matching their academic tier.`
+      };
+    }
+    if (!isStudentUniv && isTargetUniv && /class\s*(12|11|10|9|8|7|6)/i.test(regStudentClass)) {
+      return {
+        matches: false,
+        message: `Academic Tier Mismatch: You selected "${regStudentClass}" (School level), but class code "${verifiedClass.classCode}" is for "${verifiedClass.targetClass || verifiedClass.className}" (Higher Education / University).`
+      };
+    }
+
+    // University Year comparison
+    if (isStudentUniv && isTargetUniv) {
+      const sYearMatch = regStudentClass.match(/year\s*([1-4])|sem\w*\s*([1-8])|ug\s*([1-4])/i);
+      const tYearMatch = (verifiedClass.targetClass + " " + verifiedClass.className + " " + verifiedClass.classCode).match(/year\s*([1-4])|sem\w*\s*([1-8])|ug\s*([1-4])|ug([1-4])/i);
+      const sYear = sYearMatch ? (sYearMatch[1] || sYearMatch[3] || Math.ceil(parseInt(sYearMatch[2]) / 2)) : "";
+      const tYear = tYearMatch ? (tYearMatch[1] || tYearMatch[3] || tYearMatch[4] || Math.ceil(parseInt(tYearMatch[2]) / 2)) : "";
+      if (sYear && tYear && String(sYear) !== String(tYear)) {
+        return {
+          matches: false,
+          message: `University Year Mismatch: You selected Undergraduate Year ${sYear}, but class code "${verifiedClass.classCode}" is for Year ${tYear} (${verifiedClass.className}).`
+        };
+      }
+      return {
+        matches: true,
+        message: `University Class Verified: Enrolled in "${verifiedClass.className}" under ${verifiedClass.curriculum || "Higher Education Framework"}.`
+      };
+    }
+
+    // School digits comparison
     const studentDigits = regStudentClass.match(/\b(12|11|10|9|8|7|6)\b/i)?.[1] || "";
     const targetDigits =
       (verifiedClass.targetClass || "").match(/\b(12|11|10|9|8|7|6)\b/i)?.[1] ||
@@ -188,6 +262,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
         identifier: studentLoginIdentifier.trim(),
         password: studentLoginPassword
       });
+      if (res.token) api.setToken(res.token);
       onLoginSuccess(res.user, res.studentProfile, void 0, res.classInfo);
     } catch (err) {
       setErrorMessage(err.message || "Login failed. Please check your student credentials.");
@@ -245,6 +320,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
         firstGenerationLearner: regFirstGen,
         stateOrRegion: regState
       });
+      if (res.token) api.setToken(res.token);
       onLoginSuccess(res.user, res.student, void 0, res.classInfo);
     } catch (err) {
       setErrorMessage(err.message || "Registration failed. Check your class code and credentials.");
@@ -273,6 +349,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
         identifier: teacherLoginIdentifier.trim(),
         password: teacherLoginPassword
       });
+      if (res.token) api.setToken(res.token);
       onLoginSuccess(res.user, void 0, res.teacherProfile, void 0);
     } catch (err) {
       setErrorMessage(err.message || "Teacher login failed. Please check your credentials.");
@@ -281,18 +358,18 @@ export const LoginPage = ({ onLoginSuccess }) => {
     }
   };
 
-  // Teacher Registration (With capability to sign up an institute if not already in database)
+  // Teacher / Faculty & Institute Registration (Universal support for Universities, Colleges & Schools)
   const handleTeacherRegister = async (e) => {
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
 
     if (!teacherRegName.trim()) {
-      setErrorMessage("Please enter teacher full name.");
+      setErrorMessage("Please enter faculty / teacher full name.");
       return;
     }
     if (!teacherRegEmail.trim()) {
-      setErrorMessage("Please enter teacher email address.");
+      setErrorMessage("Please enter institutional email address.");
       return;
     }
     if (!teacherRegPassword || teacherRegPassword.length < 6) {
@@ -309,7 +386,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
 
     if (teacherInstituteChoice === "new") {
       if (!teacherNewInstituteName.trim()) {
-        setErrorMessage("Please enter the name of the new institute you want to register.");
+        setErrorMessage("Please enter the name of the new institution or university.");
         return;
       }
       finalInstituteName = teacherNewInstituteName.trim();
@@ -322,6 +399,15 @@ export const LoginPage = ({ onLoginSuccess }) => {
       finalInstituteName = teacherExistingInstitute.trim();
     }
 
+    if (isCustomCurriculum && !customCurriculumData.name.trim()) {
+      setErrorMessage("Please enter a title / name for your custom curriculum framework.");
+      return;
+    }
+
+    const finalCurriculumName = isCustomCurriculum
+      ? customCurriculumData.name.trim()
+      : teacherCurriculum;
+
     setIsLoading(true);
     try {
       const res = await api.registerTeacher({
@@ -332,17 +418,20 @@ export const LoginPage = ({ onLoginSuccess }) => {
         instituteName: finalInstituteName,
         isNewInstitute,
         instituteType: teacherNewInstituteType,
+        tier: teacherInstituteTier,
         instituteLocation: teacherNewInstituteLocation,
+        curriculum: finalCurriculumName,
+        customCurriculum: isCustomCurriculum ? customCurriculumData : null,
         initialClassGrade: teacherInitialGrade,
         initialStream: teacherInitialStream
       });
 
       // Refresh institutes list so student registration instantly sees any newly created institute
       await refreshInstitutesList();
-
+      if (res.token) api.setToken(res.token);
       onLoginSuccess(res.user, void 0, res.teacherProfile, void 0);
     } catch (err) {
-      setErrorMessage(err.message || "Teacher registration failed.");
+      setErrorMessage(err.message || "Registration failed.");
     } finally {
       setIsLoading(false);
     }
@@ -368,45 +457,60 @@ export const LoginPage = ({ onLoginSuccess }) => {
                 AI for Equitable Education Access
               </h1>
               <p className="text-xs text-[#6B7280]">
-                National NCERT Curriculum Portal &bull; Multi-Role Verification & Institute Registry
+                National Open Curriculum Portal &bull; Multi-Role Verification & Institute Registry
               </p>
             </div>
           </div>
 
-          {/* Role Selector Tabs */}
-          <div className="inline-flex border border-[#E5E7EB] bg-white p-1">
-            <button
-              id="btn-role-student"
-              onClick={() => {
-                setSelectedRole("student");
-                setErrorMessage(null);
-                setSuccessMessage(null);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${
-                selectedRole === "student"
-                  ? "bg-black text-white"
-                  : "text-[#4B5563] hover:text-black hover:bg-[#F3F4F6]"
-              }`}
-            >
-              <GraduationCap className="w-3.5 h-3.5" />
-              <span>Student Portal</span>
-            </button>
-            <button
-              id="btn-role-teacher"
-              onClick={() => {
-                setSelectedRole("teacher");
-                setErrorMessage(null);
-                setSuccessMessage(null);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${
-                selectedRole === "teacher"
-                  ? "bg-black text-white"
-                  : "text-[#4B5563] hover:text-black hover:bg-[#F3F4F6]"
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span>Teacher Portal</span>
-            </button>
+          {/* Role Selector & Technical Briefing */}
+          <div className="flex items-center gap-2">
+            {onOpenAuditModal && (
+              <button
+                type="button"
+                onClick={onOpenAuditModal}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 transition-colors"
+                title="View Architectural Provenance, Semantic RAG & Security Transparency Audit"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                <span className="hidden sm:inline">Evaluator Briefing</span>
+                <span className="sm:hidden">Audit</span>
+              </button>
+            )}
+
+            <div className="inline-flex border border-[#E5E7EB] bg-white p-1">
+              <button
+                id="btn-role-student"
+                onClick={() => {
+                  setSelectedRole("student");
+                  setErrorMessage(null);
+                  setSuccessMessage(null);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  selectedRole === "student"
+                    ? "bg-black text-white"
+                    : "text-[#4B5563] hover:text-black hover:bg-[#F3F4F6]"
+                }`}
+              >
+                <GraduationCap className="w-3.5 h-3.5" />
+                <span>Student Portal</span>
+              </button>
+              <button
+                id="btn-role-teacher"
+                onClick={() => {
+                  setSelectedRole("teacher");
+                  setErrorMessage(null);
+                  setSuccessMessage(null);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  selectedRole === "teacher"
+                    ? "bg-black text-white"
+                    : "text-[#4B5563] hover:text-black hover:bg-[#F3F4F6]"
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Teacher Portal</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -510,9 +614,59 @@ export const LoginPage = ({ onLoginSuccess }) => {
                     </div>
                   </div>
 
-                  <div className="p-2.5 bg-[#F9FAFB] border border-[#E5E7EB] text-[11px] text-[#6B7280]">
-                    <span className="font-bold text-[#1A1A1A]">Demo Account:</span>{" "}
-                    <code className="bg-white border border-[#E5E7EB] px-1 py-0.5 text-black font-mono">aarav.sharma@student.edu.in</code> &bull; Password: <code className="bg-white border border-[#E5E7EB] px-1 py-0.5 text-black font-mono">password123</code>
+                  <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] text-[11px] text-[#6B7280] space-y-2">
+                    <div className="flex items-center justify-between font-bold text-[#1A1A1A]">
+                      <span className="flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Select Demo Student Profile:</span>
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStudentLoginIdentifier("aarav.sharma@student.edu.in");
+                          setStudentLoginPassword("password123");
+                        }}
+                        className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
+                      >
+                        <div className="font-bold text-black text-[11px]">Aarav Sharma (Class 12)</div>
+                        <div className="text-[10px] text-[#6B7280]">KV No. 1 &bull; Class: NCERT-12A</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStudentLoginIdentifier("rohan.das@student.edu.in");
+                          setStudentLoginPassword("password123");
+                        }}
+                        className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
+                      >
+                        <div className="font-bold text-black text-[11px]">Rohan Das (Class 10)</div>
+                        <div className="text-[10px] text-[#6B7280]">KV No. 1 &bull; Class: NCERT-10A</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStudentLoginIdentifier("kabir.mehta@student.iitd.ac.in");
+                          setStudentLoginPassword("password123");
+                        }}
+                        className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
+                      >
+                        <div className="font-bold text-black text-[11px]">Kabir Mehta (UG Year 1)</div>
+                        <div className="text-[10px] text-[#6B7280]">IIT Delhi &bull; Class: UNIV-UG1</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStudentLoginIdentifier("diya.s@student.aiims.edu");
+                          setStudentLoginPassword("password123");
+                        }}
+                        className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
+                      >
+                        <div className="font-bold text-black text-[11px]">Diya Sengupta (MBBS Year 1)</div>
+                        <div className="text-[10px] text-[#6B7280]">AIIMS &bull; Class: MED-MBBS1</div>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] text-xs text-[#4B5563] space-y-1.5">
@@ -608,6 +762,20 @@ export const LoginPage = ({ onLoginSuccess }) => {
                         <span className="font-medium">Quick Test Scenarios:</span>
                         <button
                           type="button"
+                          onClick={() => quickSetClassAndCode("Undergraduate Year 1", "UNIV-UG1")}
+                          className="px-2 py-0.5 bg-purple-50 border border-purple-200 font-mono text-[10px] text-purple-800 hover:border-purple-400 transition-colors font-bold"
+                        >
+                          Match: University UG-1 &rarr; UNIV-UG1
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => quickSetClassAndCode("Undergraduate Year 1", "MED-MBBS1")}
+                          className="px-2 py-0.5 bg-blue-50 border border-blue-200 font-mono text-[10px] text-blue-800 hover:border-blue-400 transition-colors font-bold"
+                        >
+                          Match: Medical MBBS-1 &rarr; MED-MBBS1
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => quickSetClassAndCode("Class 12", "NCERT-12A")}
                           className="px-2 py-0.5 bg-white border border-[#E5E7EB] font-mono text-[10px] text-black hover:border-black transition-colors"
                         >
@@ -622,21 +790,14 @@ export const LoginPage = ({ onLoginSuccess }) => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => quickSetClassAndCode("Class 10", "NCERT-10A")}
-                          className="px-2 py-0.5 bg-white border border-[#E5E7EB] font-mono text-[10px] text-black hover:border-black transition-colors"
-                        >
-                          Match: Class 10 &rarr; NCERT-10A
-                        </button>
-                        <button
-                          type="button"
                           onClick={() => {
                             setRegStudentClass("Class 10");
-                            setRegClassCode("NCERT-12A");
-                            verifyClassCode("NCERT-12A");
+                            setRegClassCode("UNIV-UG1");
+                            verifyClassCode("UNIV-UG1");
                           }}
                           className="px-2 py-0.5 bg-rose-50 border border-rose-200 font-mono text-[10px] text-rose-700 hover:border-rose-400 transition-colors"
                         >
-                          Test Mismatch: Class 10 with NCERT-12A
+                          Test Tier Mismatch: Class 10 with UNIV-UG1
                         </button>
                       </div>
 
@@ -644,7 +805,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
                         {/* Student Class Select */}
                         <div>
                           <label className="text-[11px] font-bold text-[#374151] block mb-1">
-                            Your Enrolled Class *
+                            Your Enrolled Academic Level / Class *
                           </label>
                           <select
                             id="reg-student-class"
@@ -652,20 +813,34 @@ export const LoginPage = ({ onLoginSuccess }) => {
                             onChange={(e) => setRegStudentClass(e.target.value)}
                             className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
                           >
-                            <option value="Class 12">Class 12 (Senior Secondary)</option>
-                            <option value="Class 11">Class 11 (Senior Secondary)</option>
-                            <option value="Class 10">Class 10 (Secondary Standard)</option>
-                            <option value="Class 9">Class 9 (Secondary Standard)</option>
-                            <option value="Class 8">Class 8 (Middle School)</option>
-                            <option value="Class 7">Class 7 (Middle School)</option>
-                            <option value="Class 6">Class 6 (Middle School)</option>
+                            <optgroup label="Higher Education & University Degrees">
+                              <option value="Undergraduate Year 1">Undergraduate Year 1 (Freshman / UG-1)</option>
+                              <option value="Undergraduate Year 2">Undergraduate Year 2 (Sophomore / UG-2)</option>
+                              <option value="Undergraduate Year 3">Undergraduate Year 3 (Junior / UG-3)</option>
+                              <option value="Undergraduate Year 4">Undergraduate Year 4 (Senior / UG-4)</option>
+                              <option value="Postgraduate Year 1">Postgraduate Year 1 (Master's / MD / MS)</option>
+                              <option value="Postgraduate Year 2">Postgraduate Year 2 (Master's / MD / MS)</option>
+                            </optgroup>
+                            <optgroup label="Senior Secondary / High School (Grades 11-12)">
+                              <option value="Class 12">Class 12 (Senior Secondary / Grade 12)</option>
+                              <option value="Class 11">Class 11 (Senior Secondary / Grade 11)</option>
+                            </optgroup>
+                            <optgroup label="Secondary Standard (Grades 9-10)">
+                              <option value="Class 10">Class 10 (Secondary Standard / Grade 10)</option>
+                              <option value="Class 9">Class 9 (Secondary Standard / Grade 9)</option>
+                            </optgroup>
+                            <optgroup label="Middle School (Grades 6-8)">
+                              <option value="Class 8">Class 8 (Middle School)</option>
+                              <option value="Class 7">Class 7 (Middle School)</option>
+                              <option value="Class 6">Class 6 (Middle School)</option>
+                            </optgroup>
                           </select>
                         </div>
 
                         {/* Class Code Input */}
                         <div>
                           <label className="text-[11px] font-bold text-[#374151] block mb-1">
-                            Teacher's Class Code *
+                            Teacher's / Professor's Class Code *
                           </label>
                           <div className="flex gap-1.5">
                             <input
@@ -677,7 +852,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
                                 setRegClassCode(val);
                               }}
                               onBlur={() => verifyClassCode(regClassCode)}
-                              placeholder="e.g. NCERT-12A"
+                              placeholder="e.g. UNIV-UG1 or NCERT-12A"
                               className="flex-1 uppercase font-mono font-bold bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
                             />
                             <button
@@ -1077,9 +1252,59 @@ export const LoginPage = ({ onLoginSuccess }) => {
                     </div>
                   </div>
 
-                  <div className="p-2.5 bg-[#F9FAFB] border border-[#E5E7EB] text-[11px] text-[#6B7280]">
-                    <span className="font-bold text-[#1A1A1A]">Demo Teacher Account:</span>{" "}
-                    <code className="bg-white border border-[#E5E7EB] px-1 py-0.5 text-black font-mono">rajesh.varma@school.edu.in</code> &bull; Password: <code className="bg-white border border-[#E5E7EB] px-1 py-0.5 text-black font-mono">teacher123</code>
+                  <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] text-[11px] text-[#6B7280] space-y-2">
+                    <div className="flex items-center justify-between font-bold text-[#1A1A1A]">
+                      <span className="flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Select Demo Teacher Profile (Test Classroom Isolation):</span>
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTeacherLoginIdentifier("rajesh.varma@school.edu.in");
+                          setTeacherLoginPassword("teacher123");
+                        }}
+                        className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
+                      >
+                        <div className="font-bold text-black text-[11px]">Dr. Rajesh Varma (High School)</div>
+                        <div className="text-[10px] text-[#6B7280]">KV No. 1 &bull; Classes: NCERT-12A, 11B</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTeacherLoginIdentifier("sunita.sharma@school.edu.in");
+                          setTeacherLoginPassword("teacher123");
+                        }}
+                        className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
+                      >
+                        <div className="font-bold text-black text-[11px]">Mrs. Sunita Sharma (Middle School)</div>
+                        <div className="text-[10px] text-[#6B7280]">KV No. 1 &bull; Classes: NCERT-10A, 9A</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTeacherLoginIdentifier("arvind.kumar@cse.iitd.ac.in");
+                          setTeacherLoginPassword("teacher123");
+                        }}
+                        className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
+                      >
+                        <div className="font-bold text-black text-[11px]">Prof. Arvind Kumar (Higher Ed)</div>
+                        <div className="text-[10px] text-[#6B7280]">IIT Delhi &bull; Class: UNIV-UG1</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTeacherLoginIdentifier("ananya.ray@aiims.edu");
+                          setTeacherLoginPassword("teacher123");
+                        }}
+                        className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
+                      >
+                        <div className="font-bold text-black text-[11px]">Dr. Ananya Ray (Medical Faculty)</div>
+                        <div className="text-[10px] text-[#6B7280]">AIIMS &bull; Class: MED-MBBS1</div>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="p-3.5 bg-[#F8F9FA] border border-[#E5E7EB] text-xs text-[#4B5563] space-y-2">
@@ -1190,12 +1415,22 @@ export const LoginPage = ({ onLoginSuccess }) => {
                           onChange={(e) => setTeacherRegDepartment(e.target.value)}
                           className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
                         >
-                          <option value="Senior Physics & Science Lead">Senior Physics & Science Lead</option>
-                          <option value="Secondary Mathematics Faculty">Secondary Mathematics Faculty</option>
-                          <option value="Senior Chemistry Department Head">Senior Chemistry Department Head</option>
-                          <option value="Biology & Life Sciences Lead">Biology & Life Sciences Lead</option>
-                          <option value="Computer Science & Informatics">Computer Science & Informatics</option>
-                          <option value="General Science & Mathematics Lead">General Science & Mathematics Lead</option>
+                          <optgroup label="Higher Education & Universities">
+                            <option value="Computer Science & AI Faculty Lead">Computer Science & AI Faculty Lead</option>
+                            <option value="Medicine & Clinical Sciences Chair">Medicine & Clinical Sciences Chair</option>
+                            <option value="Electrical & Electronics Engineering">Electrical & Electronics Engineering</option>
+                            <option value="Mechanical & Aerospace Engineering">Mechanical & Aerospace Engineering</option>
+                            <option value="Department of Mathematics & Computing">Department of Mathematics & Computing</option>
+                            <option value="School of Physical & Chemical Sciences">School of Physical & Chemical Sciences</option>
+                            <option value="Economics, Management & Data Analytics">Economics, Management & Data Analytics</option>
+                          </optgroup>
+                          <optgroup label="Secondary & Higher Secondary Schools">
+                            <option value="Senior Physics & Science Lead">Senior Physics & Science Lead</option>
+                            <option value="Secondary Mathematics Faculty">Secondary Mathematics Faculty</option>
+                            <option value="Senior Chemistry Department Head">Senior Chemistry Department Head</option>
+                            <option value="Biology & Life Sciences Lead">Biology & Life Sciences Lead</option>
+                            <option value="General Science & Mathematics Lead">General Science & Mathematics Lead</option>
+                          </optgroup>
                         </select>
                       </div>
                     </div>
@@ -1207,10 +1442,10 @@ export const LoginPage = ({ onLoginSuccess }) => {
                       <div>
                         <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
                           <Building className="w-4 h-4 text-black" />
-                          <span>2. Institute Selection & Sign-Up *</span>
+                          <span>2. Institute Selection & Sign-Up (Universities, Colleges & Schools) *</span>
                         </label>
                         <p className="text-[11px] text-[#6B7280] mt-0.5">
-                          Teachers have authority to select an existing institute or <strong>sign up a new institute</strong> if not in the database.
+                          Institutions worldwide — from premier research universities and medical/engineering colleges to secondary schools — can register and configure their academic curriculum.
                         </p>
                       </div>
 
@@ -1239,7 +1474,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
                           }`}
                         >
                           <PlusCircle className="w-3 h-3" />
-                          <span>+ Register New Institute</span>
+                          <span>+ Register New Institution</span>
                         </button>
                       </div>
                     </div>
@@ -1248,36 +1483,55 @@ export const LoginPage = ({ onLoginSuccess }) => {
                       /* Select Existing Institute */
                       <div className="space-y-2">
                         <label className="text-[11px] font-bold text-[#374151] block">
-                          Choose From Available Institutes in Database:
+                          Choose From Available Institutes & Universities in Database:
                         </label>
                         <select
                           id="teacher-existing-institute-select"
                           value={teacherExistingInstitute}
-                          onChange={(e) => setTeacherExistingInstitute(e.target.value)}
+                          onChange={(e) => {
+                            setTeacherExistingInstitute(e.target.value);
+                            const matched = institutes.find((i) => i.name === e.target.value);
+                            if (matched && matched.tier) {
+                              setTeacherInstituteTier(matched.tier);
+                              if (matched.tier === "Higher Education") {
+                                setTeacherInitialGrade("Undergraduate Year 1");
+                                setTeacherInitialStream("Computer Science & Engineering (B.Tech/BS)");
+                              } else {
+                                setTeacherInitialGrade("Class 12");
+                                setTeacherInitialStream("Science (PCM / PCB)");
+                              }
+                            }
+                          }}
                           className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
                         >
                           {institutes.map((inst) => (
                             <option key={inst.id} value={inst.name}>
-                              {inst.name} — ({inst.type || "School"} &bull; {inst.location || "India"})
+                              {inst.name} &bull; [{inst.tier || "Institute"}] &bull; {inst.curriculum || inst.type || "Universal Curriculum"} &bull; ({inst.location || "Global"})
                             </option>
                           ))}
                         </select>
                         <p className="text-[11px] text-[#6B7280]">
-                          Can't find your institute in this list? Click the <strong>"+ Register New Institute"</strong> button above to add it!
+                          Can't find your institution? Click the <strong>"+ Register New Institution"</strong> button above to register your university, college, or school with its curriculum!
                         </p>
                       </div>
                     ) : (
                       /* Register a New Institute into the Database */
-                      <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-4 space-y-3">
-                        <div className="flex items-center gap-1.5 font-bold text-xs text-[#1A1A1A]">
-                          <Sparkles className="w-4 h-4 text-emerald-600" />
-                          <span>Registering a New Institute to the Platform</span>
+                      <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-4 space-y-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 font-bold text-xs text-[#1A1A1A]">
+                            <Sparkles className="w-4 h-4 text-emerald-600" />
+                            <span>Institutional Onboarding & Worldwide Curriculum Setup</span>
+                          </div>
+                          <span className="text-[10px] uppercase font-mono px-2 py-0.5 bg-black text-white">
+                            Universal Institution Framework
+                          </span>
                         </div>
 
+                        {/* Basic Institution Details */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="sm:col-span-2 space-y-1">
                             <label className="text-[11px] font-bold text-[#374151]">
-                              New Institute Name *
+                              Institution / University Full Name *
                             </label>
                             <input
                               id="teacher-new-institute-name"
@@ -1285,14 +1539,49 @@ export const LoginPage = ({ onLoginSuccess }) => {
                               required
                               value={teacherNewInstituteName}
                               onChange={(e) => setTeacherNewInstituteName(e.target.value)}
-                              placeholder="e.g. Kendriya Vidyalaya No. 2, Cantonment or Modern Public Academy"
+                              placeholder="e.g. Stanford University, National University of Singapore, Indian Institute of Science, or Cambridge Academy"
                               className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
                             />
                           </div>
 
                           <div className="space-y-1">
                             <label className="text-[11px] font-bold text-[#374151]">
-                              Institute Category / Board
+                              Academic Level / Tier *
+                            </label>
+                            <select
+                              id="teacher-institute-tier"
+                              value={teacherInstituteTier}
+                              onChange={(e) => {
+                                const newTier = e.target.value;
+                                setTeacherInstituteTier(newTier);
+                                if (newTier === "Higher Education") {
+                                  setTeacherNewInstituteType("University / Higher Education");
+                                  setTeacherInitialGrade("Undergraduate Year 1");
+                                  setTeacherInitialStream("Computer Science & Engineering (B.Tech/BS)");
+                                  setTeacherCurriculum("University Undergraduate Degree (Semester / CBCS Credit System)");
+                                } else if (newTier === "Senior Secondary") {
+                                  setTeacherNewInstituteType("Private Senior Secondary School");
+                                  setTeacherInitialGrade("Class 12");
+                                  setTeacherInitialStream("Science (PCM / PCB)");
+                                  setTeacherCurriculum("CBSE / NCERT National Curriculum Framework (NCF 2023-25)");
+                                } else {
+                                  setTeacherInitialGrade("Class 10");
+                                  setTeacherInitialStream("General Science Core");
+                                }
+                              }}
+                              className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
+                            >
+                              {ACADEMIC_TIERS.map((tier) => (
+                                <option key={tier.id} value={tier.name}>
+                                  {tier.name} — {tier.description}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[11px] font-bold text-[#374151]">
+                              Institution Classification
                             </label>
                             <select
                               id="teacher-new-institute-type"
@@ -1300,33 +1589,354 @@ export const LoginPage = ({ onLoginSuccess }) => {
                               onChange={(e) => setTeacherNewInstituteType(e.target.value)}
                               className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
                             >
-                              <option value="Government School (KVS/JNV)">Government School (KVS/JNV)</option>
-                              <option value="State Govt Model Secondary School">State Govt Model Secondary School</option>
-                              <option value="Private CBSE / ICSE School">Private CBSE / ICSE School</option>
-                              <option value="Higher Secondary / Inter College">Higher Secondary / Inter College</option>
-                              <option value="Coaching & Remedial Academy">Coaching & Remedial Academy</option>
+                              {INSTITUTION_CATEGORIES.map((cat) => (
+                                <option key={cat} value={cat}>
+                                  {cat}
+                                </option>
+                              ))}
                             </select>
                           </div>
 
-                          <div className="space-y-1">
+                          <div className="sm:col-span-2 space-y-1">
                             <label className="text-[11px] font-bold text-[#374151]">
-                              City & State / Location
+                              City, State & Country / Campus Location
                             </label>
                             <input
                               id="teacher-new-institute-location"
                               type="text"
                               value={teacherNewInstituteLocation}
                               onChange={(e) => setTeacherNewInstituteLocation(e.target.value)}
-                              placeholder="e.g. Bhopal, Madhya Pradesh"
+                              placeholder="e.g. Boston, MA, USA &bull; New Delhi, India &bull; Singapore &bull; London, UK"
                               className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
                             />
                           </div>
                         </div>
 
+                        {/* Curriculum Selection Section */}
+                        <div className="border-t border-[#E5E7EB] pt-4 space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <label className="text-xs font-bold text-[#1A1A1A] flex items-center gap-1.5">
+                                <Globe className="w-3.5 h-3.5 text-black" />
+                                <span>Curriculum Followed by the Institution *</span>
+                              </label>
+                              <p className="text-[11px] text-[#6B7280]">
+                                Select a popular worldwide curriculum from the dropdown menu, or design your own bespoke academic curriculum framework.
+                              </p>
+                            </div>
+
+                            {/* Custom Curriculum Design Toggle Button */}
+                            <button
+                              type="button"
+                              id="btn-toggle-custom-curriculum"
+                              onClick={() => {
+                                const nextState = !isCustomCurriculum;
+                                setIsCustomCurriculum(nextState);
+                                if (nextState && !customCurriculumData.name) {
+                                  setCustomCurriculumData({
+                                    ...DEFAULT_CUSTOM_CURRICULUM,
+                                    name: teacherNewInstituteName
+                                      ? `${teacherNewInstituteName} Autonomous Curriculum`
+                                      : "Autonomous Institutional Framework 2026",
+                                    department: teacherRegDepartment
+                                  });
+                                }
+                              }}
+                              className={`px-3 py-1 text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                                isCustomCurriculum
+                                  ? "bg-purple-900 text-white border-purple-900"
+                                  : "bg-white text-purple-900 border-purple-300 hover:bg-purple-50"
+                              }`}
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>{isCustomCurriculum ? "✓ Designing Custom Curriculum" : "+ Design Your Own Curriculum"}</span>
+                            </button>
+                          </div>
+
+                          {!isCustomCurriculum ? (
+                            /* Worldwide Curriculums Dropdown Menu */
+                            <div className="space-y-3">
+                              {/* Search & Filter Bar */}
+                              <div className="flex flex-wrap items-center gap-2">
+                                <div className="relative flex-1 min-w-[200px]">
+                                  <Search className="w-3.5 h-3.5 text-[#9CA3AF] absolute left-2.5 top-1/2 -translate-y-1/2" />
+                                  <input
+                                    type="text"
+                                    value={curriculumSearchQuery}
+                                    onChange={(e) => setCurriculumSearchQuery(e.target.value)}
+                                    placeholder="Filter worldwide curriculums (e.g. IB, CBSE, ABET, Bologna, AP, IGCSE)..."
+                                    className="w-full bg-white border border-[#E5E7EB] pl-8 pr-3 py-1.5 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                                  />
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {["All", ...CURRICULUM_CATEGORIES.map((c) => c.name)].map((cat) => (
+                                    <button
+                                      key={cat}
+                                      type="button"
+                                      onClick={() => setSelectedCurriculumCategory(cat)}
+                                      className={`px-2 py-1 text-[10px] font-bold border transition-colors ${
+                                        selectedCurriculumCategory === cat
+                                          ? "bg-black text-white border-black"
+                                          : "bg-white text-[#6B7280] border-[#E5E7EB] hover:text-black"
+                                      }`}
+                                    >
+                                      {cat === "All" ? "All Frameworks" : cat.split(" ")[0]}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Dropdown Menu */}
+                              <div className="space-y-1">
+                                <label className="text-[11px] font-bold text-[#374151] block">
+                                  Worldwide Curriculum Standards Dropdown Menu:
+                                </label>
+                                <select
+                                  id="teacher-curriculum-select"
+                                  value={teacherCurriculum}
+                                  onChange={(e) => {
+                                    if (e.target.value === "custom_design") {
+                                      setIsCustomCurriculum(true);
+                                    } else {
+                                      setTeacherCurriculum(e.target.value);
+                                    }
+                                  }}
+                                  className="w-full bg-white border-2 border-black px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
+                                >
+                                  <option value="custom_design">
+                                    ✨ + Custom / Design Your Own Curriculum Framework...
+                                  </option>
+                                  {CURRICULUM_CATEGORIES.map((cat) => {
+                                    const matchingCurriculums = WORLDWIDE_CURRICULUMS.filter((c) => {
+                                      const matchesCat =
+                                        selectedCurriculumCategory === "All" ||
+                                        c.category === selectedCurriculumCategory;
+                                      const matchesSearch =
+                                        !curriculumSearchQuery.trim() ||
+                                        c.name.toLowerCase().includes(curriculumSearchQuery.toLowerCase()) ||
+                                        c.code.toLowerCase().includes(curriculumSearchQuery.toLowerCase()) ||
+                                        c.domains.some((d) =>
+                                          d.toLowerCase().includes(curriculumSearchQuery.toLowerCase())
+                                        );
+                                      return c.category === cat.name && matchesCat && matchesSearch;
+                                    });
+
+                                    if (matchingCurriculums.length === 0) return null;
+
+                                    return (
+                                      <optgroup key={cat.name} label={`--- ${cat.name} ---`}>
+                                        {matchingCurriculums.map((curr) => (
+                                          <option key={curr.id} value={curr.name}>
+                                            [{curr.code}] {curr.name} ({curr.tier})
+                                          </option>
+                                        ))}
+                                      </optgroup>
+                                    );
+                                  })}
+                                </select>
+                              </div>
+
+                              {/* Selected Curriculum Details Card */}
+                              {(() => {
+                                const currObj = WORLDWIDE_CURRICULUMS.find(
+                                  (c) => c.name === teacherCurriculum
+                                );
+                                if (!currObj) return null;
+                                return (
+                                  <div className="p-3 bg-white border border-[#E5E7EB] space-y-2 text-xs">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <span className="font-bold text-[#1A1A1A] flex items-center gap-1.5">
+                                        <Award className="w-3.5 h-3.5 text-black" />
+                                        <span>{currObj.name}</span>
+                                      </span>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="px-1.5 py-0.5 bg-black text-white font-mono text-[10px]">
+                                          {currObj.code}
+                                        </span>
+                                        <span className="px-1.5 py-0.5 bg-[#F3F4F6] text-[#374151] text-[10px] font-bold">
+                                          {currObj.tier}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <p className="text-[11px] text-[#6B7280] leading-relaxed">
+                                      {currObj.description}
+                                    </p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-[#F3F4F6] text-[11px]">
+                                      <div>
+                                        <span className="font-bold text-[#374151]">Core Focus Domains: </span>
+                                        <span className="text-[#6B7280]">{currObj.domains.join(", ")}</span>
+                                      </div>
+                                      <div>
+                                        <span className="font-bold text-[#374151]">Evaluation: </span>
+                                        <span className="text-[#6B7280]">{currObj.gradingScale}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          ) : (
+                            /* Custom Curriculum Designer Form */
+                            <div className="p-4 bg-purple-50 border-2 border-purple-900 space-y-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5 font-bold text-xs text-purple-950">
+                                  <Sliders className="w-4 h-4 text-purple-800" />
+                                  <span>Custom Institutional Curriculum Builder</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsCustomCurriculum(false)}
+                                  className="text-[11px] text-purple-800 hover:text-black font-semibold underline"
+                                >
+                                  Switch Back to Worldwide Curriculums Dropdown
+                                </button>
+                              </div>
+
+                              <p className="text-[11px] text-purple-900 leading-relaxed">
+                                Design your institution's custom educational syllabus, grading criteria, and credit system. All student progress and diagnostic heatmaps will align to this framework.
+                              </p>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="sm:col-span-2 space-y-1">
+                                  <label className="text-[11px] font-bold text-purple-950">
+                                    Custom Curriculum / Syllabus Framework Name *
+                                  </label>
+                                  <input
+                                    id="custom-curriculum-name"
+                                    type="text"
+                                    required
+                                    value={customCurriculumData.name}
+                                    onChange={(e) =>
+                                      setCustomCurriculumData({
+                                        ...customCurriculumData,
+                                        name: e.target.value
+                                      })
+                                    }
+                                    placeholder="e.g. Autonomous CS & Systems Curriculum 2026 or Medical Sciences MD Core"
+                                    className="w-full bg-white border border-purple-300 px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-purple-900"
+                                  />
+                                </div>
+
+                                <div className="sm:col-span-2 space-y-1">
+                                  <label className="text-[11px] font-bold text-purple-950">
+                                    Core Disciplines / Subject Domains (comma-separated)
+                                  </label>
+                                  <input
+                                    id="custom-curriculum-domains"
+                                    type="text"
+                                    value={customCurriculumData.domains}
+                                    onChange={(e) =>
+                                      setCustomCurriculumData({
+                                        ...customCurriculumData,
+                                        domains: e.target.value
+                                      })
+                                    }
+                                    placeholder="e.g. Distributed Computing, Linear Algebra, Machine Learning, Data Structures"
+                                    className="w-full bg-white border border-purple-300 px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-purple-900"
+                                  />
+                                </div>
+
+                                <div className="space-y-1">
+                                  <label className="text-[11px] font-bold text-purple-950">
+                                    Grading & Evaluation Scheme
+                                  </label>
+                                  <select
+                                    id="custom-curriculum-grading"
+                                    value={customCurriculumData.gradingScale}
+                                    onChange={(e) =>
+                                      setCustomCurriculumData({
+                                        ...customCurriculumData,
+                                        gradingScale: e.target.value
+                                      })
+                                    }
+                                    className="w-full bg-white border border-purple-300 px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-purple-900"
+                                  >
+                                    <option value="Semester GPA / Grade Points (10.0 scale)">
+                                      Semester GPA / CGPA (10.0 scale)
+                                    </option>
+                                    <option value="ECTS European Credit Transfer System (Credits + A-F)">
+                                      ECTS European Credit Transfer System (Credits + A-F)
+                                    </option>
+                                    <option value="4.0 Grade Point Average (US Scale)">
+                                      4.0 Grade Point Average (US Scale)
+                                    </option>
+                                    <option value="Letter Grade Scale (A+, A, B, C, D, F)">
+                                      Letter Grade Scale (A+, A, B, C, D, F)
+                                    </option>
+                                    <option value="Percentage & Marks (0-100% / Division)">
+                                      Percentage & Marks (0-100% / Division)
+                                    </option>
+                                    <option value="Competency-Based Mastery (Pass / Honors / Remedial)">
+                                      Competency-Based Mastery (Pass / Honors / Remedial)
+                                    </option>
+                                  </select>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <label className="text-[11px] font-bold text-purple-950">
+                                    Award / Degree Level
+                                  </label>
+                                  <input
+                                    id="custom-curriculum-degree"
+                                    type="text"
+                                    value={customCurriculumData.degreeOrAward}
+                                    onChange={(e) =>
+                                      setCustomCurriculumData({
+                                        ...customCurriculumData,
+                                        degreeOrAward: e.target.value
+                                      })
+                                    }
+                                    placeholder="e.g. Bachelor of Technology / B.S. / M.S. / Diploma"
+                                    className="w-full bg-white border border-purple-300 px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-purple-900"
+                                  />
+                                </div>
+
+                                <div className="space-y-1">
+                                  <label className="text-[11px] font-bold text-purple-950">
+                                    Academic Board / Faculty Approver
+                                  </label>
+                                  <input
+                                    id="custom-curriculum-department"
+                                    type="text"
+                                    value={customCurriculumData.department}
+                                    onChange={(e) =>
+                                      setCustomCurriculumData({
+                                        ...customCurriculumData,
+                                        department: e.target.value
+                                      })
+                                    }
+                                    placeholder="e.g. Academic Council / Faculty Senate"
+                                    className="w-full bg-white border border-purple-300 px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-purple-900"
+                                  />
+                                </div>
+
+                                <div className="space-y-1">
+                                  <label className="text-[11px] font-bold text-purple-950">
+                                    Accreditation Body / Oversight
+                                  </label>
+                                  <input
+                                    id="custom-curriculum-accreditation"
+                                    type="text"
+                                    value={customCurriculumData.accreditation}
+                                    onChange={(e) =>
+                                      setCustomCurriculumData({
+                                        ...customCurriculumData,
+                                        accreditation: e.target.value
+                                      })
+                                    }
+                                    placeholder="e.g. ABET / UGC / Ministry / Autonomous"
+                                    className="w-full bg-white border border-purple-300 px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-purple-900"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
                         <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 flex items-start gap-2">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
                           <p>
-                            <strong>Instant Global Availability:</strong> Once you complete sign up, this new institute will automatically appear in the student registration dropdown menu for all your students across the app!
+                            <strong>Instant Universal Availability:</strong> Once you complete sign up, this new institution and its curriculum will automatically appear in the student registration dropdown menu for all students across the platform!
                           </p>
                         </div>
                       </div>
@@ -1342,32 +1952,77 @@ export const LoginPage = ({ onLoginSuccess }) => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <label className="text-[11px] font-bold text-[#374151]">Target Grade Batch</label>
+                        <label className="text-[11px] font-bold text-[#374151]">Target Grade / Academic Batch</label>
                         <select
                           id="teacher-initial-grade"
                           value={teacherInitialGrade}
                           onChange={(e) => setTeacherInitialGrade(e.target.value)}
                           className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
                         >
-                          <option value="Class 12">Class 12 (Senior Secondary)</option>
-                          <option value="Class 11">Class 11 (Senior Secondary)</option>
-                          <option value="Class 10">Class 10 (Secondary Standard)</option>
-                          <option value="Class 9">Class 9 (Secondary Standard)</option>
-                          <option value="Class 8">Class 8 (Middle School)</option>
+                          {teacherInstituteTier === "Higher Education" ? (
+                            <>
+                              <option value="Undergraduate Year 1">Undergraduate Year 1 (Freshman / UG-1)</option>
+                              <option value="Undergraduate Year 2">Undergraduate Year 2 (Sophomore / UG-2)</option>
+                              <option value="Undergraduate Year 3">Undergraduate Year 3 (Junior / UG-3)</option>
+                              <option value="Undergraduate Year 4">Undergraduate Year 4 (Senior / UG-4)</option>
+                              <option value="Postgraduate Year 1">Postgraduate Year 1 (Master's M.Tech / MS / MD)</option>
+                              <option value="Postgraduate Year 2">Postgraduate Year 2 (Master's M.Tech / MS / MD)</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="Class 12">Class 12 (Senior Secondary)</option>
+                              <option value="Class 11">Class 11 (Senior Secondary)</option>
+                              <option value="Class 10">Class 10 (Secondary Standard)</option>
+                              <option value="Class 9">Class 9 (Secondary Standard)</option>
+                              <option value="Class 8">Class 8 (Middle School)</option>
+                            </>
+                          )}
                         </select>
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[11px] font-bold text-[#374151]">Subject Stream</label>
+                        <label className="text-[11px] font-bold text-[#374151]">Subject Stream / Major</label>
                         <select
                           id="teacher-initial-stream"
                           value={teacherInitialStream}
                           onChange={(e) => setTeacherInitialStream(e.target.value)}
                           className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
                         >
-                          <option value="Science (PCM / PCB)">Science (Physics, Chem, Math, Bio)</option>
-                          <option value="Mathematics & Applied Science">Mathematics & Applied Science</option>
-                          <option value="General Science Core">General Science Core</option>
+                          {teacherInstituteTier === "Higher Education" ? (
+                            <>
+                              <option value="Computer Science & Engineering (B.Tech/BS)">
+                                Computer Science & Engineering (B.Tech/BS)
+                              </option>
+                              <option value="Artificial Intelligence & Data Science">
+                                Artificial Intelligence & Data Science
+                              </option>
+                              <option value="Medicine & Clinical Sciences (MBBS/MD)">
+                                Medicine & Clinical Sciences (MBBS/MD)
+                              </option>
+                              <option value="Mechanical & Aerospace Engineering">
+                                Mechanical & Aerospace Engineering
+                              </option>
+                              <option value="Electrical & Electronics Engineering">
+                                Electrical & Electronics Engineering
+                              </option>
+                              <option value="Mathematics, Statistics & Computing">
+                                Mathematics, Statistics & Computing
+                              </option>
+                              <option value="Physics & Quantum Sciences">
+                                Physics & Quantum Sciences
+                              </option>
+                              <option value="Economics, Finance & Management">
+                                Economics, Finance & Management
+                              </option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="Science (PCM / PCB)">Science (Physics, Chem, Math, Bio)</option>
+                              <option value="Mathematics & Applied Science">Mathematics & Applied Science</option>
+                              <option value="General Science Core">General Science Core</option>
+                              <option value="Commerce & Analytics">Commerce & Analytics</option>
+                            </>
+                          )}
                         </select>
                       </div>
                     </div>
@@ -1375,7 +2030,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
                     <div className="p-3 bg-white border border-[#E5E7EB] text-xs text-[#4B5563] space-y-1">
                       <div className="font-bold text-[#1A1A1A]">Automatic Class Code Provisioning</div>
                       <p className="text-[11px] text-[#6B7280]">
-                        Your first batch class code will be auto-generated and linked to your institute upon completing registration. You can create additional class codes any time from your Teacher Dashboard.
+                        Your first batch class code will be auto-generated and linked to your institute upon completing registration. You can create additional class codes any time from your Faculty Dashboard.
                       </p>
                     </div>
                   </div>
@@ -1390,20 +2045,23 @@ export const LoginPage = ({ onLoginSuccess }) => {
                       !teacherRegEmail.trim() ||
                       teacherRegPassword.length < 6 ||
                       teacherRegPassword !== teacherRegConfirmPassword ||
-                      (teacherInstituteChoice === "new" && !teacherNewInstituteName.trim())
+                      (teacherInstituteChoice === "new" && !teacherNewInstituteName.trim()) ||
+                      (isCustomCurriculum && !customCurriculumData.name.trim())
                     }
                     className="w-full bg-black text-white hover:bg-[#222] py-3 px-4 text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span>
                       {!teacherRegName.trim()
-                        ? "Enter Teacher Name"
+                        ? "Enter Faculty / Teacher Name"
                         : teacherRegPassword.length < 6
                         ? "Password Must Be At Least 6 Characters"
                         : teacherRegPassword !== teacherRegConfirmPassword
                         ? "Passwords Do Not Match"
                         : teacherInstituteChoice === "new" && !teacherNewInstituteName.trim()
-                        ? "Enter New Institute Name"
-                        : "Complete Teacher Sign Up & Launch Classroom Radar"}
+                        ? "Enter Institution / University Name"
+                        : isCustomCurriculum && !customCurriculumData.name.trim()
+                        ? "Enter Custom Curriculum Name"
+                        : "Complete Institution Sign Up & Launch Portal"}
                     </span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>

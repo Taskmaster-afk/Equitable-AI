@@ -71,15 +71,28 @@ const api = {
     }
     return res.json();
   },
+  getAuthHeaders() {
+    const token = this.getToken();
+    const headers = { "Content-Type": "application/json" };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    return headers;
+  },
   async getTeacherClasses(teacherId) {
-    const url = teacherId ? `/api/teacher/classes?teacherId=${encodeURIComponent(teacherId)}` : "/api/teacher/classes";
-    const res = await fetch(url);
+    const searchParams = new URLSearchParams();
+    if (teacherId) searchParams.set("teacherId", teacherId);
+    const qs = searchParams.toString();
+    const url = qs ? `/api/teacher/classes?${qs}` : "/api/teacher/classes";
+    const res = await fetch(url, {
+      headers: this.getAuthHeaders()
+    });
     return res.json();
   },
   async createClass(payload) {
     const res = await fetch("/api/teacher/create-class", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this.getAuthHeaders(),
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
@@ -89,26 +102,36 @@ const api = {
     return res.json();
   },
   async getStudentMe(studentId) {
-    const res = await fetch(`/api/student/me?id=${encodeURIComponent(studentId)}`);
+    const res = await fetch(`/api/student/me?id=${encodeURIComponent(studentId)}`, {
+      headers: this.getAuthHeaders()
+    });
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.error || "Failed to fetch student details");
     }
     return res.json();
   },
-  async getStudents(classCode) {
-    const url = classCode ? `/api/students?classCode=${encodeURIComponent(classCode)}` : "/api/students";
-    const res = await fetch(url);
+  async getStudents(classCode, teacherId) {
+    const searchParams = new URLSearchParams();
+    if (classCode) searchParams.set("classCode", classCode);
+    if (teacherId) searchParams.set("teacherId", teacherId);
+    const qs = searchParams.toString();
+    const url = qs ? `/api/students?${qs}` : "/api/students";
+    const res = await fetch(url, {
+      headers: this.getAuthHeaders()
+    });
     return res.json();
   },
   async getStudent(id) {
-    const res = await fetch(`/api/students/${id}`);
+    const res = await fetch(`/api/students/${id}`, {
+      headers: this.getAuthHeaders()
+    });
     return res.json();
   },
   async updateStudent(id, updates) {
     const res = await fetch(`/api/students/${id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: this.getAuthHeaders(),
       body: JSON.stringify(updates)
     });
     return res.json();
@@ -123,7 +146,7 @@ const api = {
   async solveDoubt(payload) {
     const res = await fetch("/api/doubt/solve", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this.getAuthHeaders(),
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
@@ -135,7 +158,7 @@ const api = {
   async generatePractice(payload) {
     const res = await fetch("/api/practice/generate", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this.getAuthHeaders(),
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
@@ -147,14 +170,20 @@ const api = {
   async submitPractice(payload) {
     const res = await fetch("/api/practice/submit", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this.getAuthHeaders(),
       body: JSON.stringify(payload)
     });
     return res.json();
   },
-  async getTeacherInsights(classCode) {
-    const url = classCode && classCode !== "all" ? `/api/teacher/insights?classCode=${encodeURIComponent(classCode)}` : "/api/teacher/insights";
-    const res = await fetch(url);
+  async getTeacherInsights(classCode, teacherId) {
+    const searchParams = new URLSearchParams();
+    if (classCode && classCode !== "all") searchParams.set("classCode", classCode);
+    if (teacherId) searchParams.set("teacherId", teacherId);
+    const qs = searchParams.toString();
+    const url = qs ? `/api/teacher/insights?${qs}` : "/api/teacher/insights";
+    const res = await fetch(url, {
+      headers: this.getAuthHeaders()
+    });
     return res.json();
   },
   async generateLessonPlan(payload) {
@@ -224,6 +253,41 @@ const api = {
     const res = await fetch(`/api/resources/dumps/${encodeURIComponent(id)}`, {
       method: "DELETE"
     });
+    return res.json();
+  },
+  // Auth & Session Management
+  getToken() {
+    return localStorage.getItem("equitable_session_token") || null;
+  },
+  setToken(token) {
+    if (token) {
+      localStorage.setItem("equitable_session_token", token);
+    } else {
+      localStorage.removeItem("equitable_session_token");
+    }
+  },
+  async verifySession(token) {
+    const sessionToken = token || this.getToken();
+    if (!sessionToken) throw new Error("No active session token");
+    const res = await fetch(`/api/auth/verify`, {
+      headers: {
+        Authorization: `Bearer ${sessionToken}`
+      }
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Session invalid or expired");
+    }
+    return res.json();
+  },
+  async getSystemAudit() {
+    const res = await fetch("/api/system/audit");
+    if (!res.ok) throw new Error("Failed to fetch system audit");
+    return res.json();
+  },
+  async probeRetrieval(query) {
+    const res = await fetch(`/api/system/probe-retrieval?q=${encodeURIComponent(query)}`);
+    if (!res.ok) throw new Error("Failed to probe retrieval");
     return res.json();
   },
   // Community Chat & Doubts

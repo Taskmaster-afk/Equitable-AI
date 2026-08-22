@@ -173,27 +173,28 @@ export const AdaptivePractice = ({
     /* Multiple Choice Options (A, B, C, D) */
   }
                 <div className="space-y-2.5 mb-5">
-                  {currentQuestion.options.map((option, idx) => {
-    const isSelected = selectedOptionIndex === idx;
-    const isCorrect = idx === currentQuestion.correctOptionIndex;
-    let optionStyle = "bg-white border-[#E5E7EB] text-[#1A1A1A] hover:bg-[#F8F9FA]";
-    if (isAnswerSubmitted) {
-      if (isCorrect) {
-        optionStyle = "bg-emerald-50 border-emerald-500 text-emerald-900 font-semibold";
-      } else if (isSelected && !isCorrect) {
-        optionStyle = "bg-rose-50 border-rose-400 text-rose-900";
-      } else {
-        optionStyle = "bg-[#F8F9FA] border-[#E5E7EB] text-[#9CA3AF] opacity-60";
-      }
-    } else if (isSelected) {
-      optionStyle = "bg-black border-black text-white font-medium";
-    }
-    return <button
-      key={idx}
-      disabled={isAnswerSubmitted}
-      onClick={() => setSelectedOptionIndex(idx)}
-      className={`w-full text-left p-3 border text-xs transition-colors flex items-center justify-between ${optionStyle}`}
-    >
+                  {(currentQuestion?.options || []).map((option, idx) => {
+                    const isSelected = selectedOptionIndex === idx;
+                    const isCorrect = idx === currentQuestion.correctOptionIndex;
+                    let optionStyle = "bg-white border-[#E5E7EB] text-[#1A1A1A] hover:bg-[#F8F9FA]";
+                    if (isAnswerSubmitted) {
+                      if (isCorrect) {
+                        optionStyle = "bg-emerald-50 border-emerald-500 text-emerald-900 font-semibold";
+                      } else if (isSelected && !isCorrect) {
+                        optionStyle = "bg-rose-50 border-rose-400 text-rose-900";
+                      } else {
+                        optionStyle = "bg-[#F8F9FA] border-[#E5E7EB] text-[#9CA3AF] opacity-60";
+                      }
+                    } else if (isSelected) {
+                      optionStyle = "bg-black border-black text-white font-medium";
+                    }
+                    return (
+                      <button
+                        key={idx}
+                        disabled={isAnswerSubmitted}
+                        onClick={() => setSelectedOptionIndex(idx)}
+                        className={`w-full text-left p-3 border text-xs transition-colors flex items-center justify-between ${optionStyle}`}
+                      >
                         <div className="flex items-center gap-2.5">
                           <span className={`w-5 h-5 flex items-center justify-center text-xs font-mono font-bold ${isSelected && !isAnswerSubmitted ? "bg-white text-black" : "bg-[#E5E7EB] text-[#4B5563]"}`}>
                             {String.fromCharCode(65 + idx)}
@@ -203,8 +204,9 @@ export const AdaptivePractice = ({
 
                         {isAnswerSubmitted && isCorrect && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
                         {isAnswerSubmitted && isSelected && !isCorrect && <XCircle className="w-4 h-4 text-rose-600" />}
-                      </button>;
-  })}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {
@@ -320,18 +322,19 @@ export const AdaptivePractice = ({
     /* Topic List */
   }
             <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
-              {filteredTopics.map((topic) => {
-    const isSelectedTopic = topic.topicId === activeTopicId;
-    const isLow = topic.masteryPercentage < 50;
-    const isMed = topic.masteryPercentage >= 50 && topic.masteryPercentage < 75;
-    return <div
-      key={topic.topicId}
-      onClick={() => {
-        setActiveTopicId(topic.topicId);
-        loadNextQuestion(topic.topicId);
-      }}
-      className={`p-3 border text-xs cursor-pointer transition-colors ${isSelectedTopic ? "border-black bg-[#F8F9FA]" : "border-[#E5E7EB] bg-white hover:border-[#9CA3AF]"}`}
-    >
+              {(filteredTopics || []).map((topic) => {
+                const isSelectedTopic = topic.topicId === activeTopicId;
+                const isLow = topic.masteryPercentage < 50;
+                const isMed = topic.masteryPercentage >= 50 && topic.masteryPercentage < 75;
+                return (
+                  <div
+                    key={topic.topicId}
+                    onClick={() => {
+                      setActiveTopicId(topic.topicId);
+                      loadNextQuestion(topic.topicId);
+                    }}
+                    className={`p-3 border text-xs cursor-pointer transition-colors ${isSelectedTopic ? "border-black bg-[#F8F9FA]" : "border-[#E5E7EB] bg-white hover:border-[#9CA3AF]"}`}
+                  >
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-bold text-[#1A1A1A]">{topic.topicName}</span>
                       <span className={`font-mono font-bold text-xs ${isLow ? "text-rose-600" : isMed ? "text-amber-600" : "text-emerald-600"}`}>
@@ -359,12 +362,15 @@ export const AdaptivePractice = ({
                       <span>{topic.attemptsCount} solved</span>
                     </div>
 
-                    {topic.weakConcepts.length > 0 && <div className="mt-1.5 text-[10px] text-rose-800 bg-rose-50 p-1.5 border border-rose-100">
+                    {topic.weakConcepts && topic.weakConcepts.length > 0 && (
+                      <div className="mt-1.5 text-[10px] text-rose-800 bg-rose-50 p-1.5 border border-rose-100">
                         <span className="font-bold block">Gap:</span>
                         {topic.weakConcepts[0]}
-                      </div>}
-                  </div>;
-  })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
