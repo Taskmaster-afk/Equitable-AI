@@ -3,31 +3,13 @@ import path from "path";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
-import { OER_CORPUS, SUPPORTED_LANGUAGES } from "./src/data/oerKnowledgeBase";
-import { SCHOLARSHIP_SCHEMES } from "./src/data/scholarshipDatabase";
-import {
-  OerCitation,
-  StudentProfile,
-  TeacherStudentFlag,
-  TopicHeatmapItem,
-  ClassroomInfo,
-  TeacherProfile,
-  AuthUser,
-  DayTimetable,
-  SyllabusUnit,
-  GradeLevel,
-  TopicMastery,
-} from "./src/types";
-
+import { OER_CORPUS, SUPPORTED_LANGUAGES } from "./src/data/oerKnowledgeBase.js";
+import { SCHOLARSHIP_SCHEMES } from "./src/data/scholarshipDatabase.js";
 dotenv.config();
-
 const app = express();
-const PORT = 3000;
-
+const PORT = 3e3;
 app.use(express.json({ limit: "25mb" }));
-
-// Lazy initialize Gemini client
-function getGeminiClient(): GoogleGenAI | null {
+function getGeminiClient() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.warn("GEMINI_API_KEY is not set. Offline/fallback grounded mode will be used.");
@@ -37,48 +19,20 @@ function getGeminiClient(): GoogleGenAI | null {
     apiKey,
     httpOptions: {
       headers: {
-        "User-Agent": "aistudio-build",
-      },
-    },
+        "User-Agent": "aistudio-build"
+      }
+    }
   });
 }
-
-// In-memory Document Store (MERN Store)
-interface MemoryDatabase {
-  students: Map<string, StudentProfile>;
-  teachers: Map<string, TeacherProfile>;
-  classes: Map<string, ClassroomInfo>;
-  doubtHistory: Array<{
-    id: string;
-    studentId: string;
-    question: string;
-    response: string;
-    citations: OerCitation[];
-    language: string;
-    timestamp: string;
-  }>;
-  practiceLogs: Array<{
-    id: string;
-    studentId: string;
-    topicId: string;
-    isCorrect: boolean;
-    difficulty: string;
-    timestamp: string;
-  }>;
-}
-
-const db: MemoryDatabase = {
-  students: new Map(),
-  teachers: new Map(),
-  classes: new Map(),
+const db = {
+  students: /* @__PURE__ */ new Map(),
+  teachers: /* @__PURE__ */ new Map(),
+  classes: /* @__PURE__ */ new Map(),
   doubtHistory: [],
-  practiceLogs: [],
+  practiceLogs: []
 };
-
-// Seed initial classrooms, teachers, and student profiles
 function seedInitialData() {
-  // 1. Seed Classrooms
-  const class12A_Timetable: DayTimetable[] = [
+  const class12A_Timetable = [
     {
       day: "Monday",
       periods: [
@@ -86,8 +40,8 @@ function seedInitialData() {
         { periodNumber: 2, time: "09:20 - 10:05 AM", subject: "Mathematics", topic: "Integrals by Parts (ILATE)", teacher: "Prof. S. Ramanujan", room: "Room 102" },
         { periodNumber: 3, time: "10:20 - 11:05 AM", subject: "Chemistry", topic: "Electrochemistry & Nernst Eq", teacher: "Dr. M. Sen", room: "Chem Lab" },
         { periodNumber: 4, time: "11:10 - 11:55 AM", subject: "Biology", topic: "DNA Transcription & Translation", teacher: "Dr. V. Swaminathan", room: "Bio Lab" },
-        { periodNumber: 5, time: "12:45 - 01:30 PM", subject: "NCERT Remediation", topic: "Formative Doubt Solving & Board Work", teacher: "Dr. Rajesh Varma", room: "Smart Room" },
-      ],
+        { periodNumber: 5, time: "12:45 - 01:30 PM", subject: "NCERT Remediation", topic: "Formative Doubt Solving & Board Work", teacher: "Dr. Rajesh Varma", room: "Smart Room" }
+      ]
     },
     {
       day: "Tuesday",
@@ -95,8 +49,8 @@ function seedInitialData() {
         { periodNumber: 1, time: "08:30 - 09:15 AM", subject: "Mathematics", topic: "Adjoint & Inverse of Matrices", teacher: "Prof. S. Ramanujan", room: "Room 102" },
         { periodNumber: 2, time: "09:20 - 10:05 AM", subject: "Physics", topic: "Electromagnetic Waves & Maxwell Eq", teacher: "Dr. Rajesh Varma", room: "Lab 2" },
         { periodNumber: 3, time: "10:20 - 11:05 AM", subject: "Chemistry", topic: "Haloalkanes SN1 vs SN2 Mechanisms", teacher: "Dr. M. Sen", room: "Chem Lab" },
-        { periodNumber: 4, time: "11:10 - 11:55 AM", subject: "Computer Science", topic: "Adaptive Practice Session & Python", teacher: "Mr. K. Sharma", room: "Computer Lab" },
-      ],
+        { periodNumber: 4, time: "11:10 - 11:55 AM", subject: "Computer Science", topic: "Adaptive Practice Session & Python", teacher: "Mr. K. Sharma", room: "Computer Lab" }
+      ]
     },
     {
       day: "Wednesday",
@@ -104,8 +58,8 @@ function seedInitialData() {
         { periodNumber: 1, time: "08:30 - 09:15 AM", subject: "Chemistry", topic: "Chemical Kinetics & Order of Reaction", teacher: "Dr. M. Sen", room: "Chem Lab" },
         { periodNumber: 2, time: "09:20 - 10:05 AM", subject: "Biology", topic: "Biotechnology Principles & PCR", teacher: "Dr. V. Swaminathan", room: "Bio Lab" },
         { periodNumber: 3, time: "10:20 - 11:05 AM", subject: "Physics", topic: "Ray Optics & Optical Instruments", teacher: "Dr. Rajesh Varma", room: "Lab 2" },
-        { periodNumber: 4, time: "11:10 - 11:55 AM", subject: "Mathematics", topic: "Definite Integrals & Area Under Curves", teacher: "Prof. S. Ramanujan", room: "Room 102" },
-      ],
+        { periodNumber: 4, time: "11:10 - 11:55 AM", subject: "Mathematics", topic: "Definite Integrals & Area Under Curves", teacher: "Prof. S. Ramanujan", room: "Room 102" }
+      ]
     },
     {
       day: "Thursday",
@@ -113,8 +67,8 @@ function seedInitialData() {
         { periodNumber: 1, time: "08:30 - 09:15 AM", subject: "Physics Lab", topic: "Prism Angle & Refractive Index Practical", teacher: "Dr. Rajesh Varma", room: "Dark Room" },
         { periodNumber: 2, time: "09:20 - 10:05 AM", subject: "Chemistry Lab", topic: "Volumetric Titration & KMnO4 Prep", teacher: "Dr. M. Sen", room: "Chem Lab" },
         { periodNumber: 3, time: "10:20 - 11:05 AM", subject: "Mathematics", topic: "Differential Equations Formulation", teacher: "Prof. S. Ramanujan", room: "Room 102" },
-        { periodNumber: 4, time: "11:10 - 11:55 AM", subject: "Biology", topic: "Ecology & Population Genetics", teacher: "Dr. V. Swaminathan", room: "Bio Lab" },
-      ],
+        { periodNumber: 4, time: "11:10 - 11:55 AM", subject: "Biology", topic: "Ecology & Population Genetics", teacher: "Dr. V. Swaminathan", room: "Bio Lab" }
+      ]
     },
     {
       day: "Friday",
@@ -122,12 +76,11 @@ function seedInitialData() {
         { periodNumber: 1, time: "08:30 - 09:15 AM", subject: "Mathematics", topic: "Vectors & 3D Geometry Cross-Products", teacher: "Prof. S. Ramanujan", room: "Room 102" },
         { periodNumber: 2, time: "09:20 - 10:05 AM", subject: "Physics", topic: "Semiconductor Diode & Logic Circuits", teacher: "Dr. Rajesh Varma", room: "Lab 2" },
         { periodNumber: 3, time: "10:20 - 11:05 AM", subject: "Chemistry", topic: "Biomolecules & Peptide Linkages", teacher: "Dr. M. Sen", room: "Chem Lab" },
-        { periodNumber: 4, time: "11:10 - 11:55 AM", subject: "Review & Triage", topic: "Weekly Formative Diagnostic Assessment", teacher: "Dr. Rajesh Varma", room: "Smart Room" },
-      ],
-    },
+        { periodNumber: 4, time: "11:10 - 11:55 AM", subject: "Review & Triage", topic: "Weekly Formative Diagnostic Assessment", teacher: "Dr. Rajesh Varma", room: "Smart Room" }
+      ]
+    }
   ];
-
-  const class12A_Syllabus: SyllabusUnit[] = [
+  const class12A_Syllabus = [
     {
       unitNumber: 1,
       unitTitle: "Optics & Wave Theory (Physics)",
@@ -135,7 +88,7 @@ function seedInitialData() {
       chapters: ["Wave Optics (NCERT Ch 10)", "Ray Optics & Optical Instruments (NCERT Ch 9)"],
       weightageMarks: 18,
       totalPeriods: 28,
-      status: "In Progress",
+      status: "In Progress"
     },
     {
       unitNumber: 2,
@@ -144,7 +97,7 @@ function seedInitialData() {
       chapters: ["Integrals (NCERT Ch 7)", "Applications of Integrals (NCERT Ch 8)", "Differential Equations (NCERT Ch 9)"],
       weightageMarks: 35,
       totalPeriods: 42,
-      status: "In Progress",
+      status: "In Progress"
     },
     {
       unitNumber: 3,
@@ -153,7 +106,7 @@ function seedInitialData() {
       chapters: ["Solutions (NCERT Ch 1)", "Electrochemistry (NCERT Ch 2)", "Chemical Kinetics (NCERT Ch 3)"],
       weightageMarks: 23,
       totalPeriods: 30,
-      status: "Completed",
+      status: "Completed"
     },
     {
       unitNumber: 4,
@@ -162,7 +115,7 @@ function seedInitialData() {
       chapters: ["Haloalkanes & Haloarenes (NCERT Ch 6)", "Alcohols, Phenols & Ethers (NCERT Ch 7)"],
       weightageMarks: 28,
       totalPeriods: 34,
-      status: "In Progress",
+      status: "In Progress"
     },
     {
       unitNumber: 5,
@@ -171,7 +124,7 @@ function seedInitialData() {
       chapters: ["Principles of Inheritance & Variation (NCERT Ch 4)", "Molecular Basis of Inheritance (NCERT Ch 5)"],
       weightageMarks: 20,
       totalPeriods: 26,
-      status: "In Progress",
+      status: "In Progress"
     },
     {
       unitNumber: 6,
@@ -180,11 +133,10 @@ function seedInitialData() {
       chapters: ["Biotechnology Principles (NCERT Ch 9)", "Organisms & Populations (NCERT Ch 11)"],
       weightageMarks: 16,
       totalPeriods: 22,
-      status: "Upcoming",
-    },
+      status: "Upcoming"
+    }
   ];
-
-  const sampleClass12A: ClassroomInfo = {
+  const sampleClass12A = {
     classCode: "NCERT-12A",
     className: "Class 12-A Senior Science (PCM & PCB)",
     targetClass: "Class 12",
@@ -199,10 +151,9 @@ function seedInitialData() {
     timetable: class12A_Timetable,
     syllabus: class12A_Syllabus,
     enrolledStudentIds: ["student-1", "student-2", "student-4"],
-    enrolledCount: 3,
+    enrolledCount: 3
   };
-
-  const sampleClass11B: ClassroomInfo = {
+  const sampleClass11B = {
     classCode: "NCERT-11B",
     className: "Class 11-B Core Science Foundations",
     targetClass: "Class 11",
@@ -223,7 +174,7 @@ function seedInitialData() {
         chapters: ["Motion in a Plane (NCERT Ch 3)", "Laws of Motion (NCERT Ch 4)"],
         weightageMarks: 20,
         totalPeriods: 24,
-        status: "In Progress",
+        status: "In Progress"
       },
       {
         unitNumber: 2,
@@ -232,14 +183,13 @@ function seedInitialData() {
         chapters: ["Structure of Atom (NCERT Ch 2)", "Chemical Bonding (NCERT Ch 4)"],
         weightageMarks: 22,
         totalPeriods: 26,
-        status: "In Progress",
-      },
+        status: "In Progress"
+      }
     ],
     enrolledStudentIds: [],
-    enrolledCount: 0,
+    enrolledCount: 0
   };
-
-  const sampleClass10A: ClassroomInfo = {
+  const sampleClass10A = {
     classCode: "NCERT-10A",
     className: "Class 10-A Secondary Mathematics & Science",
     targetClass: "Class 10",
@@ -257,16 +207,16 @@ function seedInitialData() {
         periods: [
           { periodNumber: 1, time: "08:30 - 09:15 AM", subject: "Mathematics", topic: "Linear Equations in 2 Variables", teacher: "Mrs. Sunita Sharma", room: "Room 105" },
           { periodNumber: 2, time: "09:20 - 10:05 AM", subject: "Science", topic: "Newton's Laws & Force F=ma", teacher: "Mr. R. Nair", room: "Room 105" },
-          { periodNumber: 3, time: "10:20 - 11:05 AM", subject: "Science", topic: "Chemical Reactions & Equations", teacher: "Mrs. Sunita Sharma", room: "Room 105" },
-        ],
+          { periodNumber: 3, time: "10:20 - 11:05 AM", subject: "Science", topic: "Chemical Reactions & Equations", teacher: "Mrs. Sunita Sharma", room: "Room 105" }
+        ]
       },
       {
         day: "Tuesday",
         periods: [
           { periodNumber: 1, time: "08:30 - 09:15 AM", subject: "Science", topic: "Life Processes & Photosynthesis", teacher: "Dr. K. Joseph", room: "Room 105" },
-          { periodNumber: 2, time: "09:20 - 10:05 AM", subject: "Mathematics", topic: "Quadratic Equations Factoring", teacher: "Mrs. Sunita Sharma", room: "Room 105" },
-        ],
-      },
+          { periodNumber: 2, time: "09:20 - 10:05 AM", subject: "Mathematics", topic: "Quadratic Equations Factoring", teacher: "Mrs. Sunita Sharma", room: "Room 105" }
+        ]
+      }
     ],
     syllabus: [
       {
@@ -276,7 +226,7 @@ function seedInitialData() {
         chapters: ["Linear Equations (NCERT Ch 3)", "Quadratic Equations (NCERT Ch 4)"],
         weightageMarks: 20,
         totalPeriods: 24,
-        status: "In Progress",
+        status: "In Progress"
       },
       {
         unitNumber: 2,
@@ -285,14 +235,13 @@ function seedInitialData() {
         chapters: ["Chemical Reactions (NCERT Ch 1)", "Light: Reflection & Refraction (NCERT Ch 9)"],
         weightageMarks: 25,
         totalPeriods: 30,
-        status: "In Progress",
-      },
+        status: "In Progress"
+      }
     ],
     enrolledStudentIds: ["student-3"],
-    enrolledCount: 1,
+    enrolledCount: 1
   };
-
-  const sampleClass9A: ClassroomInfo = {
+  const sampleClass9A = {
     classCode: "NCERT-9A",
     className: "Class 9-A Secondary Foundations (Math & Science)",
     targetClass: "Class 9",
@@ -309,9 +258,9 @@ function seedInitialData() {
         day: "Monday",
         periods: [
           { periodNumber: 1, time: "08:30 - 09:15 AM", subject: "Mathematics", topic: "Number Systems & Irrational Numbers", teacher: "Mrs. Sunita Sharma", room: "Room 104" },
-          { periodNumber: 2, time: "09:20 - 10:05 AM", subject: "Science", topic: "Matter in Our Surroundings", teacher: "Mr. R. Nair", room: "Room 104" },
-        ],
-      },
+          { periodNumber: 2, time: "09:20 - 10:05 AM", subject: "Science", topic: "Matter in Our Surroundings", teacher: "Mr. R. Nair", room: "Room 104" }
+        ]
+      }
     ],
     syllabus: [
       {
@@ -321,44 +270,37 @@ function seedInitialData() {
         chapters: ["Number Systems (NCERT Ch 1)", "Polynomials (NCERT Ch 2)"],
         weightageMarks: 22,
         totalPeriods: 25,
-        status: "In Progress",
-      },
+        status: "In Progress"
+      }
     ],
     enrolledStudentIds: [],
-    enrolledCount: 0,
+    enrolledCount: 0
   };
-
   db.classes.set(sampleClass12A.classCode, sampleClass12A);
   db.classes.set(sampleClass11B.classCode, sampleClass11B);
   db.classes.set(sampleClass10A.classCode, sampleClass10A);
   db.classes.set(sampleClass9A.classCode, sampleClass9A);
-
-  // 2. Seed Teachers
-  const teacher1: TeacherProfile = {
+  const teacher1 = {
     id: "teacher-1",
     name: "Dr. Rajesh Varma",
     email: "rajesh.varma@school.edu.in",
     role: "teacher",
     department: "Senior Physics & Science HOD",
     school: "Kendriya Vidyalaya No. 1, Model Cluster",
-    classes: [sampleClass12A, sampleClass11B],
+    classes: [sampleClass12A, sampleClass11B]
   };
-
-  const teacher2: TeacherProfile = {
+  const teacher2 = {
     id: "teacher-2",
     name: "Mrs. Sunita Sharma",
     email: "sunita.sharma@school.edu.in",
     role: "teacher",
     department: "Secondary Mathematics Lead",
     school: "Kendriya Vidyalaya No. 1, Model Cluster",
-    classes: [sampleClass10A],
+    classes: [sampleClass10A]
   };
-
   db.teachers.set(teacher1.id, teacher1);
   db.teachers.set(teacher2.id, teacher2);
-
-  // 3. Seed Students
-  const sampleStudents: StudentProfile[] = [
+  const sampleStudents = [
     {
       id: "student-1",
       name: "Aarav Sharma",
@@ -391,7 +333,7 @@ function seedInitialData() {
           recentStreak: -2,
           weakConcepts: ["Quotient Rule in differentiation", "lim h->0 sign evaluation"],
           attemptsCount: 9,
-          lastAttemptedAt: "Today",
+          lastAttemptedAt: "Today"
         },
         {
           topicId: "projectile-motion",
@@ -402,7 +344,7 @@ function seedInitialData() {
           recentStreak: 1,
           weakConcepts: ["Horizontal range complementary angles", "Time of flight with initial elevation"],
           attemptsCount: 7,
-          lastAttemptedAt: "Today",
+          lastAttemptedAt: "Today"
         },
         {
           topicId: "chemical-bonding",
@@ -413,7 +355,7 @@ function seedInitialData() {
           recentStreak: 2,
           weakConcepts: ["Lone pair compression of bond angles (sp3)"],
           attemptsCount: 8,
-          lastAttemptedAt: "Yesterday",
+          lastAttemptedAt: "Yesterday"
         },
         {
           topicId: "cell-biology",
@@ -424,9 +366,9 @@ function seedInitialData() {
           recentStreak: 4,
           weakConcepts: [],
           attemptsCount: 6,
-          lastAttemptedAt: "2 days ago",
-        },
-      ],
+          lastAttemptedAt: "2 days ago"
+        }
+      ]
     },
     {
       id: "student-2",
@@ -460,7 +402,7 @@ function seedInitialData() {
           recentStreak: 4,
           weakConcepts: [],
           attemptsCount: 14,
-          lastAttemptedAt: "Today",
+          lastAttemptedAt: "Today"
         },
         {
           topicId: "wave-optics",
@@ -469,9 +411,9 @@ function seedInitialData() {
           gradeLevel: "Grade 11-12",
           masteryPercentage: 82,
           recentStreak: 2,
-          weakConcepts: ["Fringe width β = λD/d in medium of refractive index μ"],
+          weakConcepts: ["Fringe width \u03B2 = \u03BBD/d in medium of refractive index \u03BC"],
           attemptsCount: 11,
-          lastAttemptedAt: "Yesterday",
+          lastAttemptedAt: "Yesterday"
         },
         {
           topicId: "matrices-determinants",
@@ -482,7 +424,7 @@ function seedInitialData() {
           recentStreak: 5,
           weakConcepts: [],
           attemptsCount: 12,
-          lastAttemptedAt: "Today",
+          lastAttemptedAt: "Today"
         },
         {
           topicId: "molecular-genetics",
@@ -493,9 +435,9 @@ function seedInitialData() {
           recentStreak: 3,
           weakConcepts: ["Okazaki fragments & DNA Ligase on lagging strand"],
           attemptsCount: 10,
-          lastAttemptedAt: "2 days ago",
-        },
-      ],
+          lastAttemptedAt: "2 days ago"
+        }
+      ]
     },
     {
       id: "student-3",
@@ -529,7 +471,7 @@ function seedInitialData() {
           recentStreak: -2,
           weakConcepts: ["Graphical plotting of negative coordinates", "Substitution with fractions"],
           attemptsCount: 8,
-          lastAttemptedAt: "Today",
+          lastAttemptedAt: "Today"
         },
         {
           topicId: "newton-laws",
@@ -540,9 +482,9 @@ function seedInitialData() {
           recentStreak: -1,
           weakConcepts: ["Momentum calculation with opposing resistance"],
           attemptsCount: 7,
-          lastAttemptedAt: "Today",
-        },
-      ],
+          lastAttemptedAt: "Today"
+        }
+      ]
     },
     {
       id: "student-4",
@@ -576,7 +518,7 @@ function seedInitialData() {
           recentStreak: 6,
           weakConcepts: [],
           attemptsCount: 16,
-          lastAttemptedAt: "Today",
+          lastAttemptedAt: "Today"
         },
         {
           topicId: "organic-haloalkanes",
@@ -587,53 +529,38 @@ function seedInitialData() {
           recentStreak: 5,
           weakConcepts: [],
           attemptsCount: 14,
-          lastAttemptedAt: "Yesterday",
-        },
-      ],
-    },
+          lastAttemptedAt: "Yesterday"
+        }
+      ]
+    }
   ];
-
   sampleStudents.forEach((s) => db.students.set(s.id, s));
 }
 seedInitialData();
-
-// RAG Retrieval Helper: Find matching OER open content passages
-function retrieveRelevantOerDocs(query: string, gradeLevel?: string): { docs: typeof OER_CORPUS; citations: OerCitation[] } {
+function retrieveRelevantOerDocs(query, gradeLevel) {
   const queryWords = query.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2);
-
   const scored = OER_CORPUS.map((doc) => {
     let score = 0;
     const docFullText = `${doc.title} ${doc.chapter} ${doc.section} ${doc.keyConcepts.join(" ")} ${doc.content} ${doc.summary}`.toLowerCase();
-
-    // Check key concepts exact match
     for (const concept of doc.keyConcepts) {
       if (query.toLowerCase().includes(concept.toLowerCase())) {
         score += 25;
       }
     }
-
-    // Check query terms
     for (const word of queryWords) {
       if (docFullText.includes(word)) {
         score += 5;
       }
     }
-
-    // Grade level alignment bonus
     if (gradeLevel && doc.gradeLevel.toLowerCase().includes(gradeLevel.toLowerCase().slice(0, 7))) {
       score += 10;
     }
-
     return { doc, score };
   });
-
   scored.sort((a, b) => b.score - a.score);
   const topMatches = scored.filter((item) => item.score > 10).slice(0, 3);
-
-  // Fallback to top 2 if score is low but query exists
   const selected = topMatches.length > 0 ? topMatches : scored.slice(0, 2);
-
-  const citations: OerCitation[] = selected.map(({ doc, score }) => ({
+  const citations = selected.map(({ doc, score }) => ({
     id: `cite-${doc.id}`,
     sourceName: doc.title,
     publisher: doc.publisher,
@@ -642,18 +569,13 @@ function retrieveRelevantOerDocs(query: string, gradeLevel?: string): { docs: ty
     pageOrRef: doc.pageOrRef,
     license: doc.license,
     excerptSnippet: doc.content.slice(0, 220) + "...",
-    relevanceScore: Math.min(98, Math.max(65, score * 3)),
+    relevanceScore: Math.min(98, Math.max(65, score * 3))
   }));
-
   return {
     docs: selected.map((s) => s.doc),
-    citations,
+    citations
   };
 }
-
-// ---------------- API ENDPOINTS ----------------
-
-// Health check
 app.get("/api/health", (_req, res) => {
   res.json({
     status: "ok",
@@ -661,51 +583,39 @@ app.get("/api/health", (_req, res) => {
     oerDocsCount: OER_CORPUS.length,
     scholarshipsCount: SCHOLARSHIP_SCHEMES.length,
     activeStudents: db.students.size,
-    activeClasses: db.classes.size,
+    activeClasses: db.classes.size
   });
 });
-
-// Helper to check if student's selected class matches class code
-function validateClassCodeMatch(studentClass: string, classInfo: ClassroomInfo): { valid: boolean; reason?: string } {
+function validateClassCodeMatch(studentClass, classInfo) {
   if (!studentClass) {
     return { valid: false, reason: "Please select your enrolled class (e.g. Class 12, Class 11, Class 10)." };
   }
-
-  // Extract class numeric digits: e.g. "12", "11", "10", "9", "8", "7", "6"
   const studentDigitsMatch = studentClass.match(/\b(12|11|10|9|8|7|6)\b/i) || studentClass.match(/(12|11|10|9|8|7|6)/i);
   const studentNum = studentDigitsMatch ? studentDigitsMatch[1] : "";
-
-  const targetDigitsMatch = (classInfo.targetClass || "").match(/\b(12|11|10|9|8|7|6)\b/i) ||
-    classInfo.classCode.match(/(12|11|10|9|8|7|6)/i) ||
-    classInfo.className.match(/\bclass\s*(12|11|10|9|8|7|6)\b/i);
+  const targetDigitsMatch = (classInfo.targetClass || "").match(/\b(12|11|10|9|8|7|6)\b/i) || classInfo.classCode.match(/(12|11|10|9|8|7|6)/i) || classInfo.className.match(/\bclass\s*(12|11|10|9|8|7|6)\b/i);
   const targetNum = targetDigitsMatch ? targetDigitsMatch[1] : "";
-
   if (studentNum && targetNum) {
     if (studentNum !== targetNum) {
       return {
         valid: false,
-        reason: `Class Mismatch: You selected Class ${studentNum}, but Class Code "${classInfo.classCode}" is for Class ${targetNum} (${classInfo.className}). Students are strictly allowed to join only the class matching their enrolled grade level.`,
+        reason: `Class Mismatch: You selected Class ${studentNum}, but Class Code "${classInfo.classCode}" is for Class ${targetNum} (${classInfo.className}). Students are strictly allowed to join only the class matching their enrolled grade level.`
       };
     }
     return { valid: true };
   }
-
   if (classInfo.targetClass && studentClass.trim().toLowerCase() !== classInfo.targetClass.trim().toLowerCase()) {
     return {
       valid: false,
-      reason: `Class Mismatch: You selected "${studentClass}", but Class Code "${classInfo.classCode}" is for "${classInfo.targetClass}".`,
+      reason: `Class Mismatch: You selected "${studentClass}", but Class Code "${classInfo.classCode}" is for "${classInfo.targetClass}".`
     };
   }
-
   return { valid: true };
 }
-
-function generateClassMasteryList(studentClass: string, gradeLevel: GradeLevel): TopicMastery[] {
+function generateClassMasteryList(studentClass, gradeLevel) {
   const isClass12 = /12/.test(studentClass);
   const isClass11 = /11/.test(studentClass);
   const isClass10 = /10/.test(studentClass);
   const isClass9 = /9/.test(studentClass);
-
   if (isClass12) {
     return [
       {
@@ -717,7 +627,7 @@ function generateClassMasteryList(studentClass: string, gradeLevel: GradeLevel):
         recentStreak: 1,
         weakConcepts: [],
         attemptsCount: 0,
-        lastAttemptedAt: "Registered Today",
+        lastAttemptedAt: "Registered Today"
       },
       {
         topicId: "wave-optics",
@@ -728,7 +638,7 @@ function generateClassMasteryList(studentClass: string, gradeLevel: GradeLevel):
         recentStreak: 1,
         weakConcepts: [],
         attemptsCount: 0,
-        lastAttemptedAt: "Registered Today",
+        lastAttemptedAt: "Registered Today"
       },
       {
         topicId: "electrochemistry",
@@ -739,7 +649,7 @@ function generateClassMasteryList(studentClass: string, gradeLevel: GradeLevel):
         recentStreak: 0,
         weakConcepts: [],
         attemptsCount: 0,
-        lastAttemptedAt: "Registered Today",
+        lastAttemptedAt: "Registered Today"
       },
       {
         topicId: "molecular-genetics",
@@ -750,8 +660,8 @@ function generateClassMasteryList(studentClass: string, gradeLevel: GradeLevel):
         recentStreak: 1,
         weakConcepts: [],
         attemptsCount: 0,
-        lastAttemptedAt: "Registered Today",
-      },
+        lastAttemptedAt: "Registered Today"
+      }
     ];
   } else if (isClass11) {
     return [
@@ -764,7 +674,7 @@ function generateClassMasteryList(studentClass: string, gradeLevel: GradeLevel):
         recentStreak: 1,
         weakConcepts: [],
         attemptsCount: 0,
-        lastAttemptedAt: "Registered Today",
+        lastAttemptedAt: "Registered Today"
       },
       {
         topicId: "projectile-motion",
@@ -775,7 +685,7 @@ function generateClassMasteryList(studentClass: string, gradeLevel: GradeLevel):
         recentStreak: 1,
         weakConcepts: [],
         attemptsCount: 0,
-        lastAttemptedAt: "Registered Today",
+        lastAttemptedAt: "Registered Today"
       },
       {
         topicId: "chemical-bonding",
@@ -786,7 +696,7 @@ function generateClassMasteryList(studentClass: string, gradeLevel: GradeLevel):
         recentStreak: 1,
         weakConcepts: [],
         attemptsCount: 0,
-        lastAttemptedAt: "Registered Today",
+        lastAttemptedAt: "Registered Today"
       },
       {
         topicId: "cell-biology",
@@ -797,8 +707,8 @@ function generateClassMasteryList(studentClass: string, gradeLevel: GradeLevel):
         recentStreak: 1,
         weakConcepts: [],
         attemptsCount: 0,
-        lastAttemptedAt: "Registered Today",
-      },
+        lastAttemptedAt: "Registered Today"
+      }
     ];
   } else if (isClass10 || isClass9 || gradeLevel === "Grade 9-10") {
     return [
@@ -811,7 +721,7 @@ function generateClassMasteryList(studentClass: string, gradeLevel: GradeLevel):
         recentStreak: 1,
         weakConcepts: [],
         attemptsCount: 0,
-        lastAttemptedAt: "Registered Today",
+        lastAttemptedAt: "Registered Today"
       },
       {
         topicId: "newton-laws",
@@ -822,7 +732,7 @@ function generateClassMasteryList(studentClass: string, gradeLevel: GradeLevel):
         recentStreak: 1,
         weakConcepts: [],
         attemptsCount: 0,
-        lastAttemptedAt: "Registered Today",
+        lastAttemptedAt: "Registered Today"
       },
       {
         topicId: "chemical-reactions",
@@ -833,7 +743,7 @@ function generateClassMasteryList(studentClass: string, gradeLevel: GradeLevel):
         recentStreak: 0,
         weakConcepts: [],
         attemptsCount: 0,
-        lastAttemptedAt: "Registered Today",
+        lastAttemptedAt: "Registered Today"
       },
       {
         topicId: "life-processes",
@@ -844,8 +754,8 @@ function generateClassMasteryList(studentClass: string, gradeLevel: GradeLevel):
         recentStreak: 1,
         weakConcepts: [],
         attemptsCount: 0,
-        lastAttemptedAt: "Registered Today",
-      },
+        lastAttemptedAt: "Registered Today"
+      }
     ];
   } else {
     return [
@@ -858,7 +768,7 @@ function generateClassMasteryList(studentClass: string, gradeLevel: GradeLevel):
         recentStreak: 1,
         weakConcepts: [],
         attemptsCount: 0,
-        lastAttemptedAt: "Registered Today",
+        lastAttemptedAt: "Registered Today"
       },
       {
         topicId: "force-pressure-foundations",
@@ -869,94 +779,71 @@ function generateClassMasteryList(studentClass: string, gradeLevel: GradeLevel):
         recentStreak: 1,
         weakConcepts: [],
         attemptsCount: 0,
-        lastAttemptedAt: "Registered Today",
-      },
+        lastAttemptedAt: "Registered Today"
+      }
     ];
   }
 }
-
-// ---------------- AUTH & CLASSROOM ENDPOINTS ----------------
-
-// POST /api/auth/login - Role-based login (Teacher or Student)
 app.post("/api/auth/login", (req, res) => {
   const { role, identifier, password } = req.body;
-
   if (role === "teacher") {
     const teachersList = Array.from(db.teachers.values());
-    const teacher =
-      teachersList.find(
-        (t) => t.id === identifier || t.email.toLowerCase() === String(identifier).toLowerCase()
-      ) || teachersList[0];
-
+    const teacher = teachersList.find(
+      (t) => t.id === identifier || t.email.toLowerCase() === String(identifier).toLowerCase()
+    ) || teachersList[0];
     if (!teacher) {
       return res.status(404).json({ error: "Teacher account not found" });
     }
-
-    const authUser: AuthUser = {
+    const authUser = {
       id: teacher.id,
       name: teacher.name,
       email: teacher.email,
       role: "teacher",
-      teacherProfile: teacher,
+      teacherProfile: teacher
     };
-
     return res.json({
       user: authUser,
       teacherProfile: teacher,
-      classes: Array.from(db.classes.values()).filter((c) => c.teacherId === teacher.id),
+      classes: Array.from(db.classes.values()).filter((c) => c.teacherId === teacher.id)
     });
   } else {
-    // Role is student
     const studentsList = Array.from(db.students.values());
-    const student =
-      studentsList.find(
-        (s) => s.id === identifier || s.email.toLowerCase() === String(identifier).toLowerCase()
-      ) || studentsList[0];
-
+    const student = studentsList.find(
+      (s) => s.id === identifier || s.email.toLowerCase() === String(identifier).toLowerCase()
+    ) || studentsList[0];
     if (!student) {
       return res.status(404).json({ error: "Student account not found" });
     }
-
-    // Optional password verification
     if (password && student.password && student.password !== password) {
       return res.status(401).json({ error: "Incorrect password for this student account." });
     }
-
     const classInfo = db.classes.get(student.classCode);
     const enrichedStudent = { ...student, classInfo };
-
-    const authUser: AuthUser = {
+    const authUser = {
       id: student.id,
       name: student.name,
       email: student.email,
       role: "student",
       classCode: student.classCode,
-      studentProfile: enrichedStudent,
+      studentProfile: enrichedStudent
     };
-
     return res.json({
       user: authUser,
       studentProfile: enrichedStudent,
-      classInfo,
+      classInfo
     });
   }
 });
-
-// GET /api/class/:code - Verify and retrieve class educational details
 app.get("/api/class/:code", (req, res) => {
   const code = req.params.code.trim().toUpperCase();
   const classInfo = db.classes.get(code);
-
   if (!classInfo) {
     return res.status(404).json({
-      error: `Invalid Class Code "${code}". Please check with your teacher for the correct code (e.g., NCERT-12A).`,
+      error: `Invalid Class Code "${code}". Please check with your teacher for the correct code (e.g., NCERT-12A).`
     });
   }
-
   res.json({ classInfo });
 });
-
-// POST /api/auth/register-student - Register student with Teacher's Class Code
 app.post("/api/auth/register-student", (req, res) => {
   const {
     name,
@@ -970,40 +857,31 @@ app.post("/api/auth/register-student", (req, res) => {
     familyIncomeBracket = "< 1.5 Lakhs/yr",
     academicScorePercent = 75,
     firstGenerationLearner = true,
-    stateOrRegion = "National",
+    stateOrRegion = "National"
   } = req.body;
-
   if (!name || !email || !classCode) {
     return res.status(400).json({ error: "Name, email, and class code are required for registration." });
   }
-
   if (!password || password.length < 6) {
     return res.status(400).json({ error: "Password is required and must be at least 6 characters long." });
   }
-
   if (!studentClass) {
     return res.status(400).json({ error: "Please select your enrolled class (e.g. Class 12, Class 11, Class 10)." });
   }
-
   const cleanCode = classCode.trim().toUpperCase();
   const classInfo = db.classes.get(cleanCode);
-
   if (!classInfo) {
     return res.status(400).json({
-      error: `Class Code "${cleanCode}" was not found. Please verify the code provided by your teacher (e.g. NCERT-12A).`,
+      error: `Class Code "${cleanCode}" was not found. Please verify the code provided by your teacher (e.g. NCERT-12A).`
     });
   }
-
-  // Strict Class Match Verification
   const matchResult = validateClassCodeMatch(studentClass, classInfo);
   if (!matchResult.valid) {
     return res.status(400).json({
-      error: matchResult.reason || "Your selected class does not match the class code. You cannot join this class.",
+      error: matchResult.reason || "Your selected class does not match the class code. You cannot join this class."
     });
   }
-
-  // Determine GradeLevel from studentClass if not matching
-  let resolvedGradeLevel: GradeLevel = classInfo.gradeLevel;
+  let resolvedGradeLevel = classInfo.gradeLevel;
   if (/12|11/.test(studentClass)) {
     resolvedGradeLevel = "Grade 11-12";
   } else if (/10|9/.test(studentClass)) {
@@ -1011,14 +889,10 @@ app.post("/api/auth/register-student", (req, res) => {
   } else if (/8|7|6/.test(studentClass)) {
     resolvedGradeLevel = "Grade 6-8";
   }
-
-  // Create new student
   const studentId = `student-${Date.now()}`;
   const avatarSeed = name.toLowerCase().replace(/[^a-z]/g, "").slice(0, 8) || "student";
-
   const initialMastery = generateClassMasteryList(studentClass, resolvedGradeLevel);
-
-  const newStudent: StudentProfile = {
+  const newStudent = {
     id: studentId,
     name,
     email,
@@ -1040,44 +914,36 @@ app.post("/api/auth/register-student", (req, res) => {
     totalPracticeCompleted: 0,
     avgPracticeScore: 70,
     lastActive: "Just now",
-    masteryList: initialMastery,
+    masteryList: initialMastery
   };
-
   db.students.set(studentId, newStudent);
-
   if (!classInfo.enrolledStudentIds.includes(studentId)) {
     classInfo.enrolledStudentIds.push(studentId);
     classInfo.enrolledCount = classInfo.enrolledStudentIds.length;
   }
-
-  const authUser: AuthUser = {
+  const authUser = {
     id: studentId,
     name: newStudent.name,
     email: newStudent.email,
     role: "student",
     classCode: cleanCode,
-    studentProfile: newStudent,
+    studentProfile: newStudent
   };
-
   res.json({
     success: true,
     user: authUser,
     student: newStudent,
     classInfo,
-    message: `Successfully registered for ${classInfo.className} under ${classInfo.teacherName}!`,
+    message: `Successfully registered for ${classInfo.className} under ${classInfo.teacherName}!`
   });
 });
-
-// GET /api/teacher/classes - Get all classes for teacher
 app.get("/api/teacher/classes", (req, res) => {
-  const teacherId = (req.query.teacherId as string) || "teacher-1";
+  const teacherId = req.query.teacherId || "teacher-1";
   const teacherClasses = Array.from(db.classes.values()).filter(
     (c) => !teacherId || c.teacherId === teacherId
   );
   res.json({ classes: teacherClasses });
 });
-
-// POST /api/teacher/create-class - Teacher creates a new class code & curriculum
 app.post("/api/teacher/create-class", (req, res) => {
   const {
     className,
@@ -1086,20 +952,15 @@ app.post("/api/teacher/create-class", (req, res) => {
     teacherId = "teacher-1",
     teacherName = "Dr. Rajesh Varma",
     school = "Kendriya Vidyalaya No. 1",
-    customCode,
+    customCode
   } = req.body;
-
-  const generatedCode = customCode
-    ? customCode.trim().toUpperCase()
-    : `NCERT-${Math.floor(100 + Math.random() * 900)}`;
-
+  const generatedCode = customCode ? customCode.trim().toUpperCase() : `NCERT-${Math.floor(100 + Math.random() * 900)}`;
   if (db.classes.has(generatedCode)) {
     return res.status(400).json({
-      error: `Class code ${generatedCode} already exists. Please choose a different code.`,
+      error: `Class code ${generatedCode} already exists. Please choose a different code.`
     });
   }
-
-  const newClass: ClassroomInfo = {
+  const newClass = {
     classCode: generatedCode,
     className: className || `Class ${gradeLevel.replace("Grade ", "")} - Stream ${stream}`,
     gradeLevel,
@@ -1120,7 +981,7 @@ app.post("/api/teacher/create-class", (req, res) => {
             subject: "Physics",
             topic: "Introduction to Class Syllabus",
             teacher: teacherName,
-            room: "Room 101",
+            room: "Room 101"
           },
           {
             periodNumber: 2,
@@ -1128,10 +989,10 @@ app.post("/api/teacher/create-class", (req, res) => {
             subject: "Mathematics",
             topic: "NCERT Foundation Chapter 1",
             teacher: "Prof. S. Ramanujan",
-            room: "Room 101",
-          },
-        ],
-      },
+            room: "Room 101"
+          }
+        ]
+      }
     ],
     syllabus: [
       {
@@ -1141,52 +1002,39 @@ app.post("/api/teacher/create-class", (req, res) => {
         chapters: ["Chapter 1: Theory & Principles", "Chapter 2: Methods & Equations"],
         weightageMarks: 25,
         totalPeriods: 30,
-        status: "In Progress",
-      },
+        status: "In Progress"
+      }
     ],
     enrolledStudentIds: [],
-    enrolledCount: 0,
+    enrolledCount: 0
   };
-
   db.classes.set(generatedCode, newClass);
-
   const teacher = db.teachers.get(teacherId);
   if (teacher) {
     teacher.classes.push(newClass);
   }
-
   res.json({ success: true, classInfo: newClass });
 });
-
-// GET /api/student/me - Get current student's personal details only (Strict Privacy Isolation)
 app.get("/api/student/me", (req, res) => {
-  const studentId = (req.query.id as string) || "student-1";
+  const studentId = req.query.id || "student-1";
   const student = db.students.get(studentId);
-
   if (!student) {
     return res.status(404).json({ error: "Student not found" });
   }
-
   const classInfo = db.classes.get(student.classCode);
   res.json({
     student: { ...student, classInfo },
-    classInfo,
+    classInfo
   });
 });
-
-// GET /api/students - List student profiles (Supports ?classCode= filter for Teacher radar)
 app.get("/api/students", (req, res) => {
   const { classCode } = req.query;
   let students = Array.from(db.students.values());
-
   if (classCode) {
     students = students.filter((s) => s.classCode === String(classCode).toUpperCase());
   }
-
   res.json({ students });
 });
-
-// GET /api/students/:id - Get specific student profile
 app.get("/api/students/:id", (req, res) => {
   const student = db.students.get(req.params.id);
   if (!student) {
@@ -1195,8 +1043,6 @@ app.get("/api/students/:id", (req, res) => {
   const classInfo = db.classes.get(student.classCode);
   res.json({ student: { ...student, classInfo } });
 });
-
-// PUT /api/students/:id - Update student profile
 app.put("/api/students/:id", (req, res) => {
   const student = db.students.get(req.params.id);
   if (!student) {
@@ -1206,8 +1052,6 @@ app.put("/api/students/:id", (req, res) => {
   db.students.set(req.params.id, updated);
   res.json({ student: updated });
 });
-
-// GET /api/oer/corpus - Browse open educational resources
 app.get("/api/oer/corpus", (req, res) => {
   const { subject, grade } = req.query;
   let results = [...OER_CORPUS];
@@ -1219,8 +1063,6 @@ app.get("/api/oer/corpus", (req, res) => {
   }
   res.json({ corpus: results });
 });
-
-// POST /api/doubt/solve - Grounded Doubt Solving Agent (Module A)
 app.post("/api/doubt/solve", async (req, res) => {
   try {
     const {
@@ -1229,43 +1071,33 @@ app.post("/api/doubt/solve", async (req, res) => {
       language = "en",
       explanationStyle = "step-by-step",
       studentId = "student-1",
-      imageData, // optional base64 image of handwritten work
-      previousContext = [],
+      imageData,
+      // optional base64 image of handwritten work
+      previousContext = []
     } = req.body;
-
     if (!question && !imageData) {
       return res.status(400).json({ error: "Question text or image is required." });
     }
-
-    // 1. RAG Retrieval from open educational knowledge base
     const { docs, citations } = retrieveRelevantOerDocs(question || "Math & Science concepts", gradeLevel);
-
-    const contextText = docs
-      .map(
-        (d) =>
-          `[SOURCE: ${d.title} | ${d.chapter} | ${d.section} | Reference: ${d.pageOrRef} | License: ${d.license}]\nContent:\n${d.content}`
-      )
-      .join("\n\n---\n\n");
-
+    const contextText = docs.map(
+      (d) => `[SOURCE: ${d.title} | ${d.chapter} | ${d.section} | Reference: ${d.pageOrRef} | License: ${d.license}]
+Content:
+${d.content}`
+    ).join("\n\n---\n\n");
     const langName = SUPPORTED_LANGUAGES.find((l) => l.code === language)?.name || "English";
-
-    // Update student stats in memory
     const student = db.students.get(studentId);
     if (student) {
       student.totalDoubtsAsked += 1;
       student.lastActive = "Just now";
     }
-
     const ai = getGeminiClient();
-
     let explanation = "";
-    let suggestedFollowUps: string[] = [
+    let suggestedFollowUps = [
       "Could you explain this with a real-world daily life analogy?",
       "I am confused about Step 2, could you break it down into smaller steps?",
-      "Can you give me a simple practice question to test if I got it?",
+      "Can you give me a simple practice question to test if I got it?"
     ];
-    let groundingStatus: "verified_grounded" | "partially_grounded" = "verified_grounded";
-
+    let groundingStatus = "verified_grounded";
     if (ai) {
       const systemInstruction = `You are a patient, pedagogically grounded AI tutor designed for equitable education access for students in under-resourced schools.
 Your primary directive is to provide clear, level-appropriate explanations STRICTLY GROUNDED in verified NCERT National Curriculum textbooks (Classes 6 to 12 across Mathematics, Physics, Chemistry, and Biology).
@@ -1278,7 +1110,6 @@ STRICT RULES:
 5. HONESTY: If the question cannot be grounded in standard secondary/high school curriculum or the provided corpus, politely explain what foundational concept applies rather than fabricating facts.
 6. NO MOCK JARGON: Keep the tone encouraging, supportive, and crystal clear.
 7. Format with clear numbered steps, bold highlights, and clean typography.`;
-
       const promptContent = `Student Doubt / Question:
 "${question}"
 
@@ -1291,39 +1122,33 @@ Previous conversation context (if any):
 ${JSON.stringify(previousContext.slice(-3))}
 
 Provide a step-by-step grounded explanation in ${langName} citing the exact source material.`;
-
-      let contentsPayload: any = promptContent;
-
+      let contentsPayload = promptContent;
       if (imageData) {
-        // Strip data url header if present
         const base64Clean = imageData.replace(/^data:image\/\w+;base64,/, "");
         contentsPayload = {
           parts: [
             {
               inlineData: {
                 mimeType: "image/png",
-                data: base64Clean,
-              },
+                data: base64Clean
+              }
             },
             {
-              text: promptContent,
-            },
-          ],
+              text: promptContent
+            }
+          ]
         };
       }
-
       const response = await ai.models.generateContent({
         model: "gemini-3.7-flash",
         contents: contentsPayload,
         config: {
           systemInstruction,
-          temperature: 0.3, // Low temperature for high factual consistency
-        },
+          temperature: 0.3
+          // Low temperature for high factual consistency
+        }
       });
-
       explanation = response.text || "Here is a step-by-step explanation grounded in open textbook resources.";
-
-      // Generate context-aware follow-up prompts
       try {
         const followUpPrompt = `Based on the explanation given above for topic "${question}", provide exactly 3 helpful, one-sentence follow-up questions a student might naturally ask to clarify confusion. Return ONLY a JSON array of strings.`;
         const followUpRes = await ai.models.generateContent({
@@ -1333,18 +1158,16 @@ Provide a step-by-step grounded explanation in ${langName} citing the exact sour
             responseMimeType: "application/json",
             responseSchema: {
               type: Type.ARRAY,
-              items: { type: Type.STRING },
-            },
-          },
+              items: { type: Type.STRING }
+            }
+          }
         });
         if (followUpRes.text) {
           suggestedFollowUps = JSON.parse(followUpRes.text.trim());
         }
       } catch (e) {
-        // Use default followups
       }
     } else {
-      // Offline fallback grounded response
       const matchedDoc = docs[0];
       explanation = `### Step-by-Step Explanation (Grounded in ${matchedDoc.title})
 
@@ -1368,7 +1191,6 @@ Work through the equation step-by-step to arrive at the final simplified value. 
 - **Section:** ${matchedDoc.section} (${matchedDoc.pageOrRef})
 - **License:** ${matchedDoc.license}`;
     }
-
     db.doubtHistory.push({
       id: `doubt-${Date.now()}`,
       studentId,
@@ -1376,9 +1198,8 @@ Work through the equation step-by-step to arrive at the final simplified value. 
       response: explanation,
       citations,
       language,
-      timestamp: new Date().toISOString(),
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
     });
-
     res.json({
       explanation,
       citations,
@@ -1386,32 +1207,24 @@ Work through the equation step-by-step to arrive at the final simplified value. 
       groundingReasoning: `Grounded in ${citations.length} verified open educational curriculum sources (${citations.map((c) => c.publisher).join(", ")}).`,
       suggestedFollowUps,
       language,
-      gradeLevel,
+      gradeLevel
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in /api/doubt/solve:", error);
     res.status(500).json({ error: error.message || "Failed to generate grounded explanation" });
   }
 });
-
-// POST /api/practice/generate - Adaptive Practice Generator (Module B)
 app.post("/api/practice/generate", async (req, res) => {
   try {
     const { studentId = "student-1", topicId, requestedDifficulty } = req.body;
     const student = db.students.get(studentId);
-
-    // Identify target topic: either explicitly requested or weakest topic
     let targetTopic = student?.masteryList.find((t) => t.topicId === topicId);
     if (!targetTopic && student?.masteryList && student.masteryList.length > 0) {
-      // Sort by mastery percentage ascending (weakest first)
       const sorted = [...student.masteryList].sort((a, b) => a.masteryPercentage - b.masteryPercentage);
       targetTopic = sorted[0];
     }
-
-    // Determine adaptive difficulty ladder
-    let difficulty: "Foundational" | "Intermediate" | "Advanced" = requestedDifficulty || "Intermediate";
+    let difficulty = requestedDifficulty || "Intermediate";
     let isStepDownPrerequisite = false;
-
     if (!requestedDifficulty && targetTopic) {
       if (targetTopic.recentStreak <= -2 || targetTopic.masteryPercentage < 50) {
         difficulty = "Foundational";
@@ -1422,16 +1235,11 @@ app.post("/api/practice/generate", async (req, res) => {
         difficulty = "Intermediate";
       }
     }
-
-    // Retrieve matching OER doc
     const matchingDocs = OER_CORPUS.filter(
-      (d) =>
-        d.keyConcepts.some((k) => targetTopic?.topicName.toLowerCase().includes(k.toLowerCase())) ||
-        d.subject.toLowerCase() === targetTopic?.subject.toLowerCase()
+      (d) => d.keyConcepts.some((k) => targetTopic?.topicName.toLowerCase().includes(k.toLowerCase())) || d.subject.toLowerCase() === targetTopic?.subject.toLowerCase()
     );
     const primaryDoc = matchingDocs[0] || OER_CORPUS[0];
-
-    const citation: OerCitation = {
+    const citation = {
       id: `cite-practice-${primaryDoc.id}`,
       sourceName: primaryDoc.title,
       publisher: primaryDoc.publisher,
@@ -1440,11 +1248,9 @@ app.post("/api/practice/generate", async (req, res) => {
       pageOrRef: primaryDoc.pageOrRef,
       license: primaryDoc.license,
       excerptSnippet: primaryDoc.content.slice(0, 180) + "...",
-      relevanceScore: 95,
+      relevanceScore: 95
     };
-
     const ai = getGeminiClient();
-
     let questionData = {
       id: `q-${Date.now()}`,
       topicId: targetTopic?.topicId || "fractions-decimals",
@@ -1452,20 +1258,13 @@ app.post("/api/practice/generate", async (req, res) => {
       subject: targetTopic?.subject || "Mathematics",
       difficulty,
       isStepDownPrerequisite,
-      questionText: isStepDownPrerequisite
-        ? "Prerequisite Review: What is the Least Common Multiple (LCM) of 4 and 6 before adding 1/4 + 1/6?"
-        : "Evaluate the sum: 2/3 + 3/5. Express your answer as a simplified fraction.",
-      options: isStepDownPrerequisite
-        ? ["12", "24", "10", "16"]
-        : ["19/15", "5/8", "13/15", "1 1/15"],
+      questionText: isStepDownPrerequisite ? "Prerequisite Review: What is the Least Common Multiple (LCM) of 4 and 6 before adding 1/4 + 1/6?" : "Evaluate the sum: 2/3 + 3/5. Express your answer as a simplified fraction.",
+      options: isStepDownPrerequisite ? ["12", "24", "10", "16"] : ["19/15", "5/8", "13/15", "1 1/15"],
       correctOptionIndex: 0,
-      explanation: isStepDownPrerequisite
-        ? "The multiples of 4 are 4, 8, 12, 16... and the multiples of 6 are 6, 12, 18... The smallest common multiple is 12."
-        : "Step 1: Find LCM of denominators 3 and 5 = 15.\nStep 2: 2/3 = 10/15 and 3/5 = 9/15.\nStep 3: 10/15 + 9/15 = 19/15 (or 1 4/15).",
+      explanation: isStepDownPrerequisite ? "The multiples of 4 are 4, 8, 12, 16... and the multiples of 6 are 6, 12, 18... The smallest common multiple is 12." : "Step 1: Find LCM of denominators 3 and 5 = 15.\nStep 2: 2/3 = 10/15 and 3/5 = 9/15.\nStep 3: 10/15 + 9/15 = 19/15 (or 1 4/15).",
       prerequisiteHint: "Remember to find the smallest number that both denominators divide into evenly.",
-      groundedCitation: citation,
+      groundedCitation: citation
     };
-
     if (ai) {
       const prompt = `Generate a single multiple-choice adaptive practice question for a student.
 Topic: ${targetTopic?.topicName || "Linear Equations & Fractions"}
@@ -1478,7 +1277,6 @@ Textbook Reference Passage:
 ${primaryDoc.content}
 
 Generate a clear, pedagogical question with 4 options, the exact 0-based index of the correct option, a step-by-step worked explanation, and a helpful hint.`;
-
       const response = await ai.models.generateContent({
         model: "gemini-3.7-flash",
         contents: prompt,
@@ -1490,17 +1288,16 @@ Generate a clear, pedagogical question with 4 options, the exact 0-based index o
               questionText: { type: Type.STRING },
               options: {
                 type: Type.ARRAY,
-                items: { type: Type.STRING },
+                items: { type: Type.STRING }
               },
               correctOptionIndex: { type: Type.INTEGER },
               explanation: { type: Type.STRING },
-              prerequisiteHint: { type: Type.STRING },
+              prerequisiteHint: { type: Type.STRING }
             },
-            required: ["questionText", "options", "correctOptionIndex", "explanation"],
-          },
-        },
+            required: ["questionText", "options", "correctOptionIndex", "explanation"]
+          }
+        }
       });
-
       if (response.text) {
         const parsed = JSON.parse(response.text.trim());
         questionData = {
@@ -1515,28 +1312,22 @@ Generate a clear, pedagogical question with 4 options, the exact 0-based index o
           correctOptionIndex: parsed.correctOptionIndex,
           explanation: parsed.explanation,
           prerequisiteHint: parsed.prerequisiteHint || "Review the foundational chapter rules.",
-          groundedCitation: citation,
+          groundedCitation: citation
         };
       }
     }
-
     res.json({ question: questionData, targetTopic });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in /api/practice/generate:", error);
     res.status(500).json({ error: error.message || "Failed to generate practice question" });
   }
 });
-
-// POST /api/practice/submit - Record practice answer and update student mastery profile
 app.post("/api/practice/submit", (req, res) => {
   const { studentId = "student-1", topicId, isCorrect, difficulty } = req.body;
   const student = db.students.get(studentId);
-
   if (!student) {
     return res.status(404).json({ error: "Student not found" });
   }
-
-  // Update mastery profile
   const topic = student.masteryList.find((t) => t.topicId === topicId);
   if (topic) {
     topic.attemptsCount += 1;
@@ -1545,7 +1336,6 @@ app.post("/api/practice/submit", (req, res) => {
       topic.recentStreak = topic.recentStreak > 0 ? topic.recentStreak + 1 : 1;
       const delta = difficulty === "Advanced" ? 8 : difficulty === "Intermediate" ? 5 : 3;
       topic.masteryPercentage = Math.min(100, topic.masteryPercentage + delta);
-      // Remove weak concept if high mastery
       if (topic.masteryPercentage > 80) {
         topic.weakConcepts = topic.weakConcepts.slice(1);
       }
@@ -1555,7 +1345,6 @@ app.post("/api/practice/submit", (req, res) => {
       topic.masteryPercentage = Math.max(10, topic.masteryPercentage - delta);
     }
   }
-
   student.totalPracticeCompleted += 1;
   db.practiceLogs.push({
     id: `log-${Date.now()}`,
@@ -1563,36 +1352,28 @@ app.post("/api/practice/submit", (req, res) => {
     topicId,
     isCorrect,
     difficulty,
-    timestamp: new Date().toISOString(),
+    timestamp: (/* @__PURE__ */ new Date()).toISOString()
   });
-
   res.json({
     success: true,
     updatedTopic: topic,
-    updatedProfile: student,
+    updatedProfile: student
   });
 });
-
-// GET /api/teacher/insights - Teacher-Facing Insight & Intervention Dashboard (Module C)
 app.get("/api/teacher/insights", (req, res) => {
   const { classCode } = req.query;
   let students = Array.from(db.students.values());
-
   if (classCode && classCode !== "all") {
     students = students.filter((s) => s.classCode === String(classCode).toUpperCase());
   }
-
-  // 1. Generate explainable flagged students needing intervention
-  const flaggedStudents: TeacherStudentFlag[] = students.map((s) => {
+  const flaggedStudents = students.map((s) => {
     const weakTopics = s.masteryList.filter((t) => t.masteryPercentage < 60 || t.recentStreak <= -2);
     const lowestTopic = [...s.masteryList].sort((a, b) => a.masteryPercentage - b.masteryPercentage)[0];
-
-    let severity: "high_priority" | "medium_attention" | "on_track" = "on_track";
+    let severity = "on_track";
     let primaryIssue = "Demonstrating consistent progress across current modules.";
     let plainLanguageReason = "Student is meeting learning benchmarks with steady practice scores.";
     let suggestedIntervention = "Continue reinforcing advanced practice items.";
-
-    if (weakTopics.length >= 2 || (lowestTopic && lowestTopic.masteryPercentage < 40)) {
+    if (weakTopics.length >= 2 || lowestTopic && lowestTopic.masteryPercentage < 40) {
       severity = "high_priority";
       primaryIssue = `Critical misconception in ${lowestTopic?.topicName || "core topics"}`;
       plainLanguageReason = `Struggling with repeated errors (streak of ${lowestTopic?.recentStreak || -2}) on "${lowestTopic?.weakConcepts[0] || "Foundations"}". Low practice accuracy (${s.avgPracticeScore}% avg).`;
@@ -1603,7 +1384,6 @@ app.get("/api/teacher/insights", (req, res) => {
       plainLanguageReason = `Has asked ${s.totalDoubtsAsked} doubts recently and showed difficulty when progressing to intermediate questions.`;
       suggestedIntervention = `Assign prerequisite step-down exercises before assigning multi-variable problems.`;
     }
-
     return {
       studentId: s.id,
       studentName: s.name,
@@ -1615,19 +1395,14 @@ app.get("/api/teacher/insights", (req, res) => {
       doubtCountLast7Days: s.totalDoubtsAsked,
       practiceAccuracyRate: s.avgPracticeScore,
       suggestedIntervention,
-      lastActive: s.lastActive,
+      lastActive: s.lastActive
     };
   });
-
-  // Sort: High priority first
   flaggedStudents.sort((a, b) => {
     const order = { high_priority: 0, medium_attention: 1, on_track: 2 };
     return order[a.severity] - order[b.severity];
   });
-
-  // 2. Compute Class-Level Topic Heatmap
-  const topicMap = new Map<string, { topicName: string; subject: string; scores: number[]; strugglingCount: number }>();
-
+  const topicMap = /* @__PURE__ */ new Map();
   students.forEach((s) => {
     s.masteryList.forEach((m) => {
       if (!topicMap.has(m.topicId)) {
@@ -1635,23 +1410,21 @@ app.get("/api/teacher/insights", (req, res) => {
           topicName: m.topicName,
           subject: m.subject,
           scores: [],
-          strugglingCount: 0,
+          strugglingCount: 0
         });
       }
-      const item = topicMap.get(m.topicId)!;
+      const item = topicMap.get(m.topicId);
       item.scores.push(m.masteryPercentage);
       if (m.masteryPercentage < 60) {
         item.strugglingCount += 1;
       }
     });
   });
-
-  const heatmap: TopicHeatmapItem[] = Array.from(topicMap.entries()).map(([topicId, data]) => {
+  const heatmap = Array.from(topicMap.entries()).map(([topicId, data]) => {
     const avg = Math.round(data.scores.reduce((a, b) => a + b, 0) / (data.scores.length || 1));
-    let recommendedFocus: "Immediate Review Required" | "Reinforce Core Concepts" | "Mastered Well" = "Mastered Well";
+    let recommendedFocus = "Mastered Well";
     if (avg < 55) recommendedFocus = "Immediate Review Required";
     else if (avg < 75) recommendedFocus = "Reinforce Core Concepts";
-
     return {
       topicId,
       topicName: data.topicName,
@@ -1659,15 +1432,11 @@ app.get("/api/teacher/insights", (req, res) => {
       classAverageMastery: avg,
       strugglingStudentsCount: data.strugglingCount,
       totalStudents: data.scores.length,
-      recommendedFocus,
+      recommendedFocus
     };
   });
-
   const totalEnrolled = students.length;
-  const avgAccuracy = totalEnrolled > 0
-    ? Math.round(students.reduce((a, s) => a + s.avgPracticeScore, 0) / totalEnrolled)
-    : 0;
-
+  const avgAccuracy = totalEnrolled > 0 ? Math.round(students.reduce((a, s) => a + s.avgPracticeScore, 0) / totalEnrolled) : 0;
   res.json({
     flaggedStudents,
     heatmap,
@@ -1675,19 +1444,15 @@ app.get("/api/teacher/insights", (req, res) => {
       totalEnrolled,
       needingIntervention: flaggedStudents.filter((f) => f.severity !== "on_track").length,
       totalDoubtsSolvedThisWeek: 42,
-      classAverageAccuracy: avgAccuracy,
-    },
+      classAverageAccuracy: avgAccuracy
+    }
   });
 });
-
-// POST /api/teacher/lesson-plan - Generate AI 15-Minute Remediation Plan
 app.post("/api/teacher/lesson-plan", async (req, res) => {
   try {
     const { topicName, strugglingCount, weakConcepts = [] } = req.body;
     const ai = getGeminiClient();
-
     let lessonPlan = "";
-
     if (ai) {
       const prompt = `You are a curriculum specialist helping a teacher in an under-resourced school.
 Generate a concise 15-Minute Targeted Remediation Plan for the topic: "${topicName}".
@@ -1700,12 +1465,10 @@ Structure the response with:
 3. 5-Minute Pair Practice Problem with Prerequisite Scaffolding
 4. 2-Minute Formative Check Question with Diagnostic Distractors.
 Keep it direct, actionable, practical, and highly pedagogical.`;
-
       const response = await ai.models.generateContent({
         model: "gemini-3.7-flash",
-        contents: prompt,
+        contents: prompt
       });
-
       lessonPlan = response.text || "15-Minute Remediation Plan ready for classroom delivery.";
     } else {
       lessonPlan = `### 15-Minute Rapid Remediation Plan: ${topicName}
@@ -1724,15 +1487,12 @@ Students work in pairs on one foundational variant before attempting multi-step 
 **4. 2-Minute Diagnostic Exit Ticket:**
 Ask students to identify the single error in a pre-written flawed solution to ensure conceptual mastery.`;
     }
-
     res.json({ lessonPlan, topicName });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in /api/teacher/lesson-plan:", error);
     res.status(500).json({ error: error.message || "Failed to generate remediation plan" });
   }
 });
-
-// POST /api/scholarships/match - Scholarship & Financial Aid Matcher (Module D)
 app.post("/api/scholarships/match", (req, res) => {
   const {
     gradeLevel,
@@ -1741,62 +1501,49 @@ app.post("/api/scholarships/match", (req, res) => {
     gender,
     academicScorePercent,
     stateOrRegion,
-    firstGenerationLearner,
+    firstGenerationLearner
   } = req.body;
-
   const results = SCHOLARSHIP_SCHEMES.map((scheme) => {
-    const matchedCriteria: string[] = [];
-    const unmetCriteria: string[] = [];
+    const matchedCriteria = [];
+    const unmetCriteria = [];
     let score = 0;
-
-    // 1. Grade match
     if (!gradeLevel || scheme.eligibleGrades.includes(gradeLevel)) {
       matchedCriteria.push(`Grade Level Eligible (${gradeLevel || "All"})`);
       score += 25;
     } else {
       unmetCriteria.push(`Requires Grade: ${scheme.eligibleGrades.join(", ")} (Current: ${gradeLevel})`);
     }
-
-    // 2. Family Income check
-    if (familyIncomeAnnual !== undefined && scheme.maxFamilyIncomeAnnual) {
+    if (familyIncomeAnnual !== void 0 && scheme.maxFamilyIncomeAnnual) {
       if (Number(familyIncomeAnnual) <= scheme.maxFamilyIncomeAnnual) {
         matchedCriteria.push(`Income Eligible (${scheme.maxFamilyIncomeLabel})`);
         score += 30;
       } else {
-        unmetCriteria.push(`Exceeds maximum income cap of ₹${scheme.maxFamilyIncomeAnnual.toLocaleString()}/year`);
+        unmetCriteria.push(`Exceeds maximum income cap of \u20B9${scheme.maxFamilyIncomeAnnual.toLocaleString()}/year`);
       }
     } else {
       matchedCriteria.push(`Income check compatible`);
       score += 20;
     }
-
-    // 3. Category / Social group check
     if (!category || scheme.eligibleCategories.includes(category)) {
       matchedCriteria.push(`Category Eligible (${category || "Open to all"})`);
       score += 20;
     } else {
       unmetCriteria.push(`Reserved for: ${scheme.eligibleCategories.join(", ")}`);
     }
-
-    // 4. Gender match
     if (!gender || scheme.eligibleGenders.includes(gender)) {
       matchedCriteria.push(`Gender Eligible (${gender || "All"})`);
       score += 15;
     } else {
       unmetCriteria.push(`Restricted to: ${scheme.eligibleGenders.join(", ")} applicants`);
     }
-
-    // 5. Academic score threshold
-    if (academicScorePercent !== undefined && scheme.minAcademicScore) {
+    if (academicScorePercent !== void 0 && scheme.minAcademicScore) {
       if (Number(academicScorePercent) >= scheme.minAcademicScore) {
-        matchedCriteria.push(`Academic Marks Criteria Met (${academicScorePercent}% ≥ ${scheme.minAcademicScore}% requirement)`);
+        matchedCriteria.push(`Academic Marks Criteria Met (${academicScorePercent}% \u2265 ${scheme.minAcademicScore}% requirement)`);
         score += 10;
       } else {
         unmetCriteria.push(`Minimum ${scheme.minAcademicScore}% marks required (Current: ${academicScorePercent}%)`);
       }
     }
-
-    // 6. First-generation learner check
     if (scheme.firstGenLearnerOnly) {
       if (firstGenerationLearner) {
         matchedCriteria.push(`First-Generation Learner grant priority applied`);
@@ -1805,39 +1552,29 @@ app.post("/api/scholarships/match", (req, res) => {
         unmetCriteria.push(`Specific priority scheme for first-generation learners`);
       }
     }
-
     const isEligible = unmetCriteria.length === 0;
-
-    const plainLanguageReasoning = isEligible
-      ? `You appear eligible based on your entered criteria: ${matchedCriteria.slice(0, 3).join(", ")}. Matches all formal scheme criteria without disqualifications.`
-      : `Currently not matched due to: ${unmetCriteria.join("; ")}.`;
-
+    const plainLanguageReasoning = isEligible ? `You appear eligible based on your entered criteria: ${matchedCriteria.slice(0, 3).join(", ")}. Matches all formal scheme criteria without disqualifications.` : `Currently not matched due to: ${unmetCriteria.join("; ")}.`;
     return {
       scheme,
       isEligible,
       matchScore: isEligible ? Math.min(100, score + 10) : Math.max(10, score - 30),
       matchedCriteria,
       unmetCriteria,
-      plainLanguageReasoning,
+      plainLanguageReasoning
     };
   });
-
-  // Sort: Eligible first, then highest match score
   results.sort((a, b) => {
     if (a.isEligible && !b.isEligible) return -1;
     if (!a.isEligible && b.isEligible) return 1;
     return b.matchScore - a.matchScore;
   });
-
   res.json({ matches: results });
 });
-
-// Vite middleware and static serving setup
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: "spa",
+      appType: "spa"
     });
     app.use(vite.middlewares);
   } else {
@@ -1847,10 +1584,8 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
-
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`AI for Equitable Education Access server running on http://localhost:${PORT}`);
   });
 }
-
 startServer();

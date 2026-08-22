@@ -1,33 +1,17 @@
-import React, { useState } from 'react';
+import { useState } from "react";
 import {
   Calendar,
   BookOpen,
   Clock,
   User,
-  School,
-  Sparkles,
-  Layers,
-  CheckCircle,
-  FileText,
-  Bookmark,
   Building,
-  KeyRound,
-  ShieldCheck,
-} from 'lucide-react';
-import { ClassroomInfo, StudentProfile, DayTimetable, SyllabusUnit } from '../types';
-
-interface ClassHubProps {
-  currentStudent: StudentProfile | null;
-  classInfo?: ClassroomInfo | null;
-}
-
-export const ClassHub: React.FC<ClassHubProps> = ({ currentStudent, classInfo }) => {
+  ShieldCheck
+} from "lucide-react";
+export const ClassHub = ({ currentStudent, classInfo }) => {
   const info = classInfo || currentStudent?.classInfo;
-  const [selectedDay, setSelectedDay] = useState<string>('Monday');
-
+  const [selectedDay, setSelectedDay] = useState("Monday");
   if (!info) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 text-center">
+    return <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 text-center">
         <div className="bg-white border border-[#E5E7EB] p-8 max-w-md mx-auto">
           <BookOpen className="w-8 h-8 mx-auto text-[#6B7280] mb-3" />
           <h3 className="font-bold text-sm text-[#1A1A1A]">No Class Details Linked</h3>
@@ -35,15 +19,13 @@ export const ClassHub: React.FC<ClassHubProps> = ({ currentStudent, classInfo })
             You are currently browsing as an independent student. Register with a class code to link your school timetable and syllabus.
           </p>
         </div>
-      </div>
-    );
+      </div>;
   }
-
   const currentTimetableDay = info.timetable?.find((t) => t.day === selectedDay) || info.timetable?.[0];
-
-  return (
-    <div id="class-hub-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5 space-y-5">
-      {/* Class Header Banner */}
+  return <div id="class-hub-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5 space-y-5">
+      {
+    /* Class Header Banner */
+  }
       <div className="bg-white border border-[#E5E7EB] p-5">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#F0F2F5] pb-4">
           <div className="space-y-1">
@@ -74,15 +56,15 @@ export const ClassHub: React.FC<ClassHubProps> = ({ currentStudent, classInfo })
           </div>
         </div>
 
-        {/* Subjects Badges */}
+        {
+    /* Subjects Badges */
+  }
         <div className="pt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[10px] uppercase font-bold text-[#9CA3AF]">Core NCERT Subjects:</span>
-            {info.subjects.map((sub) => (
-              <span key={sub} className="bg-[#F3F4F6] border border-[#E5E7EB] px-2 py-0.5 text-xs font-semibold text-[#1A1A1A]">
+            {info.subjects.map((sub) => <span key={sub} className="bg-[#F3F4F6] border border-[#E5E7EB] px-2 py-0.5 text-xs font-semibold text-[#1A1A1A]">
                 {sub}
-              </span>
-            ))}
+              </span>)}
           </div>
 
           <div className="flex items-center gap-1.5 text-emerald-700 text-xs font-medium">
@@ -92,9 +74,13 @@ export const ClassHub: React.FC<ClassHubProps> = ({ currentStudent, classInfo })
         </div>
       </div>
 
-      {/* Two Column Layout: Weekly Timetable & Syllabus Roadmap */}
+      {
+    /* Two Column Layout: Weekly Timetable & Syllabus Roadmap */
+  }
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left Column: Weekly Timetable (7 cols) */}
+        {
+    /* Left Column: Weekly Timetable (7 cols) */
+  }
         <div className="lg:col-span-7 space-y-4">
           <div className="bg-white border border-[#E5E7EB]">
             <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between">
@@ -109,31 +95,27 @@ export const ClassHub: React.FC<ClassHubProps> = ({ currentStudent, classInfo })
               </span>
             </div>
 
-            {/* Day Selector Tabs */}
+            {
+    /* Day Selector Tabs */
+  }
             <div className="flex border-b border-[#E5E7EB] bg-[#FAFAFA] overflow-x-auto">
-              {info.timetable?.map((daySchedule) => (
-                <button
-                  key={daySchedule.day}
-                  onClick={() => setSelectedDay(daySchedule.day)}
-                  className={`px-4 py-2 text-xs font-bold whitespace-nowrap border-b-2 transition-all ${
-                    selectedDay === daySchedule.day
-                      ? 'border-black text-[#1A1A1A] bg-white'
-                      : 'border-transparent text-[#6B7280] hover:text-black'
-                  }`}
-                >
+              {info.timetable?.map((daySchedule) => <button
+    key={daySchedule.day}
+    onClick={() => setSelectedDay(daySchedule.day)}
+    className={`px-4 py-2 text-xs font-bold whitespace-nowrap border-b-2 transition-all ${selectedDay === daySchedule.day ? "border-black text-[#1A1A1A] bg-white" : "border-transparent text-[#6B7280] hover:text-black"}`}
+  >
                   {daySchedule.day}
-                </button>
-              ))}
+                </button>)}
             </div>
 
-            {/* Timetable Period List */}
+            {
+    /* Timetable Period List */
+  }
             <div className="p-4 space-y-2.5">
-              {currentTimetableDay && currentTimetableDay.periods.length > 0 ? (
-                currentTimetableDay.periods.map((p) => (
-                  <div
-                    key={p.periodNumber}
-                    className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] hover:border-[#9CA3AF] transition-colors flex items-start justify-between gap-3"
-                  >
+              {currentTimetableDay && currentTimetableDay.periods.length > 0 ? currentTimetableDay.periods.map((p) => <div
+    key={p.periodNumber}
+    className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] hover:border-[#9CA3AF] transition-colors flex items-start justify-between gap-3"
+  >
                     <div className="flex items-start gap-3">
                       <div className="w-6 h-6 bg-black text-white flex items-center justify-center text-xs font-bold font-mono shrink-0">
                         {p.periodNumber}
@@ -162,16 +144,14 @@ export const ClassHub: React.FC<ClassHubProps> = ({ currentStudent, classInfo })
                         <span>{p.time}</span>
                       </span>
                     </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-[#6B7280] p-4 text-center">No periods scheduled for this day.</p>
-              )}
+                  </div>) : <p className="text-xs text-[#6B7280] p-4 text-center">No periods scheduled for this day.</p>}
             </div>
           </div>
         </div>
 
-        {/* Right Column: Syllabus Roadmap (5 cols) */}
+        {
+    /* Right Column: Syllabus Roadmap (5 cols) */
+  }
         <div className="lg:col-span-5 space-y-4">
           <div className="bg-white border border-[#E5E7EB]">
             <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between">
@@ -187,11 +167,10 @@ export const ClassHub: React.FC<ClassHubProps> = ({ currentStudent, classInfo })
             </div>
 
             <div className="p-4 space-y-3 max-h-[540px] overflow-y-auto">
-              {info.syllabus?.map((unit) => (
-                <div
-                  key={unit.unitNumber}
-                  className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] space-y-2"
-                >
+              {info.syllabus?.map((unit) => <div
+    key={unit.unitNumber}
+    className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] space-y-2"
+  >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <span className="text-[10px] uppercase font-bold text-[#9CA3AF]">
@@ -202,39 +181,33 @@ export const ClassHub: React.FC<ClassHubProps> = ({ currentStudent, classInfo })
                       </h3>
                     </div>
                     <span
-                      className={`text-[10px] font-bold px-1.5 py-0.5 uppercase tracking-wider shrink-0 ${
-                        unit.status === 'Completed'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : unit.status === 'In Progress'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-[#E5E7EB] text-[#4B5563]'
-                      }`}
-                    >
+    className={`text-[10px] font-bold px-1.5 py-0.5 uppercase tracking-wider shrink-0 ${unit.status === "Completed" ? "bg-emerald-100 text-emerald-800" : unit.status === "In Progress" ? "bg-blue-100 text-blue-800" : "bg-[#E5E7EB] text-[#4B5563]"}`}
+  >
                       {unit.status}
                     </span>
                   </div>
 
-                  {/* Chapters List */}
+                  {
+    /* Chapters List */
+  }
                   <div className="text-[11px] text-[#4B5563] space-y-0.5">
-                    {unit.chapters.map((ch, idx) => (
-                      <div key={idx} className="flex items-center gap-1.5">
-                        <span className="w-1 h-1 bg-[#9CA3AF] rounded-full"></span>
+                    {unit.chapters.map((ch, idx) => <div key={idx} className="flex items-center gap-1.5">
+                        <span className="w-1 h-1 bg-[#9CA3AF] rounded-full" />
                         <span>{ch}</span>
-                      </div>
-                    ))}
+                      </div>)}
                   </div>
 
-                  {/* Weightage and Period breakdown */}
+                  {
+    /* Weightage and Period breakdown */
+  }
                   <div className="pt-2 border-t border-[#E5E7EB] flex items-center justify-between text-[10px] font-mono text-[#6B7280]">
                     <span>Board Weightage: <strong>{unit.weightageMarks} Marks</strong></span>
                     <span>Total Periods: <strong>{unit.totalPeriods}</strong></span>
                   </div>
-                </div>
-              ))}
+                </div>)}
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
