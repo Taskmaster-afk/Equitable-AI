@@ -1,0 +1,153 @@
+import { ScholarshipScheme } from '../types';
+
+export const SCHOLARSHIP_SCHEMES: ScholarshipScheme[] = [
+  {
+    id: 'nmmss-gov',
+    title: 'National Means-cum-Merit Scholarship Scheme (NMMSS)',
+    provider: 'Department of School Education & Literacy, Govt of India',
+    providerType: 'Government',
+    amountOrBenefit: '₹12,000 per annum (₹1,000 / month) for 4 years (Class 9 to 12)',
+    deadline: 'October 31, 2026',
+    minAcademicScore: 55,
+    maxFamilyIncomeAnnual: 350000,
+    maxFamilyIncomeLabel: 'Annual Parental Income ≤ ₹3,50,000',
+    eligibleGrades: ['Grade 6-8', 'Grade 9-10', 'Grade 11-12'],
+    eligibleCategories: ['General', 'OBC', 'SC', 'ST', 'EWS', 'Minority'],
+    eligibleGenders: ['Female', 'Male', 'Other'],
+    firstGenLearnerOnly: false,
+    stateSpecific: [],
+    officialPortalUrl: 'https://scholarships.gov.in',
+    requiredDocuments: [
+      'Class 7/8 Marksheet showing min 55% marks (50% for SC/ST)',
+      'Income Certificate issued by competent Revenue Authority',
+      'Caste / Category Certificate (if applicable)',
+      'Bank Account passbook copy linked with Aadhaar'
+    ],
+    description: 'A national flagship scheme to award scholarships to meritorious students of economically weaker sections to arrest their drop out at class 8 and encourage them to continue secondary stage education.',
+    selectionCriteria: 'Selection via state-level Mental Ability Test (MAT) and Scholastic Aptitude Test (SAT).'
+  },
+  {
+    id: 'aicte-pragati-stem',
+    title: 'AICTE Pragati Scholarship for Girl Students (STEM & Technical)',
+    provider: 'All India Council for Technical Education (AICTE)',
+    providerType: 'Government',
+    amountOrBenefit: '₹50,000 per annum towards college fee & study material allowance',
+    deadline: 'November 15, 2026',
+    minAcademicScore: 60,
+    maxFamilyIncomeAnnual: 800000,
+    maxFamilyIncomeLabel: 'Annual Family Income ≤ ₹8,00,000',
+    eligibleGrades: ['Grade 11-12'],
+    eligibleCategories: ['General', 'OBC', 'SC', 'ST', 'EWS', 'Minority'],
+    eligibleGenders: ['Female'],
+    firstGenLearnerOnly: false,
+    stateSpecific: [],
+    officialPortalUrl: 'https://www.aicte-india.org/schemes/students-development-schemes/pragati',
+    requiredDocuments: [
+      'Class 10 and 12 Board Marksheet',
+      'Admission allotment letter for Degree / Diploma Technical Course',
+      'Income Certificate from Tehsildar / Competent Officer',
+      'Aadhaar seeded bank account details'
+    ],
+    description: 'Empowering young women to pursue technical and engineering education, covering tuition and academic resources with up to 10,000 fresh scholarships annually.',
+    selectionCriteria: 'Merit list prepared on the basis of qualifying examination percentage.'
+  },
+  {
+    id: 'post-matric-sc-st',
+    title: 'Centrally Sponsored Post-Matric Scholarship for SC/ST Students',
+    provider: 'Ministry of Social Justice & Empowerment',
+    providerType: 'Government',
+    amountOrBenefit: 'Full Tuition Fee Waiver + Monthly Maintenance Allowance (₹550 to ₹1,200/mo)',
+    deadline: 'December 15, 2026',
+    minAcademicScore: 40,
+    maxFamilyIncomeAnnual: 250000,
+    maxFamilyIncomeLabel: 'Annual Family Income ≤ ₹2,50,000',
+    eligibleGrades: ['Grade 11-12'],
+    eligibleCategories: ['SC', 'ST'],
+    eligibleGenders: ['Female', 'Male', 'Other'],
+    firstGenLearnerOnly: false,
+    stateSpecific: [],
+    officialPortalUrl: 'https://scholarships.gov.in',
+    requiredDocuments: [
+      'Valid SC/ST Community Certificate with digital seal',
+      'Income Certificate (under 2.5 LPA)',
+      'Previous year academic passing certificate',
+      'Fee receipt of current educational institution'
+    ],
+    description: 'Financial assistance to Scheduled Caste and Scheduled Tribe students studying at post-matriculation or post-secondary stage to enable them to complete their education.',
+    selectionCriteria: 'Open to all eligible SC/ST students enrolled in recognized schools/colleges with valid income certificates.'
+  },
+  {
+    id: 'vidyasaarathi-firstgen',
+    title: 'Vidyasaarathi First-Generation Learner & Underprivileged Fund',
+    provider: 'NSDL & Corporate CSR Education Foundations',
+    providerType: 'Philanthropic Trust',
+    amountOrBenefit: '₹25,000 - ₹40,000 per academic year for books, coaching and device support',
+    deadline: 'September 30, 2026',
+    minAcademicScore: 65,
+    maxFamilyIncomeAnnual: 300000,
+    maxFamilyIncomeLabel: 'Annual Family Income ≤ ₹3,00,000',
+    eligibleGrades: ['Grade 9-10', 'Grade 11-12'],
+    eligibleCategories: ['General', 'OBC', 'SC', 'ST', 'EWS', 'Minority'],
+    eligibleGenders: ['Female', 'Male', 'Other'],
+    firstGenLearnerOnly: true,
+    stateSpecific: [],
+    officialPortalUrl: 'https://www.vidyasaarathi.co.in',
+    requiredDocuments: [
+      'Self-declaration of First-Generation Learner status',
+      'Class 9/10/11 Marksheet with >65%',
+      'Family Income Proof (Ration card / Salary slip / Income cert)',
+      'Recommendation letter from School Principal or Teacher'
+    ],
+    description: 'Dedicated financial grant for students whose parents have not completed higher education, closing the digital divide and resource gap in low-income households.',
+    selectionCriteria: 'Academic performance combined with socio-economic background review.'
+  },
+  {
+    id: 'inspire-she-scholarship',
+    title: 'INSPIRE Scholarship for Higher Education (SHE) in Natural Sciences',
+    provider: 'Department of Science and Technology (DST), Govt of India',
+    providerType: 'Government',
+    amountOrBenefit: '₹80,000 per annum (₹60,000 cash + ₹20,000 summer research mentorship)',
+    deadline: 'January 10, 2027',
+    minAcademicScore: 85,
+    maxFamilyIncomeAnnual: 1200000,
+    maxFamilyIncomeLabel: 'Top 1% in Class 12 Board Exams (No strict income cap)',
+    eligibleGrades: ['Grade 11-12'],
+    eligibleCategories: ['General', 'OBC', 'SC', 'ST', 'EWS', 'Minority'],
+    eligibleGenders: ['Female', 'Male', 'Other'],
+    firstGenLearnerOnly: false,
+    stateSpecific: [],
+    officialPortalUrl: 'https://online-inspire.gov.in',
+    requiredDocuments: [
+      'Class 12 Board Exam Marksheet (Top 1% cut-off certificate)',
+      'Enrollment certificate in B.Sc. / B.S. / Integrated M.Sc. in Natural & Basic Sciences',
+      'Identity Proof and SBI Bank Account Passbook'
+    ],
+    description: 'Prestigious national scholarship to attract talented youth to study Natural and Basic Sciences at the college level and pursue careers in scientific research.',
+    selectionCriteria: 'Rank in top 1% of respective Class 12 State or Central Board Examination.'
+  },
+  {
+    id: 'begum-hazrat-mahal-minority',
+    title: 'Begum Hazrat Mahal National Scholarship for Minority Girl Students',
+    provider: 'Maulana Azad Education Foundation (MAEF)',
+    providerType: 'Government',
+    amountOrBenefit: '₹6,000 (Class 9-10) to ₹12,000 (Class 11-12) per year',
+    deadline: 'November 30, 2026',
+    minAcademicScore: 50,
+    maxFamilyIncomeAnnual: 200000,
+    maxFamilyIncomeLabel: 'Annual Parental Income ≤ ₹2,00,000',
+    eligibleGrades: ['Grade 9-10', 'Grade 11-12'],
+    eligibleCategories: ['Minority'],
+    eligibleGenders: ['Female'],
+    firstGenLearnerOnly: false,
+    stateSpecific: [],
+    officialPortalUrl: 'https://scholarships.gov.in',
+    requiredDocuments: [
+      'Minority Community Certificate (Muslim, Christian, Sikh, Buddhist, Jain, Parsi)',
+      'School verification form signed by Principal',
+      'Income Certificate (under ₹2 Lakhs)',
+      'Marksheet of the previous qualifying examination'
+    ],
+    description: 'Direct financial assistance to meritorious minority girls belonging to economically weaker sections to prevent dropout and support secondary education.',
+    selectionCriteria: 'Strictly on need-cum-merit basis from accredited minority communities.'
+  }
+];

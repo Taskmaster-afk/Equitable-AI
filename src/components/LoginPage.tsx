@@ -1,0 +1,889 @@
+import React, { useState, useEffect } from 'react';
+import {
+  GraduationCap,
+  Users,
+  KeyRound,
+  UserCheck,
+  School,
+  Calendar,
+  BookOpen,
+  ArrowRight,
+  Sparkles,
+  CheckCircle2,
+  AlertCircle,
+  HelpCircle,
+  Clock,
+  MapPin,
+  ShieldAlert,
+  Search,
+  Lock,
+  Eye,
+  EyeOff,
+  Check,
+  X,
+} from 'lucide-react';
+import { AuthUser, ClassroomInfo, LanguageCode, StudentProfile, TeacherProfile } from '../types';
+import { api } from '../services/api';
+import { SUPPORTED_LANGUAGES } from '../data/oerKnowledgeBase';
+
+interface LoginPageProps {
+  onLoginSuccess: (user: AuthUser, student?: StudentProfile, teacher?: TeacherProfile, classInfo?: ClassroomInfo) => void;
+}
+
+export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
+  const [selectedRole, setSelectedRole] = useState<'student' | 'teacher'>('student');
+  const [studentMode, setStudentMode] = useState<'login' | 'register'>('login');
+
+  // Existing demo profiles for quick login
+  const [existingStudents, setExistingStudents] = useState<StudentProfile[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState<string>('student-1');
+  const [studentLoginPassword, setStudentLoginPassword] = useState<string>('password123');
+  const [showStudentLoginPassword, setShowStudentLoginPassword] = useState<boolean>(false);
+
+  // Teacher login state
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string>('teacher-1');
+  const [teacherLoginPassword, setTeacherLoginPassword] = useState<string>('teacher123');
+  const [showTeacherLoginPassword, setShowTeacherLoginPassword] = useState<boolean>(false);
+
+  // Student Registration form state
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
+  const [showRegPassword, setShowRegPassword] = useState(false);
+  const [regStudentClass, setRegStudentClass] = useState('Class 12');
+  const [regClassCode, setRegClassCode] = useState('NCERT-12A');
+  const [regLanguage, setRegLanguage] = useState<LanguageCode>('en');
+  const [regCategory, setRegCategory] = useState('General');
+  const [regGender, setRegGender] = useState('Male');
+  const [regIncome, setRegIncome] = useState('< 1.5 Lakhs/yr');
+  const [regScore, setRegScore] = useState<number>(78);
+  const [regFirstGen, setRegFirstGen] = useState<boolean>(true);
+  const [regState, setRegState] = useState('Madhya Pradesh');
+
+  // Class Code Verification & Preview
+  const [verifiedClass, setVerifiedClass] = useState<ClassroomInfo | null>(null);
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+  const [classCodeError, setClassCodeError] = useState<string | null>(null);
+
+  // Status & loading
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadExistingStudents();
+    verifyClassCode('NCERT-12A');
+  }, []);
+
+  const loadExistingStudents = async () => {
+    try {
+      const res = await api.getStudents();
+      setExistingStudents(res.students);
+      if (res.students.length > 0) {
+        setSelectedStudentId(res.students[0].id);
+      }
+    } catch (e) {
+      console.error('Failed to load students for login demo', e);
+    }
+  };
+
+  const verifyClassCode = async (codeToVerify: string) => {
+    if (!codeToVerify.trim()) {
+      setVerifiedClass(null);
+      setClassCodeError('Please enter a class code provided by your teacher.');
+      return;
+    }
+    setIsVerifyingCode(true);
+    setClassCodeError(null);
+    try {
+      const res = await api.lookupClassCode(codeToVerify);
+      setVerifiedClass(res.classInfo);
+    } catch (err: any) {
+      setVerifiedClass(null);
+      setClassCodeError(err.message || `Class code "${codeToVerify}" not found. Try NCERT-12A, NCERT-11B, or NCERT-10A.`);
+    } finally {
+      setIsVerifyingCode(false);
+    }
+  };
+
+  // Check if student's selected class matches the verified class code
+  const checkClassMatch = (): { matches: boolean; message: string } => {
+    if (!verifiedClass) {
+      return { matches: false, message: 'Class code has not been verified yet.' };
+    }
+
+    const studentDigits = regStudentClass.match(/\b(12|11|10|9|8|7|6)\b/i)?.[1] || '';
+    const targetDigits = (verifiedClass.targetClass || '').match(/\b(12|11|10|9|8|7|6)\b/i)?.[1] ||
+      verifiedClass.classCode.match(/(12|11|10|9|8|7|6)/i)?.[1] ||
+      verifiedClass.className.match(/\bclass\s*(12|11|10|9|8|7|6)\b/i)?.[1] || '';
+
+    if (studentDigits && targetDigits) {
+      if (studentDigits === targetDigits) {
+        return {
+          matches: true,
+          message: `Class match verified: Your selected Class ${studentDigits} matches Class Code "${verifiedClass.classCode}" (${verifiedClass.className}).`,
+        };
+      } else {
+        return {
+          matches: false,
+          message: `Class Mismatch: You selected Class ${studentDigits}, but class code "${verifiedClass.classCode}" is for Class ${targetDigits} (${verifiedClass.className}). You are NOT allowed to join this class. Please select your matching class or ask your teacher for your class code.`,
+        };
+      }
+    }
+
+    if (verifiedClass.targetClass && regStudentClass.trim().toLowerCase() !== verifiedClass.targetClass.trim().toLowerCase()) {
+      return {
+        matches: false,
+        message: `Class Mismatch: You selected "${regStudentClass}", but class code "${verifiedClass.classCode}" is for "${verifiedClass.targetClass}".`,
+      };
+    }
+
+    return { matches: true, message: `Class matches code ${verifiedClass.classCode}.` };
+  };
+
+  const classMatchStatus = verifiedClass ? checkClassMatch() : null;
+
+  const handleStudentLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await api.login({
+        role: 'student',
+        identifier: selectedStudentId,
+        password: studentLoginPassword,
+      });
+      onLoginSuccess(res.user, res.studentProfile, undefined, res.classInfo);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Login failed. Please verify your student profile and password.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTeacherLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await api.login({
+        role: 'teacher',
+        identifier: selectedTeacherId,
+        password: teacherLoginPassword,
+      });
+      onLoginSuccess(res.user, undefined, res.teacherProfile, undefined);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Teacher login failed.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleStudentRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+
+    if (!regName.trim() || !regEmail.trim() || !regClassCode.trim()) {
+      setErrorMessage('Please fill in your name, email, and class code.');
+      return;
+    }
+
+    if (!regPassword || regPassword.length < 6) {
+      setErrorMessage('Please create a password with at least 6 characters.');
+      return;
+    }
+
+    if (regPassword !== regConfirmPassword) {
+      setErrorMessage('Password and Confirm Password do not match. Please re-enter.');
+      return;
+    }
+
+    if (!verifiedClass) {
+      setErrorMessage('Please enter and verify a valid teacher class code.');
+      return;
+    }
+
+    const matchCheck = checkClassMatch();
+    if (!matchCheck.matches) {
+      setErrorMessage(matchCheck.message);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await api.registerStudent({
+        name: regName,
+        email: regEmail,
+        password: regPassword,
+        studentClass: regStudentClass,
+        classCode: regClassCode,
+        primaryLanguage: regLanguage,
+        category: regCategory,
+        gender: regGender,
+        familyIncomeBracket: regIncome,
+        academicScorePercent: Number(regScore),
+        firstGenerationLearner: regFirstGen,
+        stateOrRegion: regState,
+      });
+      onLoginSuccess(res.user, res.student, undefined, res.classInfo);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Registration failed. Check your class code and credentials.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const quickSetClassAndCode = (cls: string, code: string) => {
+    setRegStudentClass(cls);
+    setRegClassCode(code);
+    verifyClassCode(code);
+  };
+
+  return (
+    <div className="min-h-[85vh] flex items-center justify-center p-4 sm:p-6">
+      <div className="w-full max-w-4xl bg-white border border-[#E5E7EB] shadow-sm">
+        {/* Top Minimalist Header */}
+        <div className="border-b border-[#E5E7EB] p-5 sm:p-6 bg-[#FAFAFA] flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-black flex items-center justify-center">
+              <div className="w-4 h-4 bg-white rotate-45"></div>
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-[#1A1A1A]">
+                AI for Equitable Education Access
+              </h1>
+              <p className="text-xs text-[#6B7280]">
+                National NCERT Curriculum Portal &bull; Role-Based Access & Strict Privacy Isolation
+              </p>
+            </div>
+          </div>
+
+          {/* Role Selector Tabs */}
+          <div className="inline-flex border border-[#E5E7EB] bg-white p-1">
+            <button
+              id="btn-role-student"
+              onClick={() => {
+                setSelectedRole('student');
+                setErrorMessage(null);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${
+                selectedRole === 'student'
+                  ? 'bg-black text-white'
+                  : 'text-[#4B5563] hover:text-black hover:bg-[#F3F4F6]'
+              }`}
+            >
+              <GraduationCap className="w-3.5 h-3.5" />
+              <span>Student Portal</span>
+            </button>
+            <button
+              id="btn-role-teacher"
+              onClick={() => {
+                setSelectedRole('teacher');
+                setErrorMessage(null);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${
+                selectedRole === 'teacher'
+                  ? 'bg-black text-white'
+                  : 'text-[#4B5563] hover:text-black hover:bg-[#F3F4F6]'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Teacher Portal</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Error Notification */}
+        {errorMessage && (
+          <div className="bg-rose-50 border-b border-rose-200 px-6 py-3 text-xs text-rose-700 flex items-start gap-2 font-medium">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span className="leading-relaxed">{errorMessage}</span>
+          </div>
+        )}
+
+        {/* Content Body */}
+        <div className="p-6 sm:p-8">
+          {selectedRole === 'student' ? (
+            <div>
+              {/* Student Mode Switcher */}
+              <div className="flex border-b border-[#E5E7EB] mb-6">
+                <button
+                  id="tab-student-signin"
+                  onClick={() => {
+                    setStudentMode('login');
+                    setErrorMessage(null);
+                  }}
+                  className={`pb-2.5 px-4 text-xs font-bold border-b-2 transition-all ${
+                    studentMode === 'login'
+                      ? 'border-black text-[#1A1A1A]'
+                      : 'border-transparent text-[#6B7280] hover:text-black'
+                  }`}
+                >
+                  Existing Student Sign In
+                </button>
+                <button
+                  id="tab-student-register"
+                  onClick={() => {
+                    setStudentMode('register');
+                    setErrorMessage(null);
+                  }}
+                  className={`pb-2.5 px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+                    studentMode === 'register'
+                      ? 'border-black text-[#1A1A1A]'
+                      : 'border-transparent text-[#6B7280] hover:text-black'
+                  }`}
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-black" />
+                  <span>Register Profile & Enter Class Code</span>
+                </button>
+              </div>
+
+              {studentMode === 'login' ? (
+                /* Student Existing Sign In */
+                <form onSubmit={handleStudentLogin} className="max-w-md space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#374151]">
+                      Select Registered Student Profile
+                    </label>
+                    <p className="text-[11px] text-[#6B7280]">
+                      Each student has a private workspace. Students cannot view other students' data.
+                    </p>
+                    <select
+                      id="select-student-profile"
+                      value={selectedStudentId}
+                      onChange={(e) => setSelectedStudentId(e.target.value)}
+                      className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs font-medium text-[#1A1A1A] outline-none hover:border-[#9CA3AF] focus:border-black transition-colors"
+                    >
+                      {existingStudents.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} &bull; {s.studentClass || 'Class 12'} ({s.classCode}) &bull; {s.primaryLanguage.toUpperCase()}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-[#374151] flex items-center gap-1">
+                        <Lock className="w-3.5 h-3.5 text-black" />
+                        <span>Profile Password</span>
+                      </label>
+                      <span className="text-[11px] text-[#6B7280] font-mono">Demo: password123</span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        id="student-login-password"
+                        type={showStudentLoginPassword ? 'text' : 'password'}
+                        value={studentLoginPassword}
+                        onChange={(e) => setStudentLoginPassword(e.target.value)}
+                        placeholder="Enter your student password"
+                        required
+                        className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] pr-9 outline-none focus:border-black"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowStudentLoginPassword(!showStudentLoginPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-black"
+                      >
+                        {showStudentLoginPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] text-xs text-[#4B5563] space-y-1.5">
+                    <div className="flex items-center gap-1.5 font-bold text-[#1A1A1A]">
+                      <ShieldAlert className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Strict Student Privacy Isolation Enforced</span>
+                    </div>
+                    <p className="text-[11px] text-[#6B7280] leading-relaxed">
+                      Your doubt history, adaptive practice ladders, and syllabus progress remain private to you and your assigned class teacher.
+                    </p>
+                  </div>
+
+                  <button
+                    id="btn-student-login-submit"
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full bg-black text-white hover:bg-[#222] py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                  >
+                    <span>Enter My Student Desk</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </form>
+              ) : (
+                /* Student Registration with Password & Class Code Validation */
+                <form onSubmit={handleStudentRegister} className="space-y-6">
+                  {/* Step 1: Class Selection & Class Code Reader with strict match validation */}
+                  <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-4 sm:p-5 space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
+                          <School className="w-3.5 h-3.5 text-black" />
+                          <span>1. Select Your Class & Teacher's Class Code *</span>
+                        </label>
+                      </div>
+                      <p className="text-[11px] text-[#6B7280] mb-3">
+                        Your selected class <strong>must match</strong> the class code issued by your teacher. If they mismatch, enrollment will be blocked.
+                      </p>
+
+                      {/* Quick preset links for demo convenience */}
+                      <div className="flex flex-wrap items-center gap-1.5 mb-3 text-[11px] text-[#6B7280]">
+                        <span className="font-medium">Quick Test Scenarios:</span>
+                        <button
+                          type="button"
+                          onClick={() => quickSetClassAndCode('Class 12', 'NCERT-12A')}
+                          className="px-2 py-0.5 bg-white border border-[#E5E7EB] font-mono text-[10px] text-black hover:border-black transition-colors"
+                        >
+                          Match: Class 12 &rarr; NCERT-12A
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => quickSetClassAndCode('Class 11', 'NCERT-11B')}
+                          className="px-2 py-0.5 bg-white border border-[#E5E7EB] font-mono text-[10px] text-black hover:border-black transition-colors"
+                        >
+                          Match: Class 11 &rarr; NCERT-11B
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => quickSetClassAndCode('Class 10', 'NCERT-10A')}
+                          className="px-2 py-0.5 bg-white border border-[#E5E7EB] font-mono text-[10px] text-black hover:border-black transition-colors"
+                        >
+                          Match: Class 10 &rarr; NCERT-10A
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRegStudentClass('Class 10');
+                            setRegClassCode('NCERT-12A');
+                            verifyClassCode('NCERT-12A');
+                          }}
+                          className="px-2 py-0.5 bg-rose-50 border border-rose-200 font-mono text-[10px] text-rose-700 hover:border-rose-400 transition-colors"
+                        >
+                          Test Mismatch: Class 10 with NCERT-12A
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Student Class Select */}
+                        <div>
+                          <label className="text-[11px] font-bold text-[#374151] block mb-1">
+                            Your Enrolled Class *
+                          </label>
+                          <select
+                            id="reg-student-class"
+                            value={regStudentClass}
+                            onChange={(e) => setRegStudentClass(e.target.value)}
+                            className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
+                          >
+                            <option value="Class 12">Class 12 (Senior Secondary)</option>
+                            <option value="Class 11">Class 11 (Senior Secondary)</option>
+                            <option value="Class 10">Class 10 (Secondary Standard)</option>
+                            <option value="Class 9">Class 9 (Secondary Standard)</option>
+                            <option value="Class 8">Class 8 (Middle School)</option>
+                            <option value="Class 7">Class 7 (Middle School)</option>
+                            <option value="Class 6">Class 6 (Middle School)</option>
+                          </select>
+                        </div>
+
+                        {/* Class Code Input */}
+                        <div>
+                          <label className="text-[11px] font-bold text-[#374151] block mb-1">
+                            Teacher's Class Code *
+                          </label>
+                          <div className="flex gap-1.5">
+                            <input
+                              id="reg-class-code-input"
+                              type="text"
+                              value={regClassCode}
+                              onChange={(e) => {
+                                const val = e.target.value.toUpperCase();
+                                setRegClassCode(val);
+                              }}
+                              onBlur={() => verifyClassCode(regClassCode)}
+                              placeholder="e.g. NCERT-12A"
+                              className="flex-1 uppercase font-mono font-bold bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                            />
+                            <button
+                              id="btn-verify-class-code"
+                              type="button"
+                              onClick={() => verifyClassCode(regClassCode)}
+                              disabled={isVerifyingCode}
+                              className="clean-button-primary px-3 py-2 text-xs font-semibold shrink-0"
+                            >
+                              {isVerifyingCode ? 'Reading...' : 'Verify Code'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Class Code Lookup Error */}
+                    {classCodeError && (
+                      <div className="p-2.5 bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-1.5 font-medium">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>{classCodeError}</span>
+                      </div>
+                    )}
+
+                    {/* Live Class Matching Indicator */}
+                    {verifiedClass && (
+                      <div className="space-y-2">
+                        {classMatchStatus?.matches ? (
+                          <div
+                            id="class-match-success"
+                            className="p-3 bg-emerald-50 border border-emerald-300 text-xs text-emerald-900 flex items-start gap-2"
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                            <div>
+                              <div className="font-bold">✓ Class Match Verified & Authorized</div>
+                              <p className="text-[11px] text-emerald-800 mt-0.5">
+                                Your selected <strong>{regStudentClass}</strong> matches class code <strong>{verifiedClass.classCode}</strong> ({verifiedClass.className}). Dashboard content will be strictly scoped to your {regStudentClass} curriculum.
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            id="class-match-mismatch"
+                            className="p-3 bg-rose-50 border-2 border-rose-500 text-xs text-rose-900 flex items-start gap-2 animate-pulse"
+                          >
+                            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                            <div>
+                              <div className="font-bold text-rose-800">❌ Class Mismatch &bull; Enrollment Restricted</div>
+                              <p className="text-[11px] text-rose-800 mt-0.5 leading-relaxed">
+                                {classMatchStatus?.message}
+                              </p>
+                              <p className="text-[10px] text-rose-700 font-semibold mt-1">
+                                Action Required: Change your selected class to match this class code, or enter your correct class teacher's code.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Class Details Card */}
+                        <div className="p-3 bg-white border border-[#E5E7EB] text-xs space-y-2">
+                          <div className="flex items-center justify-between border-b border-[#F0F2F5] pb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="bg-black text-white text-[10px] font-mono font-bold px-1.5 py-0.5">
+                                {verifiedClass.classCode}
+                              </span>
+                              <span className="font-bold text-xs text-[#1A1A1A]">
+                                {verifiedClass.className}
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-[#6B7280]">
+                              Target: {verifiedClass.targetClass || verifiedClass.gradeLevel}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                            <div>
+                              <span className="text-[#9CA3AF] block text-[10px] uppercase font-bold">Teacher</span>
+                              <span className="font-semibold text-[#1A1A1A]">{verifiedClass.teacherName}</span>
+                            </div>
+                            <div>
+                              <span className="text-[#9CA3AF] block text-[10px] uppercase font-bold">School</span>
+                              <span className="font-semibold text-[#1A1A1A] truncate block">{verifiedClass.school}</span>
+                            </div>
+                            <div>
+                              <span className="text-[#9CA3AF] block text-[10px] uppercase font-bold">Curriculum</span>
+                              <span className="font-semibold text-[#1A1A1A]">{verifiedClass.curriculum}</span>
+                            </div>
+                            <div>
+                              <span className="text-[#9CA3AF] block text-[10px] uppercase font-bold">Subjects</span>
+                              <span className="font-semibold text-[#1A1A1A]">{verifiedClass.subjects.join(', ')}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Step 2: Account Security / Create Password (User Request) */}
+                  <div className="bg-white border border-[#E5E7EB] p-4 sm:p-5 space-y-3">
+                    <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-black" />
+                      <span>2. Create Password for Your Student Profile *</span>
+                    </label>
+                    <p className="text-[11px] text-[#6B7280]">
+                      Set a confidential password to protect your doubt solving history and academic profile.
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Password Field */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-[#374151]">Create Password *</label>
+                        <div className="relative">
+                          <input
+                            id="reg-password-input"
+                            type={showRegPassword ? 'text' : 'password'}
+                            required
+                            minLength={6}
+                            value={regPassword}
+                            onChange={(e) => setRegPassword(e.target.value)}
+                            placeholder="Minimum 6 characters"
+                            className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] pr-9 outline-none focus:border-black"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowRegPassword(!showRegPassword)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-black"
+                          >
+                            {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                        {regPassword && (
+                          <div className="flex items-center gap-1 text-[10px] mt-0.5">
+                            {regPassword.length >= 6 ? (
+                              <span className="text-emerald-600 flex items-center gap-0.5">
+                                <Check className="w-3 h-3" /> Minimum 6 characters met
+                              </span>
+                            ) : (
+                              <span className="text-amber-600 flex items-center gap-0.5">
+                                <AlertCircle className="w-3 h-3" /> Needs {6 - regPassword.length} more characters
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Confirm Password Field */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-[#374151]">Confirm Password *</label>
+                        <input
+                          id="reg-confirm-password-input"
+                          type={showRegPassword ? 'text' : 'password'}
+                          required
+                          value={regConfirmPassword}
+                          onChange={(e) => setRegConfirmPassword(e.target.value)}
+                          placeholder="Re-enter password"
+                          className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                        />
+                        {regConfirmPassword && (
+                          <div className="flex items-center gap-1 text-[10px] mt-0.5">
+                            {regPassword === regConfirmPassword ? (
+                              <span className="text-emerald-600 flex items-center gap-0.5">
+                                <Check className="w-3 h-3" /> Passwords match
+                              </span>
+                            ) : (
+                              <span className="text-rose-600 flex items-center gap-0.5">
+                                <X className="w-3 h-3" /> Passwords do not match
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 3: Personal & Academic Profile */}
+                  <div className="bg-white border border-[#E5E7EB] p-4 sm:p-5 space-y-4">
+                    <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
+                      <GraduationCap className="w-3.5 h-3.5 text-black" />
+                      <span>3. Student Profile & Equal Access Details</span>
+                    </label>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-[#374151]">Full Name *</label>
+                        <input
+                          id="reg-name-input"
+                          type="text"
+                          required
+                          value={regName}
+                          onChange={(e) => setRegName(e.target.value)}
+                          placeholder="e.g. Aarav Sharma"
+                          className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-[#374151]">Email Address *</label>
+                        <input
+                          id="reg-email-input"
+                          type="email"
+                          required
+                          value={regEmail}
+                          onChange={(e) => setRegEmail(e.target.value)}
+                          placeholder="student@school.edu.in"
+                          className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-[#374151]">Primary Tutoring Language</label>
+                        <select
+                          value={regLanguage}
+                          onChange={(e) => setRegLanguage(e.target.value as LanguageCode)}
+                          className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                        >
+                          {SUPPORTED_LANGUAGES.map((l) => (
+                            <option key={l.code} value={l.code}>
+                              {l.name} ({l.nativeName})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-[#374151]">Social Category (For Aid Matcher)</label>
+                        <select
+                          value={regCategory}
+                          onChange={(e) => setRegCategory(e.target.value)}
+                          className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                        >
+                          <option value="General">General</option>
+                          <option value="OBC">OBC (Other Backward Class)</option>
+                          <option value="SC">SC (Scheduled Caste)</option>
+                          <option value="ST">ST (Scheduled Tribe)</option>
+                          <option value="EWS">EWS (Economically Weaker Section)</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-[#374151]">Annual Family Income</label>
+                        <select
+                          value={regIncome}
+                          onChange={(e) => setRegIncome(e.target.value)}
+                          className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                        >
+                          <option value="< 1.5 Lakhs/yr">&lt; ₹1.5 Lakhs/yr (Full Fee Waiver Eligible)</option>
+                          <option value="1.5 - 3.0 Lakhs/yr">₹1.5 - 3.0 Lakhs/yr</option>
+                          <option value="3.0 - 6.0 Lakhs/yr">₹3.0 - 6.0 Lakhs/yr</option>
+                          <option value="6.0 - 8.0 Lakhs/yr">₹6.0 - 8.0 Lakhs/yr</option>
+                          <option value="> 8.0 Lakhs/yr">&gt; ₹8.0 Lakhs/yr</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-[#374151]">Recent Board/Exam Score (%)</label>
+                        <input
+                          type="number"
+                          min="30"
+                          max="100"
+                          value={regScore}
+                          onChange={(e) => setRegScore(Number(e.target.value))}
+                          className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2 border-t border-[#F0F2F5]">
+                      <input
+                        type="checkbox"
+                        id="first-gen-check"
+                        checked={regFirstGen}
+                        onChange={(e) => setRegFirstGen(e.target.checked)}
+                        className="w-4 h-4 text-black border-[#E5E7EB] rounded-none focus:ring-0 cursor-pointer"
+                      />
+                      <label htmlFor="first-gen-check" className="text-xs text-[#374151] cursor-pointer">
+                        I am a <strong>First-Generation Learner</strong> (Unlock dedicated mentoring & National scholarship eligibility)
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Submission Button */}
+                  <button
+                    id="btn-complete-registration"
+                    type="submit"
+                    disabled={isLoading || !verifiedClass || !classMatchStatus?.matches || regPassword.length < 6 || regPassword !== regConfirmPassword}
+                    className="w-full bg-black text-white hover:bg-[#222] py-3 px-4 text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span>
+                      {!verifiedClass
+                        ? 'Please Verify Teacher Class Code First'
+                        : !classMatchStatus?.matches
+                        ? 'Cannot Join: Class Mismatch with Code'
+                        : regPassword.length < 6
+                        ? 'Please Set a Password (min 6 chars)'
+                        : regPassword !== regConfirmPassword
+                        ? 'Passwords Do Not Match'
+                        : `Complete Registration & Access ${regStudentClass} Dashboard`}
+                    </span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </form>
+              )}
+            </div>
+          ) : (
+            /* Teacher Portal Sign In */
+            <form onSubmit={handleTeacherLogin} className="max-w-md space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-[#374151]">
+                  Select Verified Teacher Profile
+                </label>
+                <p className="text-[11px] text-[#6B7280]">
+                  Teachers can monitor registered students, manage class codes, and generate remediation plans.
+                </p>
+                <select
+                  id="select-teacher-profile"
+                  value={selectedTeacherId}
+                  onChange={(e) => setSelectedTeacherId(e.target.value)}
+                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs font-medium text-[#1A1A1A] outline-none hover:border-[#9CA3AF] focus:border-black transition-colors"
+                >
+                  <option value="teacher-1">
+                    Dr. Rajesh Varma &bull; Senior Science HOD (Classes: NCERT-12A, NCERT-11B)
+                  </option>
+                  <option value="teacher-2">
+                    Mrs. Sunita Sharma &bull; Secondary Maths Lead (Class: NCERT-10A, NCERT-9A)
+                  </option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#374151] flex items-center gap-1">
+                    <Lock className="w-3.5 h-3.5 text-black" />
+                    <span>Teacher Access Key</span>
+                  </label>
+                  <span className="text-[11px] text-[#6B7280] font-mono">Demo: teacher123</span>
+                </div>
+                <div className="relative">
+                  <input
+                    id="teacher-login-password"
+                    type={showTeacherLoginPassword ? 'text' : 'password'}
+                    value={teacherLoginPassword}
+                    onChange={(e) => setTeacherLoginPassword(e.target.value)}
+                    placeholder="Enter teacher password"
+                    required
+                    className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] pr-9 outline-none focus:border-black"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowTeacherLoginPassword(!showTeacherLoginPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-black"
+                  >
+                    {showTeacherLoginPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-[#F8F9FA] border border-[#E5E7EB] text-xs text-[#4B5563] space-y-2">
+                <div className="flex items-center gap-1.5 font-bold text-[#1A1A1A]">
+                  <Users className="w-3.5 h-3.5 text-black" />
+                  <span>Teacher Monitoring Capabilities</span>
+                </div>
+                <ul className="text-[11px] text-[#6B7280] space-y-1 list-disc pl-4">
+                  <li>Monitor every student registered for your class codes in real time.</li>
+                  <li>Review diagnostic flags and topic heatmaps across enrolled batches.</li>
+                  <li>Generate AI-crafted NCERT remediation lesson plans for struggling concepts.</li>
+                  <li>Create and distribute new batch class codes.</li>
+                </ul>
+              </div>
+
+              <button
+                id="btn-teacher-login-submit"
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-black text-white hover:bg-[#222] py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+              >
+                <span>Enter Teacher Classroom Radar</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
