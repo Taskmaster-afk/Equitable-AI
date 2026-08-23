@@ -1010,7 +1010,7 @@ export const ClassHub = ({
                 No announcements posted for this classroom yet. Check back soon for circulars!
               </div>
             ) : (
-              announcements.map((ann) => {
+              (Array.isArray(announcements) ? announcements : []).map((ann) => {
                 const isUrgent = ann.priority === "urgent";
                 const isImportant = ann.priority === "important";
                 return (
@@ -1077,7 +1077,7 @@ export const ClassHub = ({
                   No doubts asked yet in this class. Click <strong>Ask Doubt</strong> to start a peer discussion!
                 </div>
               ) : (
-                classPosts.map((post) => {
+                (Array.isArray(classPosts) ? classPosts : []).map((post) => {
                   const isSelected = activePost?.id === post.id;
                   const hasTeacherVerified = (post.answers || []).some(a => a.isTeacherVerified);
                   return (
@@ -1618,7 +1618,7 @@ export const ClassHub = ({
             {/* Periods */}
             <div className="mt-4 space-y-2">
               {currentTimetableDay?.periods && currentTimetableDay.periods.length > 0 ? (
-                currentTimetableDay.periods.map((p, idx) => (
+                (Array.isArray(currentTimetableDay.periods) ? currentTimetableDay.periods : []).map((p, idx) => (
                   <div
                     key={idx}
                     className="p-3 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg flex items-center justify-between flex-wrap gap-2 text-xs"

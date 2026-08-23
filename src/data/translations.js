@@ -10,7 +10,7 @@ export const UI_TRANSLATIONS = {
     lightMode: "Light Mode",
     // Tabs
     tabClassRadar: "Class Radar & Roster",
-    tabClassroomResources: "Classroom Resources",
+    tabClassroomResources: "Classroom Hub",
     tabCommunityChat: "Community Chat",
     tabAiDoubtSolver: "AI Doubt Solver",
     tabAdaptivePractice: "Adaptive Practice",

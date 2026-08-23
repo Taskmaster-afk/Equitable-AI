@@ -1,3 +1,45 @@
+import React from "react";
+
+class WorkspaceErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("Workspace Error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="max-w-2xl mx-auto my-12 p-8 bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-2xl shadow-xl space-y-4 text-center">
+          <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 flex items-center justify-center mx-auto text-xl font-bold">
+            🏛️
+          </div>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Classroom Workspace Synchronizing</h2>
+          <p className="text-xs text-slate-500 dark:text-zinc-400">
+            Re-initializing active curriculum and timetable streams...
+          </p>
+          <button
+            onClick={() => {
+              this.setState({ hasError: false });
+              window.location.reload();
+            }}
+            className="clean-button-primary px-4 py-2 text-xs font-bold rounded-lg shadow-xs"
+          >
+            Reload Classroom Desk ↻
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { useState, useEffect } from "react";
 import { ArrowRight, Bell, Sparkles, CheckCircle2, X } from "lucide-react";
 import { Navbar } from "./components/Navbar";
@@ -490,18 +532,20 @@ export default function App() {
 
         {/* Classroom Resources & Notes Hub */}
         {activeTab === "classhub" && (
-          <ClassHub
-            currentStudent={currentStudent}
-            currentTeacher={currentTeacher}
-            classInfo={currentClassInfo}
-            studentClasses={studentClasses}
-            onSelectClass={(cls) => setCurrentClassInfo(cls)}
-            onJoinClass={handleJoinClass}
-            onLeaveClass={handleLeaveClass}
-            onNavigateToTutor={() => navigateToTab("tutor")}
-            onNavigateToPractice={() => navigateToTab("practice")}
-            onNavigateToCommunity={() => navigateToTab("community")}
-          />
+          <WorkspaceErrorBoundary>
+            <ClassHub
+              currentStudent={currentStudent}
+              currentTeacher={currentTeacher}
+              classInfo={currentClassInfo}
+              studentClasses={studentClasses}
+              onSelectClass={(cls) => setCurrentClassInfo(cls)}
+              onJoinClass={handleJoinClass}
+              onLeaveClass={handleLeaveClass}
+              onNavigateToTutor={() => navigateToTab("tutor")}
+              onNavigateToPractice={() => navigateToTab("practice")}
+              onNavigateToCommunity={() => navigateToTab("community")}
+            />
+          </WorkspaceErrorBoundary>
         )}
 
         {/* Institutional Community Forum */}
