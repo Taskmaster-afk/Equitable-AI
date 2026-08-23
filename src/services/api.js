@@ -51,6 +51,11 @@ const api = {
     }
     return res.json();
   },
+  async getClass(code) {
+    const res = await fetch(`/api/class/${encodeURIComponent(code)}`);
+    if (!res.ok) return null;
+    return res.json();
+  },
   async lookupClassCode(code) {
     const res = await fetch(`/api/class/${encodeURIComponent(code)}`);
     if (!res.ok) {
@@ -196,6 +201,15 @@ const api = {
       headers: this.getAuthHeaders(),
       body: JSON.stringify(payload)
     });
+    return res.json();
+  },
+  async sendPracticeFeedback(summary) {
+    const res = await fetch("/api/practice/feedback", {
+      method: "POST",
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(summary)
+    });
+    if (!res.ok) throw new Error("Failed to send practice feedback");
     return res.json();
   },
   async getTeacherInsights(classCode, teacherId) {

@@ -14,11 +14,17 @@ import {
   Building,
   PlusCircle,
   Sparkles,
-  Globe,
-  ShieldCheck
+  ShieldCheck,
+  Search,
+  Plus,
+  BookOpen,
+  Award,
+  Zap,
+  TrendingUp,
+  Brain,
+  Compass
 } from "lucide-react";
 import { api } from "../services/api";
-import { SUPPORTED_LANGUAGES } from "../data/oerKnowledgeBase";
 import { getTranslation } from "../data/translations";
 import {
   ACADEMIC_TIERS,
@@ -26,9 +32,32 @@ import {
   DEFAULT_CUSTOM_CURRICULUM
 } from "../data/curriculumStandards";
 
+const DAILY_SPARKS = [
+  {
+    topic: "Wave-Particle Duality (De Broglie)",
+    subject: "Class 12 Physics",
+    formula: "λ = h / p = h / (mv)",
+    insight: "Every moving particle exhibits wave properties. The faster an electron moves, the shorter its wavelength, enabling electron microscopes to resolve atomic details.",
+    tag: "Modern Physics"
+  },
+  {
+    topic: "Quadratic Nature of Projectile Motion",
+    subject: "Class 11 Physics & Math",
+    formula: "y = x·tan(θ) - (g·x²) / (2·u²·cos²θ)",
+    insight: "Because gravity acts solely downwards with zero horizontal deceleration, a projectile traces a perfect inverted parabola under ideal vacuum conditions.",
+    tag: "Kinematics"
+  },
+  {
+    topic: "Chemical Equilibrium & Le Chatelier",
+    subject: "Class 11-12 Chemistry",
+    formula: "K_eq = [Products]^c / [Reactants]^a",
+    insight: "When stress is applied to a dynamic equilibrium, the reaction shifts to counteract that disturbance, optimizing industrial yields in Haber's ammonia process.",
+    tag: "Physical Chemistry"
+  }
+];
+
 export const LoginPage = ({
   onLoginSuccess,
-  onOpenAuditModal,
   isDarkMode,
   setIsDarkMode,
   selectedLanguage = "en",
@@ -39,11 +68,16 @@ export const LoginPage = ({
   const [studentMode, setStudentMode] = useState("login"); // "login" | "register"
   const [teacherMode, setTeacherMode] = useState("login"); // "login" | "register"
   const [showAboutModal, setShowAboutModal] = useState(false);
+  const [activeSparkIndex, setActiveSparkIndex] = useState(0);
 
   // Institutes State
   const [institutes, setInstitutes] = useState([]);
+  const [studentInstituteSearch, setStudentInstituteSearch] = useState("");
+  const [showStudentInstDropdown, setShowStudentInstDropdown] = useState(false);
+  const [teacherInstituteSearch, setTeacherInstituteSearch] = useState("");
+  const [showTeacherInstDropdown, setShowTeacherInstDropdown] = useState(false);
 
-  // Student Login State (Manual Credentials Input)
+  // Student Login State
   const [studentLoginIdentifier, setStudentLoginIdentifier] = useState("aarav.sharma@student.edu.in");
   const [studentLoginPassword, setStudentLoginPassword] = useState("password123");
   const [showStudentLoginPassword, setShowStudentLoginPassword] = useState(false);
@@ -68,7 +102,7 @@ export const LoginPage = ({
   const [isVerifyingCode, setIsVerifyingCode] = useState(false);
   const [classCodeError, setClassCodeError] = useState(null);
 
-  // Teacher Login State (Manual Credentials Input)
+  // Teacher Login State
   const [teacherLoginIdentifier, setTeacherLoginIdentifier] = useState("rajesh.varma@school.edu.in");
   const [teacherLoginPassword, setTeacherLoginPassword] = useState("teacher123");
   const [showTeacherLoginPassword, setShowTeacherLoginPassword] = useState(false);
@@ -81,9 +115,7 @@ export const LoginPage = ({
   const [teacherRegConfirmPassword, setTeacherRegConfirmPassword] = useState("");
   const [showTeacherRegPassword, setShowTeacherRegPassword] = useState(false);
   const [teacherRegDepartment, setTeacherRegDepartment] = useState("Senior Science & Mathematics Faculty");
-  const [teacherInstituteChoice, setTeacherInstituteChoice] = useState("existing"); // "existing" | "new"
   const [teacherExistingInstitute, setTeacherExistingInstitute] = useState("Kendriya Vidyalaya No. 1");
-  const [teacherNewInstituteName, setTeacherNewInstituteName] = useState("");
   const [teacherNewInstituteType, setTeacherNewInstituteType] = useState("Kendriya Vidyalaya / Central School (K-12)");
   const [teacherInstituteTier, setTeacherInstituteTier] = useState("Secondary Standard");
   const [teacherNewInstituteLocation, setTeacherNewInstituteLocation] = useState("National / Regional Campus");
@@ -129,7 +161,9 @@ export const LoginPage = ({
       if (instRes.institutes && instRes.institutes.length > 0) {
         setInstitutes(instRes.institutes);
         setRegStudentInstitute(instRes.institutes[0].name);
+        setStudentInstituteSearch(instRes.institutes[0].name);
         setTeacherExistingInstitute(instRes.institutes[0].name);
+        setTeacherInstituteSearch(instRes.institutes[0].name);
       }
     } catch (e) {
       console.error("Failed to load institutes metadata", e);
@@ -161,7 +195,7 @@ export const LoginPage = ({
     } catch (err) {
       setVerifiedClass(null);
       setClassCodeError(
-        err.message || `Class code "${codeToVerify}" not found. Try NCERT-12A or leave empty to join later.`
+        err.message || `Class code "${codeToVerify}" not found. Try NCERT-10A or leave empty to join later.`
       );
     } finally {
       setIsVerifyingCode(false);
@@ -207,18 +241,20 @@ export const LoginPage = ({
     }
   };
 
-  // Student Registration (No mandatory subject or class in starting)
+  // Student Registration (Search or Add New Institute)
   const handleStudentRegister = async (e) => {
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
 
+    const instituteToUse = regStudentInstitute.trim() || studentInstituteSearch.trim();
+
     if (!regName.trim() || !regEmail.trim()) {
       setErrorMessage("Please fill in your full name and email address.");
       return;
     }
-    if (!regStudentInstitute || !regStudentInstitute.trim()) {
-      setErrorMessage("Please select your institute from the dropdown menu.");
+    if (!instituteToUse) {
+      setErrorMessage("Please select or type your school name.");
       return;
     }
     if (!regPassword || regPassword.length < 6) {
@@ -232,14 +268,30 @@ export const LoginPage = ({
 
     setIsLoading(true);
     try {
+      const instituteExists = institutes.some(
+        (i) => i.name.toLowerCase() === instituteToUse.toLowerCase()
+      );
+      if (!instituteExists) {
+        try {
+          await api.createInstitute({
+            name: instituteToUse,
+            type: "School / Institution",
+            location: regState || "India"
+          });
+          await refreshInstitutesList();
+        } catch (e) {
+          console.warn("Institute auto-creation notice:", e.message);
+        }
+      }
+
       const res = await api.registerStudent({
         name: regName.trim(),
         email: regEmail.trim(),
         password: regPassword,
         studentClass: regClassCode && verifiedClass ? (verifiedClass.targetClass || verifiedClass.className) : "General",
         classCode: regClassCode ? regClassCode.trim() : "",
-        instituteName: regStudentInstitute,
-        primaryLanguage: regLanguage,
+        instituteName: instituteToUse,
+        primaryLanguage: "en",
         category: regCategory,
         gender: regGender,
         familyIncomeBracket: regIncome,
@@ -302,11 +354,13 @@ export const LoginPage = ({
     }
   };
 
-  // Teacher Registration (No pre-filled subjects/classes forced; teacher manages classes in their dashboard)
+  // Teacher Registration
   const handleTeacherRegister = async (e) => {
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
+
+    const instituteToUse = teacherExistingInstitute.trim() || teacherInstituteSearch.trim();
 
     if (!teacherRegName.trim()) {
       setErrorMessage("Please enter faculty / teacher full name.");
@@ -316,6 +370,10 @@ export const LoginPage = ({
       setErrorMessage("Please enter institutional email address.");
       return;
     }
+    if (!instituteToUse) {
+      setErrorMessage("Please select or enter your institution name.");
+      return;
+    }
     if (!teacherRegPassword || teacherRegPassword.length < 6) {
       setErrorMessage("Please create a password with at least 6 characters.");
       return;
@@ -323,24 +381,6 @@ export const LoginPage = ({
     if (teacherRegPassword !== teacherRegConfirmPassword) {
       setErrorMessage("Teacher password and confirmation do not match.");
       return;
-    }
-
-    let finalInstituteName = "";
-    let isNewInstitute = false;
-
-    if (teacherInstituteChoice === "new") {
-      if (!teacherNewInstituteName.trim()) {
-        setErrorMessage("Please enter the name of the new institution or school.");
-        return;
-      }
-      finalInstituteName = teacherNewInstituteName.trim();
-      isNewInstitute = true;
-    } else {
-      if (!teacherExistingInstitute.trim()) {
-        setErrorMessage("Please select your institute from the list.");
-        return;
-      }
-      finalInstituteName = teacherExistingInstitute.trim();
     }
 
     if (isCustomCurriculum && !customCurriculumData.name.trim()) {
@@ -354,13 +394,29 @@ export const LoginPage = ({
 
     setIsLoading(true);
     try {
+      const instituteExists = institutes.some(
+        (i) => i.name.toLowerCase() === instituteToUse.toLowerCase()
+      );
+      if (!instituteExists) {
+        try {
+          await api.createInstitute({
+            name: instituteToUse,
+            type: teacherNewInstituteType,
+            location: teacherNewInstituteLocation || "India"
+          });
+          await refreshInstitutesList();
+        } catch (e) {
+          console.warn("Institute auto-creation notice:", e.message);
+        }
+      }
+
       const res = await api.registerTeacher({
         name: teacherRegName.trim(),
         email: teacherRegEmail.trim(),
         password: teacherRegPassword,
         department: teacherRegDepartment.trim(),
-        instituteName: finalInstituteName,
-        isNewInstitute,
+        instituteName: instituteToUse,
+        isNewInstitute: !instituteExists,
         instituteType: teacherNewInstituteType,
         tier: teacherInstituteTier,
         instituteLocation: teacherNewInstituteLocation,
@@ -372,1084 +428,691 @@ export const LoginPage = ({
       if (res.token) api.setToken(res.token);
       onLoginSuccess(res.user, void 0, res.teacherProfile, void 0);
     } catch (err) {
-      setErrorMessage(err.message || "Registration failed.");
+      setErrorMessage(err.message || "Registration failed: " + err.message);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const filteredStudentInstitutes = institutes.filter((i) =>
+    i.name.toLowerCase().includes((studentInstituteSearch || "").toLowerCase())
+  );
+
+  const filteredTeacherInstitutes = institutes.filter((i) =>
+    i.name.toLowerCase().includes((teacherInstituteSearch || "").toLowerCase())
+  );
+
+  const currentSpark = DAILY_SPARKS[activeSparkIndex];
+
   return (
-    <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0D0D0D] flex flex-col justify-center items-center py-8 px-4 sm:px-6 lg:px-8 transition-colors">
-      <div className="w-full max-w-5xl bg-white dark:bg-[#181818] border border-[#E5E7EB] dark:border-[#2A2A2A] shadow-md my-auto">
-        {/* Top Header */}
-        <div className="border-b border-[#E5E7EB] dark:border-[#2A2A2A] p-5 sm:p-6 bg-[#FAFAFA] dark:bg-[#141414] flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-black dark:bg-white flex items-center justify-center shadow-xs">
-              <div className="w-4 h-4 bg-white dark:bg-black rotate-45" />
+    <div className="min-h-screen bg-slate-100 dark:bg-[#0c0c0e] flex flex-col justify-center items-center py-10 px-4 sm:px-6 lg:px-8 transition-colors duration-200">
+      
+      {/* Platform Impact Stats Bar */}
+      <div className="w-full max-w-5xl mb-4 flex flex-wrap items-center justify-between gap-3 px-4 py-2 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md border border-slate-200/80 dark:border-zinc-800/80 rounded-xl text-xs text-slate-600 dark:text-zinc-400 shadow-xs">
+        <div className="flex items-center gap-2">
+          <span className="flex h-2 w-2 relative">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span className="font-semibold text-slate-900 dark:text-white">Live Platform Network:</span>
+          <span>10,000+ Socratic Doubts Solved</span>
+        </div>
+        <div className="flex items-center gap-4 text-[11px] font-medium">
+          <span className="hidden sm:inline">📖 28+ Verified NCERT & CBSE Textbooks</span>
+          <span className="hidden md:inline">🏛️ Multi-Classroom Code Infrastructure</span>
+          <span className="text-emerald-700 dark:text-emerald-400 font-bold">100% Free & Open Access</span>
+        </div>
+      </div>
+
+      <div className="w-full max-w-5xl bg-white dark:bg-[#141416] border border-slate-200/90 dark:border-zinc-800/90 rounded-2xl shadow-xl overflow-hidden my-auto grid grid-cols-1 lg:grid-cols-12">
+        
+        {/* Left Column: Interactive Innovation & Daily Spark Hub (40%) */}
+        <div className="lg:col-span-5 bg-gradient-to-br from-slate-900 via-zinc-900 to-indigo-950 text-white p-6 sm:p-8 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-zinc-800">
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white text-slate-950 rounded-xl flex items-center justify-center font-bold shadow-md">
+                <School className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold tracking-tight text-white">
+                  Equitable Platform
+                </h2>
+                <p className="text-[11px] text-zinc-300">
+                  National Open Curriculum Initiative
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-[#1A1A1A] dark:text-white">
-                {t("appTitle", "AI for Equitable Education Access")}
-              </h1>
-              <p className="text-xs text-[#6B7280] dark:text-[#AAA]">
-                {t("statusStrip", "National Open Curriculum Portal • Multi-Role Verification & Academic Desk")}
-              </p>
+
+            {/* Daily Academic Spark (Innovative interactive element) */}
+            <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-xl p-4 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                  <Zap className="w-3.5 h-3.5" />
+                  Daily Learning Spark
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveSparkIndex((prev) => (prev + 1) % DAILY_SPARKS.length)}
+                  className="text-[10px] text-indigo-200 hover:text-white underline font-semibold transition-colors"
+                >
+                  Next Concept →
+                </button>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-xs text-white">{currentSpark.topic}</span>
+                  <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-mono text-zinc-200">{currentSpark.tag}</span>
+                </div>
+                <div className="mt-1 font-mono text-xs font-bold text-amber-200 bg-black/30 p-1.5 rounded border border-white/10">
+                  {currentSpark.formula}
+                </div>
+                <p className="text-[11px] text-zinc-300 mt-2 leading-relaxed">
+                  {currentSpark.insight}
+                </p>
+              </div>
+            </div>
+
+            {/* Platform Innovation Badges */}
+            <div className="space-y-2.5 pt-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block">
+                Platform Innovations Built-In:
+              </span>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-start gap-2.5 p-2.5 bg-white/5 border border-white/10 rounded-lg">
+                  <Brain className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-white block">Socratic Step Tutor</span>
+                    <span className="text-[11px] text-zinc-300 leading-snug">Strict step-by-step mathematical reasoning without rote answers.</span>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5 p-2.5 bg-white/5 border border-white/10 rounded-lg">
+                  <School className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-white block">Subject Classrooms by Code</span>
+                    <span className="text-[11px] text-zinc-300 leading-snug">Join multiple subjects with isolated rosters & announcements.</span>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5 p-2.5 bg-white/5 border border-white/10 rounded-lg">
+                  <Award className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-white block">Automated Aid Discovery</span>
+                    <span className="text-[11px] text-zinc-300 leading-snug">Automated scholarship matching for low-income & first-gen students.</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Controls: Language, Dark Mode, Role Selector */}
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {/* Language Selector */}
-            {setSelectedLanguage && (
-              <div className="flex items-center gap-1 bg-white dark:bg-[#202020] border border-[#E5E7EB] dark:border-[#333] px-2 py-1">
-                <Globe className="w-3.5 h-3.5 text-[#6B7280] dark:text-[#AAA]" />
-                <select
-                  value={selectedLanguage}
-                  onChange={(e) => setSelectedLanguage(e.target.value)}
-                  className="bg-transparent text-xs font-semibold text-[#1A1A1A] dark:text-white outline-none cursor-pointer"
-                >
-                  {SUPPORTED_LANGUAGES.map((l) => (
-                    <option key={l.code} value={l.code} className="bg-white dark:bg-[#202020] text-black dark:text-white">
-                      {l.name} ({l.nativeName})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Dark Mode Toggle */}
-            {setIsDarkMode && (
-              <button
-                type="button"
-                onClick={() => setIsDarkMode(!isDarkMode)}
-                title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 bg-white dark:bg-[#202020] border border-[#E5E7EB] dark:border-[#333] text-[#4B5563] dark:text-white hover:bg-[#F3F4F6] dark:hover:bg-[#282828] transition-colors"
-              >
-                {isDarkMode ? "☀️ Light" : "🌙 Dark"}
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={() => setShowAboutModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-white dark:bg-[#202020] border border-black dark:border-white text-black dark:text-white hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all shadow-xs"
-              title="Learn about AI for Equitable Education Access"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>About Us</span>
-            </button>
-
-            <div className="inline-flex border border-[#E5E7EB] dark:border-[#333] bg-white dark:bg-[#202020] p-1">
-              <button
-                id="btn-role-student"
-                onClick={() => {
-                  setSelectedRole("student");
-                  setErrorMessage(null);
-                  setSuccessMessage(null);
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  selectedRole === "student"
-                    ? "bg-black text-white dark:bg-white dark:text-black"
-                    : "text-[#4B5563] dark:text-[#AAA] hover:text-black dark:hover:text-white hover:bg-[#F3F4F6] dark:hover:bg-[#282828]"
-                }`}
-              >
-                <GraduationCap className="w-3.5 h-3.5" />
-                <span>Student Portal</span>
-              </button>
-              <button
-                id="btn-role-teacher"
-                onClick={() => {
-                  setSelectedRole("teacher");
-                  setErrorMessage(null);
-                  setSuccessMessage(null);
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  selectedRole === "teacher"
-                    ? "bg-black text-white dark:bg-white dark:text-black"
-                    : "text-[#4B5563] dark:text-[#AAA] hover:text-black dark:hover:text-white hover:bg-[#F3F4F6] dark:hover:bg-[#282828]"
-                }`}
-              >
-                <Users className="w-3.5 h-3.5" />
-                <span>Teacher Portal</span>
-              </button>
-            </div>
+          <div className="pt-4 border-t border-zinc-800 text-[11px] text-zinc-400 flex items-center justify-between">
+            <span>CBSE • NCERT • Higher Ed</span>
+            <span>v2.4 Grounded Core</span>
           </div>
         </div>
 
-        {/* Notification Banners */}
-        {errorMessage && (
-          <div className="bg-rose-50 border-b border-rose-200 px-6 py-3 text-xs text-rose-700 flex items-start gap-2 font-medium">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span className="leading-relaxed">{errorMessage}</span>
-          </div>
-        )}
-
-        {successMessage && (
-          <div className="bg-emerald-50 border-b border-emerald-200 px-6 py-3 text-xs text-emerald-800 flex items-start gap-2 font-medium">
-            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
-            <span className="leading-relaxed">{successMessage}</span>
-          </div>
-        )}
-
-        {/* Content Body */}
-        <div className="p-6 sm:p-8">
-          {selectedRole === "student" ? (
+        {/* Right Column: Sign In & Registration Form (60%) */}
+        <div className="lg:col-span-7 flex flex-col justify-between">
+          {/* Header Controls */}
+          <div className="p-6 border-b border-slate-200 dark:border-zinc-800/80 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50 dark:bg-zinc-900/30">
             <div>
-              {/* Student Mode Switcher */}
-              <div className="flex border-b border-[#E5E7EB] mb-6">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                {selectedRole === "student" ? "Student Learning Desk" : "Teacher Academic Portal"}
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-zinc-400">
+                Sign in to continue or create a new profile
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {setIsDarkMode && (
                 <button
-                  id="tab-student-signin"
+                  type="button"
+                  onClick={() => setIsDarkMode(!isDarkMode)}
+                  className="px-2.5 py-1.5 text-xs font-semibold bg-white dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-700 transition-colors shadow-2xs"
+                >
+                  {isDarkMode ? "☀️ Light" : "🌙 Dark"}
+                </button>
+              )}
+
+              <div className="inline-flex border border-slate-300 dark:border-zinc-700 bg-slate-200/60 dark:bg-zinc-800 p-1 rounded-xl">
+                <button
+                  id="btn-role-student"
                   onClick={() => {
-                    setStudentMode("login");
+                    setSelectedRole("student");
                     setErrorMessage(null);
+                    setSuccessMessage(null);
                   }}
-                  className={`pb-2.5 px-4 text-xs font-bold border-b-2 transition-all ${
-                    studentMode === "login"
-                      ? "border-black text-[#1A1A1A]"
-                      : "border-transparent text-[#6B7280] hover:text-black"
+                  className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                    selectedRole === "student"
+                      ? "bg-slate-900 dark:bg-white text-white dark:text-slate-950 shadow-xs"
+                      : "text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white"
                   }`}
                 >
-                  Existing Student Sign In
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  <span>Student</span>
                 </button>
                 <button
-                  id="tab-student-register"
+                  id="btn-role-teacher"
                   onClick={() => {
-                    setStudentMode("register");
+                    setSelectedRole("teacher");
                     setErrorMessage(null);
+                    setSuccessMessage(null);
                   }}
-                  className={`pb-2.5 px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 ${
-                    studentMode === "register"
-                      ? "border-black text-[#1A1A1A]"
-                      : "border-transparent text-[#6B7280] hover:text-black"
+                  className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                    selectedRole === "teacher"
+                      ? "bg-slate-900 dark:bg-white text-white dark:text-slate-950 shadow-xs"
+                      : "text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white"
                   }`}
                 >
-                  <KeyRound className="w-3.5 h-3.5 text-black" />
-                  <span>Register New Student Profile</span>
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Teacher</span>
                 </button>
               </div>
+            </div>
+          </div>
 
-              {studentMode === "login" ? (
-                /* Student Existing Sign In */
-                <form onSubmit={handleStudentLogin} className="max-w-xl space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-[#374151]">
-                      Student Email Address or ID *
-                    </label>
-                    <p className="text-[11px] text-[#6B7280]">
-                      Enter your registered email address or assigned student ID.
-                    </p>
-                    <input
-                      id="student-login-identifier"
-                      type="text"
-                      value={studentLoginIdentifier}
-                      onChange={(e) => setStudentLoginIdentifier(e.target.value)}
-                      placeholder="e.g. aarav.sharma@student.edu.in"
-                      required
-                      className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs font-medium text-[#1A1A1A] outline-none hover:border-[#9CA3AF] focus:border-black transition-colors"
-                    />
-                  </div>
+          {/* Notification Banners */}
+          {errorMessage && (
+            <div className="bg-rose-50 dark:bg-rose-950/40 border-b border-rose-200 dark:border-rose-800 px-6 py-2.5 text-xs text-rose-800 dark:text-rose-200 flex items-start gap-2 font-medium">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
 
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-[#374151] flex items-center gap-1">
-                        <Lock className="w-3.5 h-3.5 text-black" />
+          {successMessage && (
+            <div className="bg-emerald-50 dark:bg-emerald-950/40 border-b border-emerald-200 dark:border-emerald-800 px-6 py-2.5 text-xs text-emerald-800 dark:text-emerald-200 flex items-start gap-2 font-medium">
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+              <span>{successMessage}</span>
+            </div>
+          )}
+
+          {/* Form Content */}
+          <div className="p-6 sm:p-8 flex-1">
+            {selectedRole === "student" ? (
+              <div>
+                {/* Student Mode Switcher */}
+                <div className="flex border-b border-slate-200 dark:border-zinc-800 mb-5 gap-5">
+                  <button
+                    id="tab-student-signin"
+                    onClick={() => {
+                      setStudentMode("login");
+                      setErrorMessage(null);
+                    }}
+                    className={`pb-2.5 text-xs font-bold border-b-2 transition-all ${
+                      studentMode === "login"
+                        ? "border-slate-900 dark:border-white text-slate-950 dark:text-white"
+                        : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    Student Sign In
+                  </button>
+                  <button
+                    id="tab-student-register"
+                    onClick={() => {
+                      setStudentMode("register");
+                      setErrorMessage(null);
+                    }}
+                    className={`pb-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+                      studentMode === "register"
+                        ? "border-slate-900 dark:border-white text-slate-950 dark:text-white"
+                        : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                    <span>Register New Student</span>
+                  </button>
+                </div>
+
+                {studentMode === "login" ? (
+                  <form onSubmit={handleStudentLogin} className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-900 dark:text-zinc-200">
+                        Student Email or ID *
+                      </label>
+                      <input
+                        id="student-login-identifier"
+                        type="text"
+                        value={studentLoginIdentifier}
+                        onChange={(e) => setStudentLoginIdentifier(e.target.value)}
+                        placeholder="e.g. aarav.sharma@student.edu.in"
+                        required
+                        className="clean-input"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-900 dark:text-zinc-200 flex items-center gap-1">
+                        <Lock className="w-3.5 h-3.5" />
                         <span>Profile Password *</span>
                       </label>
-                    </div>
-                    <div className="relative">
-                      <input
-                        id="student-login-password"
-                        type={showStudentLoginPassword ? "text" : "password"}
-                        value={studentLoginPassword}
-                        onChange={(e) => setStudentLoginPassword(e.target.value)}
-                        placeholder="Enter your student password"
-                        required
-                        className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] pr-9 outline-none focus:border-black"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowStudentLoginPassword(!showStudentLoginPassword)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-black"
-                      >
-                        {showStudentLoginPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Demo Profile Shortcuts */}
-                  <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] text-[11px] text-[#6B7280] space-y-2">
-                    <div className="flex items-center justify-between font-bold text-[#1A1A1A]">
-                      <span className="flex items-center gap-1.5">
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Quick Demo Student Profiles:</span>
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setStudentLoginIdentifier("aarav.sharma@student.edu.in");
-                          setStudentLoginPassword("password123");
-                        }}
-                        className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
-                      >
-                        <div className="font-bold text-black text-[11px]">Aarav Sharma (Senior Secondary)</div>
-                        <div className="text-[10px] text-[#6B7280]">Kendriya Vidyalaya No. 1</div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setStudentLoginIdentifier("rohan.das@student.edu.in");
-                          setStudentLoginPassword("password123");
-                        }}
-                        className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
-                      >
-                        <div className="font-bold text-black text-[11px]">Rohan Das (Secondary Standard)</div>
-                        <div className="text-[10px] text-[#6B7280]">Kendriya Vidyalaya No. 1</div>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Remember Credentials Option */}
-                  <label className="flex items-center gap-2 text-xs text-[#374151] cursor-pointer select-none py-0.5">
-                    <input
-                      type="checkbox"
-                      checked={rememberStudent}
-                      onChange={(e) => setRememberStudent(e.target.checked)}
-                      className="accent-black w-3.5 h-3.5 cursor-pointer"
-                    />
-                    <span className="font-semibold text-[11px] text-[#1A1A1A]">
-                      Remember my login credentials on this device
-                    </span>
-                  </label>
-
-                  <div className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] text-xs text-[#4B5563] space-y-1.5">
-                    <div className="flex items-center gap-1.5 font-bold text-[#1A1A1A]">
-                      <ShieldAlert className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Student Equal Access & Privacy Isolation</span>
-                    </div>
-                    <p className="text-[11px] text-[#6B7280] leading-relaxed">
-                      Your doubt logs, multimodal ladder history, and study progress remain private to you and your assigned teachers.
-                    </p>
-                  </div>
-
-                  <button
-                    id="btn-student-login-submit"
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full bg-black text-white hover:bg-[#222] py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 shadow-xs"
-                  >
-                    <span>Enter My Student Desk</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </form>
-              ) : (
-                /* Student Registration (No mandatory subject or class in starting) */
-                <form onSubmit={handleStudentRegister} className="space-y-6">
-                  {/* Step 1: School / Institute Affiliation (Searchable & Manual Custom Add) */}
-                  <div className="bg-[#F8F9FA] dark:bg-[#1E1E1E] border border-[#E5E7EB] dark:border-[#333] p-4 sm:p-5 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] dark:text-white flex items-center gap-1.5">
-                        <Building className="w-3.5 h-3.5 text-black dark:text-white" />
-                        <span>1. Your School / Educational Institute *</span>
-                      </label>
-                      <span className="text-[10px] font-mono text-[#6B7280] dark:text-[#AAA] bg-white dark:bg-[#141414] border border-[#E5E7EB] dark:border-[#333] px-1.5 py-0.5">
-                        {institutes.length} in Registry
-                      </span>
-                    </div>
-
-                    <p className="text-[11px] text-[#6B7280] dark:text-[#AAA]">
-                      Type your school name below. If it appears in our registry, select it — otherwise type your school name manually to add it.
-                    </p>
-
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        id="reg-student-institute"
-                        value={regStudentInstitute}
-                        onChange={(e) => setRegStudentInstitute(e.target.value)}
-                        placeholder="Type or search your school name (e.g. Kendriya Vidyalaya, DAV Public School, St. Xavier's...)"
-                        required
-                        className="w-full bg-white dark:bg-[#141414] border border-[#E5E7EB] dark:border-[#333] px-3 py-2 text-xs font-bold text-[#1A1A1A] dark:text-white outline-none focus:border-black dark:focus:border-white transition-colors"
-                      />
-
-                      {/* Matching suggestions dropdown */}
-                      {regStudentInstitute && institutes.filter(i => i.name.toLowerCase().includes(regStudentInstitute.toLowerCase())).length > 0 && (
-                        <div className="max-h-36 overflow-y-auto bg-white dark:bg-[#1A1A1A] border border-[#E5E7EB] dark:border-[#333] divide-y divide-[#F0F2F5] dark:divide-[#2A2A2A]">
-                          {institutes
-                            .filter(i => i.name.toLowerCase().includes(regStudentInstitute.toLowerCase()))
-                            .slice(0, 5)
-                            .map(inst => (
-                              <div
-                                key={inst.id}
-                                onClick={() => setRegStudentInstitute(inst.name)}
-                                className="p-2 text-xs cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-950/40 flex items-center justify-between text-[#1A1A1A] dark:text-white"
-                              >
-                                <span className="font-semibold">{inst.name}</span>
-                                <span className="text-[10px] text-neutral-400 font-mono">{inst.type || "School"}</span>
-                              </div>
-                            ))}
-                        </div>
-                      )}
-
-                      {regStudentInstitute && (
-                        <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-200 flex items-start gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                          <div className="text-[11px]">
-                            <span className="font-bold">Affiliated School:</span>{" "}
-                            <span className="font-semibold">{regStudentInstitute}</span>
-                            {institutes.some(i => i.name.toLowerCase() === regStudentInstitute.toLowerCase()) ? (
-                              <span className="ml-1 text-emerald-600 dark:text-emerald-400 font-bold">(Verified in Registry)</span>
-                            ) : (
-                              <span className="ml-1 text-indigo-600 dark:text-indigo-400 font-bold">(Custom School Added)</span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Step 2: Optional Classroom Code */}
-                  <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-4 sm:p-5 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
-                        <School className="w-3.5 h-3.5 text-black" />
-                        <span>2. Classroom / Teacher Code (Optional)</span>
-                      </label>
-                      <span className="text-[10px] text-[#6B7280] font-medium">Optional</span>
-                    </div>
-
-                    <p className="text-[11px] text-[#6B7280]">
-                      If your teacher provided you a class code (e.g. <strong>NCERT-12A</strong>), you can enter it now to join immediately. If you don't have a code yet, you can skip this step and join or accept invites later from your dashboard.
-                    </p>
-
-                    <div className="flex gap-2">
-                      <input
-                        id="reg-class-code-input"
-                        type="text"
-                        value={regClassCode}
-                        onChange={(e) => {
-                          const val = e.target.value.toUpperCase();
-                          setRegClassCode(val);
-                        }}
-                        onBlur={() => verifyClassCode(regClassCode)}
-                        placeholder="e.g. NCERT-12A (Optional - can be joined later)"
-                        className="flex-1 uppercase font-mono font-bold bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
-                      />
-                      <button
-                        id="btn-verify-class-code"
-                        type="button"
-                        onClick={() => verifyClassCode(regClassCode)}
-                        disabled={isVerifyingCode || !regClassCode.trim()}
-                        className="clean-button-secondary px-3 py-2 text-xs font-semibold shrink-0"
-                      >
-                        {isVerifyingCode ? "Checking..." : "Verify Code"}
-                      </button>
-                    </div>
-
-                    {classCodeError && (
-                      <div className="p-2.5 bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-1.5 font-medium">
-                        <AlertCircle className="w-4 h-4 shrink-0" />
-                        <span>{classCodeError}</span>
-                      </div>
-                    )}
-
-                    {verifiedClass && (
-                      <div className="p-3 bg-emerald-50 border border-emerald-300 text-xs text-emerald-900 flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                        <div>
-                          <div className="font-bold">✓ Class Code Linked: {verifiedClass.className}</div>
-                          <p className="text-[11px] text-emerald-800 mt-0.5">
-                            Teacher: <strong>{verifiedClass.teacherName}</strong> &bull; School: <strong>{verifiedClass.school}</strong>
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Step 3: Account Credentials */}
-                  <div className="bg-white border border-[#E5E7EB] p-4 sm:p-5 space-y-4">
-                    <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
-                      <GraduationCap className="w-3.5 h-3.5 text-black" />
-                      <span>3. Student Profile & Credentials *</span>
-                    </label>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Full Name *</label>
+                      <div className="relative">
                         <input
-                          id="reg-name-input"
+                          id="student-login-password"
+                          type={showStudentLoginPassword ? "text" : "password"}
+                          value={studentLoginPassword}
+                          onChange={(e) => setStudentLoginPassword(e.target.value)}
+                          placeholder="Enter your password"
+                          required
+                          className="clean-input pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowStudentLoginPassword(!showStudentLoginPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-200"
+                        >
+                          {showStudentLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick Demo Shortcuts */}
+                    <div className="p-3 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs space-y-2">
+                      <span className="font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5 text-[11px]">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        Quick Demo Profiles (1-Click Auto Fill):
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStudentLoginIdentifier("aarav.sharma@student.edu.in");
+                            setStudentLoginPassword("password123");
+                          }}
+                          className="text-left p-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg hover:border-slate-800 dark:hover:border-white transition-all shadow-2xs"
+                        >
+                          <div className="font-bold text-slate-900 dark:text-white text-xs">Aarav Sharma</div>
+                          <div className="text-[10px] text-slate-500 dark:text-zinc-400">Class 12 • Senior Science</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStudentLoginIdentifier("rohan.das@student.edu.in");
+                            setStudentLoginPassword("password123");
+                          }}
+                          className="text-left p-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg hover:border-slate-800 dark:hover:border-white transition-all shadow-2xs"
+                        >
+                          <div className="font-bold text-slate-900 dark:text-white text-xs">Rohan Das</div>
+                          <div className="text-[10px] text-slate-500 dark:text-zinc-400">Class 10 • Secondary Math</div>
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      id="btn-student-login-submit"
+                      type="submit"
+                      disabled={isLoading}
+                      className="clean-button-primary w-full py-2.5 text-xs font-bold flex items-center justify-center gap-2"
+                    >
+                      <span>{isLoading ? "Signing In..." : "Enter Student Desk"}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleStudentRegister} className="space-y-4">
+                    {/* Search & Add School */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-900 dark:text-zinc-200 flex items-center gap-1.5">
+                        <Building className="w-3.5 h-3.5" />
+                        <span>School / Educational Institution *</span>
+                      </label>
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+                        <input
+                          type="text"
+                          value={studentInstituteSearch}
+                          onFocus={() => setShowStudentInstDropdown(true)}
+                          onChange={(e) => {
+                            setStudentInstituteSearch(e.target.value);
+                            setRegStudentInstitute(e.target.value);
+                            setShowStudentInstDropdown(true);
+                          }}
+                          placeholder="Search or type school name..."
+                          required
+                          className="clean-input pl-8"
+                        />
+                      </div>
+
+                      {showStudentInstDropdown && studentInstituteSearch.trim() && (
+                        <div className="absolute z-30 mt-1 max-h-40 overflow-y-auto bg-white dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 rounded-lg shadow-lg divide-y divide-slate-100 dark:divide-zinc-700 w-80">
+                          {filteredStudentInstitutes.slice(0, 5).map((inst) => (
+                            <div
+                              key={inst.id}
+                              onClick={() => {
+                                setRegStudentInstitute(inst.name);
+                                setStudentInstituteSearch(inst.name);
+                                setShowStudentInstDropdown(false);
+                              }}
+                              className="p-2 text-xs cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-700 flex items-center justify-between text-slate-900 dark:text-white"
+                            >
+                              <span className="font-semibold">{inst.name}</span>
+                              <span className="text-[10px] text-slate-400 dark:text-zinc-400">{inst.type || "School"}</span>
+                            </div>
+                          ))}
+                          {!institutes.some((i) => i.name.toLowerCase() === studentInstituteSearch.trim().toLowerCase()) && (
+                            <div
+                              onClick={() => {
+                                setRegStudentInstitute(studentInstituteSearch.trim());
+                                setShowStudentInstDropdown(false);
+                              }}
+                              className="p-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer flex items-center gap-1.5"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>+ Add &quot;{studentInstituteSearch.trim()}&quot; as New School</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-900 dark:text-zinc-200">Full Name *</label>
+                        <input
                           type="text"
                           required
                           value={regName}
                           onChange={(e) => setRegName(e.target.value)}
                           placeholder="e.g. Aarav Sharma"
-                          className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                          className="clean-input"
                         />
                       </div>
-
                       <div className="space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Email Address *</label>
+                        <label className="text-xs font-bold text-slate-900 dark:text-zinc-200">Email Address *</label>
                         <input
-                          id="reg-email-input"
                           type="email"
                           required
                           value={regEmail}
                           onChange={(e) => setRegEmail(e.target.value)}
                           placeholder="student@school.edu.in"
-                          className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                          className="clean-input"
                         />
                       </div>
-
-                      {/* Password Field */}
                       <div className="space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Create Password *</label>
-                        <div className="relative">
-                          <input
-                            id="reg-password-input"
-                            type={showRegPassword ? "text" : "password"}
-                            required
-                            minLength={6}
-                            value={regPassword}
-                            onChange={(e) => setRegPassword(e.target.value)}
-                            placeholder="Minimum 6 characters"
-                            className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] pr-9 outline-none focus:border-black"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowRegPassword(!showRegPassword)}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-black"
-                          >
-                            {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Confirm Password Field */}
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Confirm Password *</label>
+                        <label className="text-xs font-bold text-slate-900 dark:text-zinc-200">Password (Min 6) *</label>
                         <input
-                          id="reg-confirm-password-input"
-                          type={showRegPassword ? "text" : "password"}
+                          type="password"
+                          required
+                          minLength={6}
+                          value={regPassword}
+                          onChange={(e) => setRegPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="clean-input"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-900 dark:text-zinc-200">Confirm Password *</label>
+                        <input
+                          type="password"
                           required
                           value={regConfirmPassword}
                           onChange={(e) => setRegConfirmPassword(e.target.value)}
-                          placeholder="Re-enter password"
-                          className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Step 4: Equal Access & Language Preferences */}
-                  <div className="bg-white border border-[#E5E7EB] p-4 sm:p-5 space-y-4">
-                    <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
-                      <Globe className="w-3.5 h-3.5 text-black" />
-                      <span>4. Learning Preferences & Equal Access Details</span>
-                    </label>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Primary Tutoring Language</label>
-                        <select
-                          value={regLanguage}
-                          onChange={(e) => setRegLanguage(e.target.value)}
-                          className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
-                        >
-                          {SUPPORTED_LANGUAGES.map((l) => (
-                            <option key={l.code} value={l.code}>
-                              {l.name} ({l.nativeName})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Social Category (Aid Matcher)</label>
-                        <select
-                          value={regCategory}
-                          onChange={(e) => setRegCategory(e.target.value)}
-                          className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
-                        >
-                          <option value="General">General</option>
-                          <option value="OBC">OBC (Other Backward Class)</option>
-                          <option value="SC">SC (Scheduled Caste)</option>
-                          <option value="ST">ST (Scheduled Tribe)</option>
-                          <option value="EWS">EWS (Economically Weaker Section)</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Annual Family Income</label>
-                        <select
-                          value={regIncome}
-                          onChange={(e) => setRegIncome(e.target.value)}
-                          className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
-                        >
-                          <option value="< 1.5 Lakhs/yr">&lt; ₹1.5 Lakhs/yr (Full Fee Waiver Eligible)</option>
-                          <option value="1.5 - 3.0 Lakhs/yr">₹1.5 - 3.0 Lakhs/yr</option>
-                          <option value="3.0 - 6.0 Lakhs/yr">₹3.0 - 6.0 Lakhs/yr</option>
-                          <option value="6.0 - 8.0 Lakhs/yr">₹6.0 - 8.0 Lakhs/yr</option>
-                          <option value="> 8.0 Lakhs/yr">&gt; ₹8.0 Lakhs/yr</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Recent Exam / Board Score (%)</label>
-                        <input
-                          type="number"
-                          min="30"
-                          max="100"
-                          value={regScore}
-                          onChange={(e) => setRegScore(Number(e.target.value))}
-                          className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                          placeholder="••••••••"
+                          className="clean-input"
                         />
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 pt-2 border-t border-[#F0F2F5]">
-                      <input
-                        type="checkbox"
-                        id="first-gen-check"
-                        checked={regFirstGen}
-                        onChange={(e) => setRegFirstGen(e.target.checked)}
-                        className="w-4 h-4 text-black border-[#E5E7EB] rounded-none focus:ring-0 cursor-pointer"
-                      />
-                      <label htmlFor="first-gen-check" className="text-xs text-[#374151] cursor-pointer">
-                        I am a <strong>First-Generation Learner</strong> (Unlock dedicated mentoring & National scholarship eligibility)
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Submission Button */}
-                  <button
-                    id="btn-complete-registration"
-                    type="submit"
-                    disabled={
-                      isLoading ||
-                      !regName.trim() ||
-                      !regEmail.trim() ||
-                      regPassword.length < 6 ||
-                      regPassword !== regConfirmPassword ||
-                      !regStudentInstitute
-                    }
-                    className="w-full bg-black text-white hover:bg-[#222] py-3 px-4 text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
-                  >
-                    <span>
-                      {!regStudentInstitute
-                        ? "Please Select Your Institute"
-                        : !regName.trim()
-                        ? "Enter Your Full Name"
-                        : regPassword.length < 6
-                        ? "Please Set a Password (min 6 chars)"
-                        : regPassword !== regConfirmPassword
-                        ? "Passwords Do Not Match"
-                        : "Complete Registration & Access Student Desk"}
-                    </span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </form>
-              )}
-            </div>
-          ) : (
-            /* TEACHER PORTAL */
-            <div>
-              {/* Teacher Mode Switcher */}
-              <div className="flex border-b border-[#E5E7EB] mb-6">
-                <button
-                  id="tab-teacher-signin"
-                  onClick={() => {
-                    setTeacherMode("login");
-                    setErrorMessage(null);
-                  }}
-                  className={`pb-2.5 px-4 text-xs font-bold border-b-2 transition-all ${
-                    teacherMode === "login"
-                      ? "border-black text-[#1A1A1A]"
-                      : "border-transparent text-[#6B7280] hover:text-black"
-                  }`}
-                >
-                  Existing Teacher Sign In
-                </button>
-                <button
-                  id="tab-teacher-register"
-                  onClick={() => {
-                    setTeacherMode("register");
-                    setErrorMessage(null);
-                  }}
-                  className={`pb-2.5 px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 ${
-                    teacherMode === "register"
-                      ? "border-black text-[#1A1A1A]"
-                      : "border-transparent text-[#6B7280] hover:text-black"
-                  }`}
-                >
-                  <PlusCircle className="w-3.5 h-3.5 text-black" />
-                  <span>Register New Teacher & Institute</span>
-                </button>
+                    <button
+                      type="submit"
+                      disabled={isLoading || !regName.trim() || !regEmail.trim() || regPassword.length < 6 || regPassword !== regConfirmPassword}
+                      className="clean-button-primary w-full py-2.5 text-xs font-bold flex items-center justify-center gap-2"
+                    >
+                      <span>{isLoading ? "Creating Profile..." : "Complete Registration"}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </form>
+                )}
               </div>
-
-              {teacherMode === "login" ? (
-                /* Teacher Existing Sign In */
-                <form onSubmit={handleTeacherLogin} className="max-w-xl space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-[#374151]">
-                      Teacher Email Address or Staff ID *
-                    </label>
-                    <p className="text-[11px] text-[#6B7280]">
-                      Enter your registered school email address or teacher identifier.
-                    </p>
-                    <input
-                      id="teacher-login-identifier"
-                      type="text"
-                      value={teacherLoginIdentifier}
-                      onChange={(e) => setTeacherLoginIdentifier(e.target.value)}
-                      placeholder="e.g. rajesh.varma@school.edu.in"
-                      required
-                      className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs font-medium text-[#1A1A1A] outline-none hover:border-[#9CA3AF] focus:border-black transition-colors"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-[#374151] flex items-center gap-1">
-                        <Lock className="w-3.5 h-3.5 text-black" />
-                        <span>Teacher Access Key / Password *</span>
-                      </label>
-                    </div>
-                    <div className="relative">
-                      <input
-                        id="teacher-login-password"
-                        type={showTeacherLoginPassword ? "text" : "password"}
-                        value={teacherLoginPassword}
-                        onChange={(e) => setTeacherLoginPassword(e.target.value)}
-                        placeholder="Enter teacher password"
-                        required
-                        className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] pr-9 outline-none focus:border-black"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowTeacherLoginPassword(!showTeacherLoginPassword)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-black"
-                      >
-                        {showTeacherLoginPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Demo Teacher Profiles */}
-                  <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] text-[11px] text-[#6B7280] space-y-2">
-                    <div className="flex items-center justify-between font-bold text-[#1A1A1A]">
-                      <span className="flex items-center gap-1.5">
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Quick Demo Teacher Profiles:</span>
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTeacherLoginIdentifier("rajesh.varma@school.edu.in");
-                          setTeacherLoginPassword("teacher123");
-                        }}
-                        className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
-                      >
-                        <div className="font-bold text-black text-[11px]">Dr. Rajesh Varma</div>
-                        <div className="text-[10px] text-[#6B7280]">Kendriya Vidyalaya No. 1</div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTeacherLoginIdentifier("sunita.sharma@school.edu.in");
-                          setTeacherLoginPassword("teacher123");
-                        }}
-                        className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
-                      >
-                        <div className="font-bold text-black text-[11px]">Mrs. Sunita Sharma</div>
-                        <div className="text-[10px] text-[#6B7280]">Kendriya Vidyalaya No. 1</div>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Remember Credentials Option */}
-                  <label className="flex items-center gap-2 text-xs text-[#374151] cursor-pointer select-none py-0.5">
-                    <input
-                      type="checkbox"
-                      checked={rememberTeacher}
-                      onChange={(e) => setRememberTeacher(e.target.checked)}
-                      className="accent-black w-3.5 h-3.5 cursor-pointer"
-                    />
-                    <span className="font-semibold text-[11px] text-[#1A1A1A]">
-                      Remember my login credentials on this device
-                    </span>
-                  </label>
-
-                  <div className="p-3.5 bg-[#F8F9FA] border border-[#E5E7EB] text-xs text-[#4B5563] space-y-2">
-                    <div className="flex items-center gap-1.5 font-bold text-[#1A1A1A]">
-                      <Users className="w-3.5 h-3.5 text-black" />
-                      <span>Teacher Dashboard Capabilities</span>
-                    </div>
-                    <ul className="text-[11px] text-[#6B7280] space-y-1 list-disc pl-4">
-                      <li>Create and manage custom classes & custom subjects dynamically inside your dashboard.</li>
-                      <li>Send invite links to students and categorize them across sections.</li>
-                      <li>Broadcast circulars and official classroom announcements.</li>
-                      <li>Review diagnostic flags and topic heatmaps across enrolled students.</li>
-                    </ul>
-                  </div>
-
+            ) : (
+              <div>
+                {/* Teacher Mode Switcher */}
+                <div className="flex border-b border-slate-200 dark:border-zinc-800 mb-5 gap-5">
                   <button
-                    id="btn-teacher-login-submit"
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full bg-black text-white hover:bg-[#222] py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 shadow-xs"
+                    id="tab-teacher-signin"
+                    onClick={() => {
+                      setTeacherMode("login");
+                      setErrorMessage(null);
+                    }}
+                    className={`pb-2.5 text-xs font-bold border-b-2 transition-all ${
+                      teacherMode === "login"
+                        ? "border-slate-900 dark:border-white text-slate-950 dark:text-white"
+                        : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
                   >
-                    <span>Enter Teacher Academic Desk</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    Teacher Sign In
                   </button>
-                </form>
-              ) : (
-                /* TEACHER SIGN UP (No mandatory class/subject selection at start; managed in dashboard) */
-                <form onSubmit={handleTeacherRegister} className="space-y-6">
-                  {/* Step 1: Teacher Credentials & Department */}
-                  <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-4 sm:p-5 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-black" />
-                        <span>1. Teacher Credentials & Department *</span>
+                  <button
+                    id="tab-teacher-register"
+                    onClick={() => {
+                      setTeacherMode("register");
+                      setErrorMessage(null);
+                    }}
+                    className={`pb-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+                      teacherMode === "register"
+                        ? "border-slate-900 dark:border-white text-slate-950 dark:text-white"
+                        : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>Register New Teacher</span>
+                  </button>
+                </div>
+
+                {teacherMode === "login" ? (
+                  <form onSubmit={handleTeacherLogin} className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-900 dark:text-zinc-200">
+                        Teacher Email or Staff ID *
                       </label>
-                      <span className="text-[10px] text-[#6B7280] font-medium">Step 1 of 2</span>
+                      <input
+                        id="teacher-login-identifier"
+                        type="text"
+                        value={teacherLoginIdentifier}
+                        onChange={(e) => setTeacherLoginIdentifier(e.target.value)}
+                        placeholder="e.g. rajesh.varma@school.edu.in"
+                        required
+                        className="clean-input"
+                      />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Teacher Full Name *</label>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-900 dark:text-zinc-200 flex items-center gap-1">
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>Teacher Password *</span>
+                      </label>
+                      <div className="relative">
                         <input
-                          id="teacher-reg-name"
+                          id="teacher-login-password"
+                          type={showTeacherLoginPassword ? "text" : "password"}
+                          value={teacherLoginPassword}
+                          onChange={(e) => setTeacherLoginPassword(e.target.value)}
+                          placeholder="Enter password"
+                          required
+                          className="clean-input pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowTeacherLoginPassword(!showTeacherLoginPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-200"
+                        >
+                          {showTeacherLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick Demo Shortcuts */}
+                    <div className="p-3 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs space-y-2">
+                      <span className="font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5 text-[11px]">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        Quick Demo Teacher Profiles:
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTeacherLoginIdentifier("rajesh.varma@school.edu.in");
+                            setTeacherLoginPassword("teacher123");
+                          }}
+                          className="text-left p-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg hover:border-slate-800 dark:hover:border-white transition-all shadow-2xs"
+                        >
+                          <div className="font-bold text-slate-900 dark:text-white text-xs">Dr. Rajesh Varma</div>
+                          <div className="text-[10px] text-slate-500 dark:text-zinc-400">Senior Physics HOD</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTeacherLoginIdentifier("sunita.sharma@school.edu.in");
+                            setTeacherLoginPassword("teacher123");
+                          }}
+                          className="text-left p-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg hover:border-slate-800 dark:hover:border-white transition-all shadow-2xs"
+                        >
+                          <div className="font-bold text-slate-900 dark:text-white text-xs">Mrs. Sunita Sharma</div>
+                          <div className="text-[10px] text-slate-500 dark:text-zinc-400">Secondary Math Lead</div>
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      id="btn-teacher-login-submit"
+                      type="submit"
+                      disabled={isLoading}
+                      className="clean-button-primary w-full py-2.5 text-xs font-bold flex items-center justify-center gap-2"
+                    >
+                      <span>{isLoading ? "Signing In..." : "Enter Teacher Academic Desk"}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleTeacherRegister} className="space-y-3.5">
+                    {/* School / Institute Searchable */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-900 dark:text-zinc-200 flex items-center gap-1.5">
+                        <Building className="w-3.5 h-3.5" />
+                        <span>Institution / School Campus *</span>
+                      </label>
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+                        <input
+                          type="text"
+                          value={teacherInstituteSearch}
+                          onFocus={() => setShowTeacherInstDropdown(true)}
+                          onChange={(e) => {
+                            setTeacherInstituteSearch(e.target.value);
+                            setTeacherExistingInstitute(e.target.value);
+                            setShowTeacherInstDropdown(true);
+                          }}
+                          placeholder="Search or type school/institute name..."
+                          required
+                          className="clean-input pl-8"
+                        />
+                      </div>
+
+                      {showTeacherInstDropdown && teacherInstituteSearch.trim() && (
+                        <div className="absolute z-30 mt-1 max-h-40 overflow-y-auto bg-white dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 rounded-lg shadow-lg divide-y divide-slate-100 dark:divide-zinc-700 w-80">
+                          {filteredTeacherInstitutes.slice(0, 5).map((inst) => (
+                            <div
+                              key={inst.id}
+                              onClick={() => {
+                                setTeacherExistingInstitute(inst.name);
+                                setTeacherInstituteSearch(inst.name);
+                                setShowTeacherInstDropdown(false);
+                              }}
+                              className="p-2 text-xs cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-700 flex items-center justify-between text-slate-900 dark:text-white"
+                            >
+                              <span className="font-semibold">{inst.name}</span>
+                              <span className="text-[10px] text-slate-400 dark:text-zinc-400">{inst.type || "School"}</span>
+                            </div>
+                          ))}
+                          {!institutes.some((i) => i.name.toLowerCase() === teacherInstituteSearch.trim().toLowerCase()) && (
+                            <div
+                              onClick={() => {
+                                setTeacherExistingInstitute(teacherInstituteSearch.trim());
+                                setShowTeacherInstDropdown(false);
+                              }}
+                              className="p-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer flex items-center gap-1.5"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>+ Add &quot;{teacherInstituteSearch.trim()}&quot; as New Institution</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-900 dark:text-zinc-200">Faculty Full Name *</label>
+                        <input
                           type="text"
                           required
                           value={teacherRegName}
                           onChange={(e) => setTeacherRegName(e.target.value)}
                           placeholder="e.g. Dr. Rajesh Varma"
-                          className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                          className="clean-input"
                         />
                       </div>
-
                       <div className="space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Institutional Email *</label>
+                        <label className="text-xs font-bold text-slate-900 dark:text-zinc-200">Institutional Email *</label>
                         <input
-                          id="teacher-reg-email"
                           type="email"
                           required
                           value={teacherRegEmail}
                           onChange={(e) => setTeacherRegEmail(e.target.value)}
                           placeholder="teacher@school.edu.in"
-                          className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                          className="clean-input"
                         />
                       </div>
-
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Create Teacher Password *</label>
-                        <div className="relative">
-                          <input
-                            id="teacher-reg-password"
-                            type={showTeacherRegPassword ? "text" : "password"}
-                            required
-                            minLength={6}
-                            value={teacherRegPassword}
-                            onChange={(e) => setTeacherRegPassword(e.target.value)}
-                            placeholder="Min 6 characters"
-                            className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] pr-9 outline-none focus:border-black"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowTeacherRegPassword(!showTeacherRegPassword)}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-black"
-                          >
-                            {showTeacherRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Confirm Password *</label>
-                        <input
-                          id="teacher-reg-confirm-password"
-                          type={showTeacherRegPassword ? "text" : "password"}
-                          required
-                          value={teacherRegConfirmPassword}
-                          onChange={(e) => setTeacherRegConfirmPassword(e.target.value)}
-                          placeholder="Re-enter password"
-                          className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
-                        />
-                      </div>
-
                       <div className="sm:col-span-2 space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Department / Academic Designation</label>
+                        <label className="text-xs font-bold text-slate-900 dark:text-zinc-200">Department / Role Title *</label>
                         <input
                           type="text"
+                          required
                           value={teacherRegDepartment}
                           onChange={(e) => setTeacherRegDepartment(e.target.value)}
                           placeholder="e.g. Senior Science & Mathematics Faculty"
-                          className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                          className="clean-input"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-900 dark:text-zinc-200">Password (Min 6) *</label>
+                        <input
+                          type="password"
+                          required
+                          minLength={6}
+                          value={teacherRegPassword}
+                          onChange={(e) => setTeacherRegPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="clean-input"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-900 dark:text-zinc-200">Confirm Password *</label>
+                        <input
+                          type="password"
+                          required
+                          value={teacherRegConfirmPassword}
+                          onChange={(e) => setTeacherRegConfirmPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="clean-input"
                         />
                       </div>
                     </div>
-                  </div>
 
-                  {/* Step 2: Institute Selection */}
-                  <div className="bg-white border-2 border-black p-4 sm:p-5 space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] pb-3">
-                      <div>
-                        <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
-                          <Building className="w-4 h-4 text-black" />
-                          <span>2. Institute Selection & Sign-Up *</span>
-                        </label>
-                        <p className="text-[11px] text-[#6B7280] mt-0.5">
-                          Select an existing registered school or register a new institution into the platform.
-                        </p>
-                      </div>
-
-                      <div className="inline-flex border border-[#E5E7EB] p-0.5 bg-[#F9FAFB]">
-                        <button
-                          type="button"
-                          id="btn-choose-existing-institute"
-                          onClick={() => setTeacherInstituteChoice("existing")}
-                          className={`px-2.5 py-1 text-xs font-bold transition-colors ${
-                            teacherInstituteChoice === "existing"
-                              ? "bg-black text-white"
-                              : "text-[#4B5563] hover:text-black"
-                          }`}
-                        >
-                          Select Existing ({institutes.length})
-                        </button>
-                        <button
-                          type="button"
-                          id="btn-choose-new-institute"
-                          onClick={() => setTeacherInstituteChoice("new")}
-                          className={`px-2.5 py-1 text-xs font-bold transition-colors flex items-center gap-1 ${
-                            teacherInstituteChoice === "new"
-                              ? "bg-black text-white"
-                              : "text-[#4B5563] hover:text-black"
-                          }`}
-                        >
-                          <PlusCircle className="w-3 h-3" />
-                          <span>+ Register New Institution</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {teacherInstituteChoice === "existing" ? (
-                      <div className="space-y-2">
-                        <label className="text-[11px] font-bold text-[#374151] block">
-                          Choose From Available Institutes in Database:
-                        </label>
-                        <select
-                          id="teacher-existing-institute-select"
-                          value={teacherExistingInstitute}
-                          onChange={(e) => setTeacherExistingInstitute(e.target.value)}
-                          className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
-                        >
-                          {institutes.map((inst) => (
-                            <option key={inst.id} value={inst.name}>
-                              {inst.name} &bull; ({inst.type || "School"} &bull; {inst.location || "India"})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    ) : (
-                      <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-4 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="sm:col-span-2 space-y-1">
-                            <label className="text-[11px] font-bold text-[#374151]">
-                              Institution / School Full Name *
-                            </label>
-                            <input
-                              id="teacher-new-institute-name"
-                              type="text"
-                              required={teacherInstituteChoice === "new"}
-                              value={teacherNewInstituteName}
-                              onChange={(e) => setTeacherNewInstituteName(e.target.value)}
-                              placeholder="e.g. Delhi Public School R.K. Puram"
-                              className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black font-bold"
-                            />
-                          </div>
-
-                          <div className="space-y-1">
-                            <label className="text-[11px] font-bold text-[#374151]">
-                              Academic Tier / Standard
-                            </label>
-                            <select
-                              id="teacher-institute-tier"
-                              value={teacherInstituteTier}
-                              onChange={(e) => setTeacherInstituteTier(e.target.value)}
-                              className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
-                            >
-                              {ACADEMIC_TIERS.map((tier) => (
-                                <option key={tier.id} value={tier.name}>
-                                  {tier.name} — {tier.description}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div className="space-y-1">
-                            <label className="text-[11px] font-bold text-[#374151]">
-                              Institution Classification
-                            </label>
-                            <select
-                              id="teacher-new-institute-type"
-                              value={teacherNewInstituteType}
-                              onChange={(e) => setTeacherNewInstituteType(e.target.value)}
-                              className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
-                            >
-                              {INSTITUTION_CATEGORIES.map((cat) => (
-                                <option key={cat} value={cat}>
-                                  {cat}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div className="sm:col-span-2 space-y-1">
-                            <label className="text-[11px] font-bold text-[#374151]">
-                              Campus City & Location
-                            </label>
-                            <input
-                              id="teacher-new-institute-location"
-                              type="text"
-                              value={teacherNewInstituteLocation}
-                              onChange={(e) => setTeacherNewInstituteLocation(e.target.value)}
-                              placeholder="e.g. New Delhi, India"
-                              className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] text-[11px] text-[#6B7280]">
-                      💡 <strong>Flexible Classroom & Subject Setup:</strong> You can create and customize any number of classes and custom subjects directly inside your teacher dashboard anytime after sign in.
-                    </div>
-                  </div>
-
-                  {/* Submission Button */}
-                  <button
-                    id="btn-teacher-complete-registration"
-                    type="submit"
-                    disabled={
-                      isLoading ||
-                      !teacherRegName.trim() ||
-                      !teacherRegEmail.trim() ||
-                      teacherRegPassword.length < 6 ||
-                      teacherRegPassword !== teacherRegConfirmPassword ||
-                      (teacherInstituteChoice === "new" && !teacherNewInstituteName.trim())
-                    }
-                    className="w-full bg-black text-white hover:bg-[#222] py-3 px-4 text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
-                  >
-                    <span>
-                      {!teacherRegName.trim()
-                        ? "Enter Faculty / Teacher Name"
-                        : teacherRegPassword.length < 6
-                        ? "Password Must Be At Least 6 Characters"
-                        : teacherRegPassword !== teacherRegConfirmPassword
-                        ? "Passwords Do Not Match"
-                        : teacherInstituteChoice === "new" && !teacherNewInstituteName.trim()
-                        ? "Enter Institution Name"
-                        : "Complete Sign Up & Enter Teacher Dashboard"}
-                    </span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </form>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* About Us Interactive Modal */}
-      {showAboutModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-          <div className="bg-white border-2 border-black max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-black flex items-center justify-center shadow-xs">
-                  <Sparkles className="w-5 h-5 text-amber-300" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base text-[#1A1A1A]">
-                    About AI for Equitable Education Access
-                  </h3>
-                  <p className="text-xs text-[#6B7280]">
-                    Democratizing Open, High-Quality Education Across Languages & Geographies
-                  </p>
-                </div>
+                    <button
+                      type="submit"
+                      disabled={isLoading || !teacherRegName.trim() || !teacherRegEmail.trim() || teacherRegPassword.length < 6 || teacherRegPassword !== teacherRegConfirmPassword}
+                      className="clean-button-primary w-full py-2.5 text-xs font-bold flex items-center justify-center gap-2"
+                    >
+                      <span>{isLoading ? "Creating Faculty Account..." : "Complete Teacher Sign Up"}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </form>
+                )}
               </div>
-              <button
-                onClick={() => setShowAboutModal(false)}
-                className="w-8 h-8 rounded-xs hover:bg-[#F3F4F6] text-[#4B5563] hover:text-black font-bold flex items-center justify-center text-sm transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              <p className="text-[#374151] leading-relaxed text-sm">
-                <strong>AI for Equitable Education Access</strong> is a national open curriculum platform designed to eliminate learning disparities for school students across India. It connects students and teachers through isolated subject classrooms, a grounded Socratic multimodal AI tutor, and automated financial aid matching.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] space-y-1.5">
-                  <div className="font-bold text-[#1A1A1A] flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-indigo-600" />
-                    <span>Multilingual Socratic AI Tutor</span>
-                  </div>
-                  <p className="text-[11px] text-[#6B7280] leading-relaxed">
-                    Provides step-by-step guidance in Hindi, Tamil, Telugu, Marathi, Bengali, and English, strictly grounded in verified curriculum standards. Stores full conversation history.
-                  </p>
-                </div>
-
-                <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] space-y-1.5">
-                  <div className="font-bold text-[#1A1A1A] flex items-center gap-1.5">
-                    <School className="w-4 h-4 text-emerald-600" />
-                    <span>Multi-Classroom Joining by Code</span>
-                  </div>
-                  <p className="text-[11px] text-[#6B7280] leading-relaxed">
-                    Teachers generate unique subject codes (e.g. <code>CLS-10A-PHY</code>). Students can join and belong to multiple subject classrooms simultaneously.
-                  </p>
-                </div>
-
-                <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] space-y-1.5">
-                  <div className="font-bold text-[#1A1A1A] flex items-center gap-1.5">
-                    <Users className="w-4 h-4 text-amber-600" />
-                    <span>Two-Tiered Doubts & Announcements</span>
-                  </div>
-                  <p className="text-[11px] text-[#6B7280] leading-relaxed">
-                    Official instructor noticeboards paired with collaborative subject & global doubt forums with live search and peer answering.
-                  </p>
-                </div>
-
-                <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] space-y-1.5">
-                  <div className="font-bold text-[#1A1A1A] flex items-center gap-1.5">
-                    <Globe className="w-4 h-4 text-blue-600" />
-                    <span>Diagnostic Gaps & Aid Matcher</span>
-                  </div>
-                  <p className="text-[11px] text-[#6B7280] leading-relaxed">
-                    Automatic student struggle heatmaps for teachers, adaptive practice loops, and automated scholarship evaluation for low-income students.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-2 border-t border-[#E5E7EB]">
-              <button
-                type="button"
-                onClick={() => setShowAboutModal(false)}
-                className="clean-button-primary px-5 py-2 text-xs font-bold bg-black text-white hover:bg-neutral-800"
-              >
-                Got It, Let&apos;s Get Started
-              </button>
-            </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

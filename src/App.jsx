@@ -10,7 +10,6 @@ import { ClassHub } from "./components/ClassHub";
 import { CommunityForum } from "./components/CommunityForum";
 import { DirectMessages } from "./components/DirectMessages";
 import { LoginPage } from "./components/LoginPage";
-import { ArchitectureTransparencyModal } from "./components/ArchitectureTransparencyModal";
 import { api } from "./services/api";
 
 export default function App() {
@@ -24,7 +23,6 @@ export default function App() {
   const [students, setStudents] = useState([]);
   const [isAiConnected, setIsAiConnected] = useState(true);
   const [practiceTopicFocus, setPracticeTopicFocus] = useState(undefined);
-  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
   const [pendingInvites, setPendingInvites] = useState([]);
   const [isAcceptingInvite, setIsAcceptingInvite] = useState(false);
 
@@ -285,35 +283,17 @@ export default function App() {
       <div className="min-h-screen flex flex-col bg-[#F8F9FA] dark:bg-[#0D0D0D] text-[#1A1A1A] dark:text-[#E5E7EB] font-sans selection:bg-black selection:text-white transition-colors duration-200">
         <LoginPage
           onLoginSuccess={handleLoginSuccess}
-          onOpenAuditModal={() => setIsAuditModalOpen(true)}
           isDarkMode={isDarkMode}
           setIsDarkMode={setIsDarkMode}
           selectedLanguage={selectedLanguage}
           setSelectedLanguage={setSelectedLanguage}
         />
-        <footer className="mt-auto border-t border-[#E5E7EB] dark:border-[#2A2A2A] bg-white dark:bg-[#161616] py-4 text-xs text-[#6B7280] dark:text-[#AAA]">
-          <div className="max-w-7xl mx-auto px-4 sm:px-8 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <span className="font-bold text-[#1A1A1A] dark:text-white">AI for Equitable Education Access</span> &bull; Open Curriculum Grounded Knowledge & Multi-Role Isolated Portal
-            </div>
-            <div className="flex items-center gap-3 text-[11px] font-mono">
-              <button
-                onClick={() => setIsAuditModalOpen(true)}
-                className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 font-semibold underline underline-offset-2"
-              >
-                Evaluator Technical Briefing & Audit
-              </button>
-              <span className="text-[#D1D5DB] dark:text-[#444]">&bull;</span>
-              <span>National Open Curriculum Core</span>
-            </div>
+        <footer className="mt-auto border-t border-[#E5E7EB] dark:border-[#2A2A2A] bg-white dark:bg-[#0f0f0f] py-3 text-xs text-[#9ca3af] dark:text-[#6b7280]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-8 flex items-center justify-between">
+            <span><span className="font-bold text-[#374151] dark:text-[#d1d5db]">Equitable-Scholar</span> · Grounded Education Platform</span>
+            <span>© 2026</span>
           </div>
         </footer>
-
-        {/* Technical Briefing Modal */}
-        <ArchitectureTransparencyModal
-          isOpen={isAuditModalOpen}
-          onClose={() => setIsAuditModalOpen(false)}
-        />
       </div>
     );
   }
@@ -332,7 +312,6 @@ export default function App() {
         currentClassInfo={currentClassInfo}
         isAiConnected={isAiConnected}
         onLogout={handleLogout}
-        onOpenAuditModal={() => setIsAuditModalOpen(true)}
         isDarkMode={isDarkMode}
         setIsDarkMode={setIsDarkMode}
         notifications={notifications}
@@ -380,6 +359,116 @@ export default function App() {
 
       {/* Main View Area */}
       <main className="flex-1">
+        {/* User-Friendly Portal Welcome & Navigation Banner */}
+        {currentUser && (
+          <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-zinc-800/80 px-4 sm:px-8 py-2.5 transition-colors">
+            <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
+                  currentUser.role === "teacher"
+                    ? "bg-slate-900 text-white dark:bg-white dark:text-black"
+                    : "bg-emerald-600 text-white"
+                }`}>
+                  {currentUser.role === "teacher" ? "👨‍🏫" : "🎓"}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-900 dark:text-white">
+                      Welcome, {currentUser.name}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      ({currentUser.role === "teacher" ? (currentTeacher?.department || "Faculty") : (currentStudent?.gradeLevel || "Student")})
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 dark:text-zinc-400">
+                    🏫 {currentUser.institute || currentUser.school || currentStudent?.institute || currentTeacher?.school || "National School Campus"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Quick Navigation Action Pills */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {currentUser.role !== "teacher" ? (
+                  <>
+                    <button
+                      onClick={() => navigateToTab("tutor")}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all ${
+                        activeTab === "tutor"
+                          ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950 border-slate-900 dark:border-white shadow-2xs"
+                          : "bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:border-slate-400"
+                      }`}
+                    >
+                      💡 Socratic Tutor
+                    </button>
+                    <button
+                      onClick={() => navigateToTab("classhub")}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all ${
+                        activeTab === "classhub"
+                          ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950 border-slate-900 dark:border-white shadow-2xs"
+                          : "bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:border-slate-400"
+                      }`}
+                    >
+                      🏛️ Classroom
+                    </button>
+                    <button
+                      onClick={() => navigateToTab("practice")}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all ${
+                        activeTab === "practice"
+                          ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950 border-slate-900 dark:border-white shadow-2xs"
+                          : "bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:border-slate-400"
+                      }`}
+                    >
+                      ⚡ Adaptive Practice
+                    </button>
+                    <button
+                      onClick={() => navigateToTab("scholarships")}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all ${
+                        activeTab === "scholarships"
+                          ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950 border-slate-900 dark:border-white shadow-2xs"
+                          : "bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:border-slate-400"
+                      }`}
+                    >
+                      💰 Scholarships
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => navigateToTab("teacher")}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all ${
+                        activeTab === "teacher"
+                          ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950 border-slate-900 dark:border-white shadow-2xs"
+                          : "bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:border-slate-400"
+                      }`}
+                    >
+                      📊 Diagnostic Radar
+                    </button>
+                    <button
+                      onClick={() => navigateToTab("classhub")}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all ${
+                        activeTab === "classhub"
+                          ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950 border-slate-900 dark:border-white shadow-2xs"
+                          : "bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:border-slate-400"
+                      }`}
+                    >
+                      🏛️ Classroom Workspace
+                    </button>
+                    <button
+                      onClick={() => navigateToTab("community")}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all ${
+                        activeTab === "community"
+                          ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950 border-slate-900 dark:border-white shadow-2xs"
+                          : "bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:border-slate-400"
+                      }`}
+                    >
+                      💬 Class Doubts
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         {/* Tutor / Doubt Solver */}
         {activeTab === "tutor" && (
           <DoubtSolver
@@ -408,6 +497,7 @@ export default function App() {
             studentClasses={studentClasses}
             onSelectClass={(cls) => setCurrentClassInfo(cls)}
             onJoinClass={handleJoinClass}
+            onLeaveClass={handleLeaveClass}
             onNavigateToTutor={() => navigateToTab("tutor")}
             onNavigateToPractice={() => navigateToTab("practice")}
             onNavigateToCommunity={() => navigateToTab("community")}
@@ -462,71 +552,157 @@ export default function App() {
 
       {/* Notifications Modal */}
       {showNotificationsModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-[#1A1A1A] border-2 border-black dark:border-white max-w-lg w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#333] pb-3">
-              <div className="flex items-center gap-2">
-                <Bell className="w-5 h-5 text-amber-500" />
-                <h3 className="font-bold text-sm text-[#1A1A1A] dark:text-white">Academic Notifications & Verifications</h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#18181b] border border-slate-300 dark:border-zinc-700 max-w-lg w-full p-6 space-y-4 rounded-2xl shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3.5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/60 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                  <Bell className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white">Academic Notifications</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400">Class alerts, notices, and scholarship updates</p>
+                </div>
               </div>
-              <button
-                onClick={() => setShowNotificationsModal(false)}
-                className="text-xs text-[#6B7280] hover:text-black dark:hover:text-white font-bold"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                {notifications.some(n => !n.isRead) && (
+                  <button
+                    onClick={async () => {
+                      for (const n of notifications) {
+                        if (!n.isRead) await api.markNotificationRead(n.id).catch(() => {});
+                      }
+                      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+                    }}
+                    className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                  >
+                    Mark all as read
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowNotificationsModal(false)}
+                  className="w-7 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 dark:text-zinc-400 font-bold flex items-center justify-center text-xs transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
-            <div className="space-y-2 max-h-72 overflow-y-auto">
+            <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
               {notifications.length === 0 ? (
-                <div className="text-center py-8 text-xs text-[#6B7280]">
-                  No notifications at this moment.
+                <div className="text-center py-10 text-xs text-slate-500 dark:text-zinc-400 space-y-2">
+                  <Bell className="w-8 h-8 mx-auto text-slate-300 dark:text-zinc-600" />
+                  <p>No notifications right now.</p>
                 </div>
               ) : (
-                notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    className="p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 space-y-1 text-xs"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-amber-950 dark:text-amber-200">{n.title}</span>
-                      <span className="text-[10px] text-[#9CA3AF]">
-                        {new Date(n.createdAt).toLocaleDateString()}
-                      </span>
+                notifications.map((n) => {
+                  const isJoin = n.category === "classroom_join" || n.category === "classroom_enrolled";
+                  const isLeave = n.category === "classroom_leave";
+                  const isMsg = n.category === "message";
+                  const isAnn = n.category === "announcement" || n.category === "circular";
+
+                  return (
+                    <div
+                      key={n.id}
+                      onClick={async () => {
+                        if (!n.isRead) {
+                          await api.markNotificationRead(n.id).catch(() => {});
+                          setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, isRead: true } : item));
+                        }
+                        if (n.linkTab) {
+                          navigateToTab(n.linkTab);
+                          setShowNotificationsModal(false);
+                        }
+                      }}
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer space-y-2 relative overflow-hidden ${
+                        isJoin
+                          ? "bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700/80 shadow-2xs hover:border-emerald-500"
+                          : isLeave
+                          ? "bg-rose-50/80 dark:bg-rose-950/30 border-rose-300 dark:border-rose-700/80 shadow-2xs hover:border-rose-500"
+                          : isMsg
+                          ? "bg-indigo-50/80 dark:bg-indigo-950/30 border-indigo-300 dark:border-indigo-700/80 shadow-2xs hover:border-indigo-500"
+                          : !n.isRead
+                          ? "bg-amber-50/80 dark:bg-amber-950/25 border-amber-300 dark:border-amber-700/80 shadow-2xs hover:border-amber-400"
+                          : "bg-slate-50 dark:bg-zinc-900/60 border-slate-200 dark:border-zinc-800/80 hover:border-slate-300 dark:hover:border-zinc-700"
+                      }`}
+                    >
+                      {/* Left accent bar */}
+                      <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+                        isJoin
+                          ? "bg-emerald-500"
+                          : isLeave
+                          ? "bg-rose-500"
+                          : isMsg
+                          ? "bg-indigo-500"
+                          : !n.isRead
+                          ? "bg-amber-500"
+                          : "bg-slate-300 dark:bg-zinc-700"
+                      }`} />
+
+                      <div className="flex items-center justify-between gap-2 pl-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {isJoin && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded bg-emerald-600 text-white">
+                              + Classroom Active
+                            </span>
+                          )}
+                          {isLeave && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded bg-rose-600 text-white">
+                              - Class Left
+                            </span>
+                          )}
+                          {isMsg && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded bg-indigo-600 text-white flex items-center gap-1">
+                              💬 Message
+                            </span>
+                          )}
+                          {isAnn && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded bg-amber-600 text-white">
+                              📢 Circular
+                            </span>
+                          )}
+                          <span className="font-bold text-xs text-slate-900 dark:text-white">{n.title}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 dark:text-zinc-400 font-mono shrink-0">
+                          {n.createdAt ? new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today'}
+                        </span>
+                      </div>
+
+                      {n.senderName && (
+                        <div className="pl-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300">
+                          <span className="w-4 h-4 rounded-full bg-indigo-200 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 flex items-center justify-center text-[9px] font-bold">
+                            {n.senderName.charAt(0)}
+                          </span>
+                          <span>From: {n.senderName}</span>
+                        </div>
+                      )}
+
+                      <p className="pl-1.5 text-xs text-slate-700 dark:text-zinc-300 leading-relaxed font-medium">
+                        {n.message}
+                      </p>
+
+                      {n.linkTab && (
+                        <div className="pl-1.5 pt-0.5">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+                            Open {n.linkTab === "classhub" ? "Classroom Workspace" : n.linkTab === "messages" ? "Direct Messages Chat" : n.linkTab === "scholarships" ? "Scholarships" : "Socratic Tutor"} →
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-[#374151] dark:text-[#DDD] text-[11px] leading-relaxed">{n.message}</p>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Geometric Balance Minimalist Footer */}
-      <footer className="mt-auto border-t border-[#E5E7EB] dark:border-[#2A2A2A] bg-white dark:bg-[#121212] py-4 text-xs text-[#6B7280] dark:text-[#888]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <span className="font-bold text-[#1A1A1A] dark:text-white">AI for Equitable Education Access</span> &bull; Grounded Knowledge & Multilingual Tutor
-          </div>
-          <div className="flex items-center gap-3 text-[11px] font-mono">
-            <button
-              onClick={() => setIsAuditModalOpen(true)}
-              className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 font-semibold underline underline-offset-2"
-            >
-              Evaluator Technical Briefing & Audit
-            </button>
-            <span className="text-[#E5E7EB] dark:text-[#333]">|</span>
-            <span className="text-black dark:text-white font-semibold">Strict Privacy & Ephemeral AI</span>
-          </div>
+      {/* Footer */}
+      <footer className="mt-auto border-t border-[#E5E7EB] dark:border-[#2A2A2A] bg-white dark:bg-[#0f0f0f] py-3 text-xs text-[#9ca3af] dark:text-[#6b7280]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 flex items-center justify-between">
+          <span><span className="font-bold text-[#374151] dark:text-[#d1d5db]">Equitable-Scholar</span> · Grounded Education</span>
+          <span>© 2026</span>
         </div>
       </footer>
-
-      {/* Technical Briefing Modal */}
-      <ArchitectureTransparencyModal
-        isOpen={isAuditModalOpen}
-        onClose={() => setIsAuditModalOpen(false)}
-      />
     </div>
   );
 }

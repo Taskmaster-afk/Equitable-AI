@@ -299,15 +299,15 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
   return (
     <div id="community-forum-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5 space-y-5">
       {/* Classroom & Global Channels Switcher Ribbon */}
-      <div className="bg-white dark:bg-[#1A1A1A] border border-[#E5E7EB] dark:border-[#2A2A2A] p-4 shadow-xs space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F0F2F5] dark:border-[#2A2A2A] pb-3">
+      <div className="bg-white dark:bg-[#1A1A1A] border border-slate-200 dark:border-zinc-800 dark:border-[#2A2A2A] p-4 shadow-xs space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-zinc-800 dark:border-[#2A2A2A] pb-3">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-black dark:text-white" />
             <div>
-              <h2 className="text-sm font-bold text-[#1A1A1A] dark:text-white">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white dark:text-white">
                 {isTeacher ? "Teacher Classroom Doubts & Global Chat" : "My Classroom Doubts & Global Chat"}
               </h2>
-              <p className="text-[11px] text-[#6B7280] dark:text-[#AAA]">
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400 dark:text-[#AAA]">
                 {isTeacher
                   ? "Manage and answer student doubts by subject & grade level, or access the national global community"
                   : "Collaborate on questions with classmates and teachers, filtered by your exact subject and class"}
@@ -337,7 +337,7 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
             className={`px-3 py-1.5 text-xs font-bold transition-all border flex items-center gap-1.5 ${
               selectedChannel === "global"
                 ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white shadow-xs"
-                : "bg-[#F8F9FA] dark:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-[#E5E7EB] dark:border-[#333] hover:border-black"
+                : "bg-[#F8F9FA] dark:bg-[#252525] text-slate-600 dark:text-zinc-300 dark:text-[#CCC] border-slate-200 dark:border-zinc-800 dark:border-[#333] hover:border-black"
             }`}
           >
             <Globe className="w-3.5 h-3.5 text-amber-400" />
@@ -355,7 +355,7 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
                 className={`px-3 py-1.5 text-xs font-bold transition-all border flex items-center gap-1.5 ${
                   isSelected
                     ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white shadow-xs"
-                    : "bg-[#F8F9FA] dark:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-[#E5E7EB] dark:border-[#333] hover:border-black"
+                    : "bg-[#F8F9FA] dark:bg-[#252525] text-slate-600 dark:text-zinc-300 dark:text-[#CCC] border-slate-200 dark:border-zinc-800 dark:border-[#333] hover:border-black"
                 }`}
               >
                 <School className="w-3.5 h-3.5 text-indigo-500" />
@@ -367,7 +367,7 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
         </div>
 
         {/* Dynamic Multi-Filter Bar: Subject, Grade Level & Sort By */}
-        <div className="pt-2 border-t border-[#F0F2F5] dark:border-[#2A2A2A] flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 dark:border-[#2A2A2A] flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[10px] uppercase font-bold text-[#9CA3AF] flex items-center gap-1">
               <Filter className="w-3 h-3" />
@@ -378,7 +378,7 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
             <select
               value={selectedSubject}
               onChange={(e) => setSelectedSubject(e.target.value)}
-              className="bg-[#F8F9FA] dark:bg-[#252525] border border-[#E5E7EB] dark:border-[#333] text-[#1A1A1A] dark:text-[#E5E7EB] px-2 py-1 text-xs font-medium outline-none cursor-pointer"
+              className="bg-[#F8F9FA] dark:bg-[#252525] border border-slate-200 dark:border-zinc-800 dark:border-[#333] text-slate-900 dark:text-white dark:text-[#E5E7EB] px-2 py-1 text-xs font-medium outline-none cursor-pointer"
             >
               <option value="all">All Subjects</option>
               <option value="Physics">Physics</option>
@@ -395,7 +395,7 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
             <select
               value={selectedGrade}
               onChange={(e) => setSelectedGrade(e.target.value)}
-              className="bg-[#F8F9FA] dark:bg-[#252525] border border-[#E5E7EB] dark:border-[#333] text-[#1A1A1A] dark:text-[#E5E7EB] px-2 py-1 text-xs font-medium outline-none cursor-pointer"
+              className="bg-[#F8F9FA] dark:bg-[#252525] border border-slate-200 dark:border-zinc-800 dark:border-[#333] text-slate-900 dark:text-white dark:text-[#E5E7EB] px-2 py-1 text-xs font-medium outline-none cursor-pointer"
             >
               <option value="all">All Class Levels</option>
               <option value="Class 12">Class 12</option>
@@ -415,7 +415,7 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="bg-[#F8F9FA] dark:bg-[#252525] border border-[#E5E7EB] dark:border-[#333] text-[#1A1A1A] dark:text-[#E5E7EB] px-2 py-1 text-xs font-bold outline-none cursor-pointer text-indigo-700 dark:text-indigo-300"
+              className="bg-[#F8F9FA] dark:bg-[#252525] border border-slate-200 dark:border-zinc-800 dark:border-[#333] text-slate-900 dark:text-white dark:text-[#E5E7EB] px-2 py-1 text-xs font-bold outline-none cursor-pointer text-indigo-700 dark:text-indigo-300"
             >
               <option value="unanswered">⚡ Unanswered First (Ready to Answer)</option>
               <option value="newest">🕒 Newest Questions First</option>
@@ -440,28 +440,28 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
         {/* Left Column: Doubts Thread List (5 cols) */}
         <div className="lg:col-span-5 space-y-3">
           {/* Search Header */}
-          <div className="bg-white border border-[#E5E7EB] p-3 flex items-center gap-2">
+          <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs p-3 flex items-center gap-2">
             <Search className="w-4 h-4 text-[#9CA3AF]" />
             <input
               type="text"
               placeholder="Search doubts, topics, tags..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-transparent border-none outline-none text-xs text-[#1A1A1A]"
+              className="w-full bg-transparent border-none outline-none text-xs text-slate-900 dark:text-white"
             />
           </div>
 
           {/* Threads List */}
           <div className="space-y-2.5 max-h-[660px] overflow-y-auto pr-1">
             {isLoading ? (
-              <div className="bg-white border border-[#E5E7EB] p-8 text-center text-xs text-[#6B7280]">
+              <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs p-8 text-center text-xs text-slate-500 dark:text-zinc-400">
                 Loading institutional community doubts...
               </div>
             ) : filteredPosts.length === 0 ? (
-              <div className="bg-white border border-[#E5E7EB] p-8 text-center space-y-2">
+              <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs p-8 text-center space-y-2">
                 <MessageSquare className="w-8 h-8 mx-auto text-[#9CA3AF]" />
-                <h3 className="font-bold text-xs text-[#1A1A1A]">No Doubts Posted Yet</h3>
-                <p className="text-[11px] text-[#6B7280]">
+                <h3 className="font-bold text-xs text-slate-900 dark:text-white">No Doubts Posted Yet</h3>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
                   Post the first doubt from your class or study group to start the discussion.
                 </p>
                 <button
@@ -480,12 +480,12 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
                     key={post.id}
                     onClick={() => setActivePost(post)}
                     className={`p-3 border text-xs cursor-pointer transition-colors ${
-                      isSelected ? "border-black bg-[#F8F9FA]" : "border-[#E5E7EB] bg-white hover:border-[#9CA3AF]"
+                      isSelected ? "border-indigo-600 dark:border-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/30" : "border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] hover:border-slate-400 dark:hover:border-zinc-600"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="bg-[#F3F4F6] text-[#4B5563] border border-[#E5E7EB] text-[10px] font-bold px-1.5 py-0.2">
+                        <span className="bg-[#F3F4F6] text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-800 text-[10px] font-bold px-1.5 py-0.2">
                           {post.subject} &bull; {post.gradeLevel}
                         </span>
                         {hasTeacherAnswer && (
@@ -501,15 +501,15 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
                       </span>
                     </div>
 
-                    <h3 className="font-bold text-sm text-[#1A1A1A] mb-1 line-clamp-2">
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-white mb-1 line-clamp-2">
                       {post.title}
                     </h3>
 
-                    <p className="text-[#6B7280] text-xs line-clamp-2 mb-2 font-mono">
+                    <p className="text-slate-500 dark:text-zinc-400 text-xs line-clamp-2 mb-2 font-mono">
                       {post.content}
                     </p>
 
-                    <div className="flex items-center justify-between text-[11px] text-[#6B7280] pt-2 border-t border-[#F0F2F5]">
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-zinc-400 pt-2 border-t border-slate-100 dark:border-zinc-800">
                       <div className="flex items-center gap-1">
                         <User className="w-3 h-3 text-[#9CA3AF]" />
                         <span>{post.authorName} ({post.authorRole})</span>
@@ -534,37 +534,37 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
         </div>
 
         {/* Right Column: Selected Thread & Answers (7 cols) */}
-        <div className="lg:col-span-7 bg-white border border-[#E5E7EB] p-5 space-y-4">
+        <div className="lg:col-span-7 bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs p-5 space-y-4">
           {activePost ? (
             <div className="space-y-4">
               {/* Question Details Header */}
-              <div className="border-b border-[#E5E7EB] pb-4 space-y-2">
+              <div className="border-b border-slate-200 dark:border-zinc-800 pb-4 space-y-2">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[10px] uppercase tracking-wider font-bold text-[#9CA3AF]">
                         {activePost.subject} &bull; {activePost.gradeLevel}
                       </span>
-                      <span className="text-[11px] text-[#6B7280]">
+                      <span className="text-[11px] text-slate-500 dark:text-zinc-400">
                         🏫 {activePost.instituteName}
                       </span>
                     </div>
-                    <h2 className="text-base font-bold text-[#1A1A1A]">
+                    <h2 className="text-base font-bold text-slate-900 dark:text-white">
                       {activePost.title}
                     </h2>
                   </div>
 
                   <button
                     onClick={() => handleUpvotePost(activePost.id)}
-                    className="flex items-center gap-1.5 bg-[#F8F9FA] hover:bg-[#E5E7EB] border border-[#E5E7EB] px-3 py-1.5 text-xs font-bold text-[#1A1A1A] transition-colors"
+                    className="flex items-center gap-1.5 bg-[#F8F9FA] hover:bg-[#E5E7EB] border border-slate-200 dark:border-zinc-800 px-3 py-1.5 text-xs font-bold text-slate-900 dark:text-white transition-colors"
                   >
                     <ThumbsUp className="w-3.5 h-3.5" />
                     <span>{activePost.upvotes || 0}</span>
                   </button>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-[#6B7280]">
-                  <span className="font-semibold text-[#1A1A1A]">{activePost.authorName}</span>
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400">
+                  <span className="font-semibold text-slate-900 dark:text-white">{activePost.authorName}</span>
                   <span className="text-[#D1D5DB]">&bull;</span>
                   <span className="capitalize">{activePost.authorRole}</span>
                   <span className="text-[#D1D5DB]">&bull;</span>
@@ -572,14 +572,14 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
                 </div>
 
                 {/* Full Question Content */}
-                <div className="p-3.5 bg-[#F8F9FA] border border-[#E5E7EB] text-xs font-mono text-[#1A1A1A] whitespace-pre-wrap leading-relaxed">
+                <div className="p-3.5 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs font-mono text-slate-900 dark:text-white whitespace-pre-wrap leading-relaxed">
                   {activePost.content}
                 </div>
 
                 {activePost.tags && activePost.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1 pt-1">
                     {activePost.tags.map((tag, idx) => (
-                      <span key={idx} className="bg-white border border-[#E5E7EB] text-[10px] px-2 py-0.5 font-mono text-[#4B5563]">
+                      <span key={idx} className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs text-[10px] px-2 py-0.5 font-mono text-slate-600 dark:text-zinc-300">
                         #{tag}
                       </span>
                     ))}
@@ -590,7 +590,7 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
               {/* Answers List */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-xs uppercase tracking-wider text-[#1A1A1A] flex items-center gap-2">
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
                     <MessageSquare className="w-3.5 h-3.5 text-black" />
                     <span>Community Answers ({activePost.answers?.length || 0})</span>
                   </h3>
@@ -609,14 +609,14 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
                         className={`p-3.5 border text-xs space-y-2 ${
                           ans.isVerified || ans.authorRole === "teacher"
                             ? "border-emerald-300 bg-emerald-50/40"
-                            : "border-[#E5E7EB] bg-[#FAFAFA]"
+                            : "border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/60"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-[#1A1A1A]">{ans.authorName}</span>
+                            <span className="font-bold text-slate-900 dark:text-white">{ans.authorName}</span>
                             <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 ${
-                              ans.authorRole === "teacher" ? "bg-black text-white" : "bg-[#E5E7EB] text-[#4B5563]"
+                              ans.authorRole === "teacher" ? "bg-black text-white" : "bg-[#E5E7EB] text-slate-600 dark:text-zinc-300"
                             }`}>
                               {ans.authorRole}
                             </span>
@@ -645,10 +645,10 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
                           {ans.content}
                         </div>
 
-                        <div className="pt-2 border-t border-[#E5E7EB] dark:border-[#333] flex items-center justify-between">
+                        <div className="pt-2 border-t border-slate-200 dark:border-zinc-800 dark:border-[#333] flex items-center justify-between">
                           <button
                             onClick={() => handleUpvoteAnswer(activePost.id, ans.id)}
-                            className="flex items-center gap-1 text-[11px] text-[#6B7280] dark:text-[#AAA] hover:text-black dark:hover:text-white font-semibold"
+                            className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-zinc-400 dark:text-[#AAA] hover:text-black dark:hover:text-white font-semibold"
                           >
                             <ThumbsUp className="w-3 h-3" />
                             <span>Helpful ({ans.upvotes || 0})</span>
@@ -670,7 +670,7 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
                                 className={`text-[10px] font-bold px-2 py-0.5 border transition-colors ${
                                   ans.isVerified
                                     ? "bg-emerald-600 text-white border-emerald-600"
-                                    : "bg-white dark:bg-[#1E1E1E] text-[#4B5563] dark:text-[#CCC] border-[#E5E7EB] dark:border-[#333] hover:border-emerald-600 hover:text-emerald-700"
+                                    : "bg-white dark:bg-[#1E1E1E] text-slate-600 dark:text-zinc-300 dark:text-[#CCC] border-slate-200 dark:border-zinc-800 dark:border-[#333] hover:border-emerald-600 hover:text-emerald-700"
                                 }`}
                               >
                                 {ans.isVerified ? "Endorsed by You" : "Endorse / Verify"}
@@ -682,15 +682,15 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-[#9CA3AF] p-4 bg-[#F8F9FA] border border-[#E5E7EB] text-center">
+                  <p className="text-xs text-[#9CA3AF] p-4 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg text-center">
                     No community answers yet. Be the first classmate or teacher to post a worked solution!
                   </p>
                 )}
               </div>
 
               {/* Submit Answer Box */}
-              <form onSubmit={handleAnswerSubmit} className="space-y-2 pt-2 border-t border-[#E5E7EB]">
-                <label className="font-bold text-xs text-[#1A1A1A] block">
+              <form onSubmit={handleAnswerSubmit} className="space-y-2 pt-2 border-t border-slate-200 dark:border-zinc-800">
+                <label className="font-bold text-xs text-slate-900 dark:text-white block">
                   Post Your Answer or Explanation:
                 </label>
                 <textarea
@@ -699,11 +699,11 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
                   placeholder="Explain step-by-step or share formula steps to solve this doubt..."
                   value={answerContent}
                   onChange={(e) => setAnswerContent(e.target.value)}
-                  className="w-full bg-[#F8F9FA] border border-[#E5E7EB] p-2.5 text-xs font-mono outline-none focus:border-black"
+                  className="w-full bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg p-2.5 text-xs font-mono outline-none focus:border-black"
                 />
 
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-[#6B7280]">
+                  <span className="text-[11px] text-slate-500 dark:text-zinc-400">
                     Posting as: <strong>{user?.name}</strong> ({isTeacher ? "Teacher" : "Student"})
                   </span>
                   <button
@@ -728,17 +728,17 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
       {/* ASK DOUBT MODAL */}
       {showAskModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-black max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
+          <div className="bg-white dark:bg-[#18181b] border border-slate-300 dark:border-zinc-700 max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
               <div>
-                <h3 className="font-bold text-base text-[#1A1A1A]">Ask a Community Doubt</h3>
-                <p className="text-xs text-[#6B7280]">
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">Ask a Community Doubt</h3>
+                <p className="text-xs text-slate-500 dark:text-zinc-400">
                   Post your question to peers and faculty at {userInstitute}.
                 </p>
               </div>
               <button
                 onClick={() => setShowAskModal(false)}
-                className="text-[#6B7280] hover:text-black font-bold text-lg"
+                className="text-slate-500 dark:text-zinc-400 hover:text-black font-bold text-lg"
               >
                 &times;
               </button>
@@ -746,24 +746,24 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
 
             <form onSubmit={handleAskSubmit} className="space-y-3 text-xs">
               <div>
-                <label className="font-bold text-[#1A1A1A] block mb-1">Question / Doubt Title *</label>
+                <label className="font-bold text-slate-900 dark:text-white block mb-1">Question / Doubt Title *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g., Why does fringe width decrease in Young's Double Slit experiment when placed in water?"
                   value={newPostData.title}
                   onChange={(e) => setNewPostData({ ...newPostData, title: e.target.value })}
-                  className="w-full bg-[#F8F9FA] border border-[#E5E7EB] px-3 py-2 text-xs outline-none focus:border-black"
+                  className="w-full bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-xs outline-none focus:border-black"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-[#1A1A1A] block mb-1">Subject</label>
+                  <label className="font-bold text-slate-900 dark:text-white block mb-1">Subject</label>
                   <select
                     value={newPostData.subject}
                     onChange={(e) => setNewPostData({ ...newPostData, subject: e.target.value })}
-                    className="w-full bg-[#F8F9FA] border border-[#E5E7EB] px-2.5 py-2 text-xs outline-none focus:border-black cursor-pointer font-medium"
+                    className="w-full bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg px-2.5 py-2 text-xs outline-none focus:border-black cursor-pointer font-medium"
                   >
                     <option value="Physics">Physics</option>
                     <option value="Chemistry">Chemistry</option>
@@ -774,36 +774,36 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
                 </div>
 
                 <div>
-                  <label className="font-bold text-[#1A1A1A] block mb-1">Class / Grade Level</label>
+                  <label className="font-bold text-slate-900 dark:text-white block mb-1">Class / Grade Level</label>
                   <input
                     type="text"
                     value={newPostData.gradeLevel}
                     onChange={(e) => setNewPostData({ ...newPostData, gradeLevel: e.target.value })}
-                    className="w-full bg-[#F8F9FA] border border-[#E5E7EB] px-3 py-2 text-xs outline-none focus:border-black"
+                    className="w-full bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-xs outline-none focus:border-black"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="font-bold text-[#1A1A1A] block mb-1">Detailed Explanation of Your Doubt *</label>
+                <label className="font-bold text-slate-900 dark:text-white block mb-1">Detailed Explanation of Your Doubt *</label>
                 <textarea
                   required
                   rows={5}
                   placeholder="Describe where you are stuck, what formula you tried, and what step is confusing..."
                   value={newPostData.content}
                   onChange={(e) => setNewPostData({ ...newPostData, content: e.target.value })}
-                  className="w-full bg-[#F8F9FA] border border-[#E5E7EB] p-3 text-xs font-mono outline-none focus:border-black"
+                  className="w-full bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg p-3 text-xs font-mono outline-none focus:border-black"
                 />
               </div>
 
               <div>
-                <label className="font-bold text-[#1A1A1A] block mb-1">Tags (Comma separated)</label>
+                <label className="font-bold text-slate-900 dark:text-white block mb-1">Tags (Comma separated)</label>
                 <input
                   type="text"
                   placeholder="e.g., optics, fringe-width, refractive-index, class12"
                   value={newPostData.tags}
                   onChange={(e) => setNewPostData({ ...newPostData, tags: e.target.value })}
-                  className="w-full bg-[#F8F9FA] border border-[#E5E7EB] px-3 py-2 text-xs outline-none focus:border-black"
+                  className="w-full bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-xs outline-none focus:border-black"
                 />
               </div>
 
@@ -811,7 +811,7 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
                 <button
                   type="button"
                   onClick={() => setShowAskModal(false)}
-                  className="px-4 py-2 border border-[#E5E7EB] text-[#4B5563] hover:bg-[#F8F9FA]"
+                  className="px-4 py-2 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-[#F8F9FA]"
                 >
                   Cancel
                 </button>
@@ -832,27 +832,27 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
       {flagModal.open && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
           <div className="bg-white dark:bg-[#1A1A1A] border-2 border-rose-600 max-w-md w-full p-5 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#333] pb-3">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 dark:border-[#333] pb-3">
               <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
                 <AlertTriangle className="w-5 h-5" />
-                <h3 className="font-bold text-sm text-[#1A1A1A] dark:text-white">Flag Answer as Incorrect</h3>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white dark:text-white">Flag Answer as Incorrect</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setFlagModal({ open: false, postId: null, answerId: null, reason: "" })}
-                className="text-xs text-[#6B7280] hover:text-black dark:hover:text-white font-bold"
+                className="text-xs text-slate-500 dark:text-zinc-400 hover:text-black dark:hover:text-white font-bold"
               >
                 ✕
               </button>
             </div>
 
             <div className="space-y-3 text-xs">
-              <p className="text-[#4B5563] dark:text-[#CCC] leading-relaxed">
+              <p className="text-slate-600 dark:text-zinc-300 dark:text-[#CCC] leading-relaxed">
                 As a faculty instructor, flagging this answer will attach an official warning banner and remove any verification badges.
               </p>
 
               <div>
-                <label className="font-bold text-[#1A1A1A] dark:text-white block mb-1">
+                <label className="font-bold text-slate-900 dark:text-white dark:text-white block mb-1">
                   Reason for Flagging / Instructor Note:
                 </label>
                 <textarea
@@ -860,16 +860,16 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
                   placeholder="e.g., Formula applied incorrectly in step 2; missing negative sign in EMF equation..."
                   value={flagModal.reason}
                   onChange={(e) => setFlagModal({ ...flagModal, reason: e.target.value })}
-                  className="w-full bg-[#F8F9FA] dark:bg-[#252525] border border-[#E5E7EB] dark:border-[#333] p-2.5 text-xs text-[#1A1A1A] dark:text-white outline-none focus:border-rose-600"
+                  className="w-full bg-[#F8F9FA] dark:bg-[#252525] border border-slate-200 dark:border-zinc-800 dark:border-[#333] p-2.5 text-xs text-slate-900 dark:text-white dark:text-white outline-none focus:border-rose-600"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E5E7EB] dark:border-[#333]">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-zinc-800 dark:border-[#333]">
               <button
                 type="button"
                 onClick={() => setFlagModal({ open: false, postId: null, answerId: null, reason: "" })}
-                className="px-3 py-1.5 text-xs font-semibold text-[#4B5563] dark:text-[#AAA] border border-[#E5E7EB] dark:border-[#333] hover:bg-[#F3F4F6] dark:hover:bg-[#252525]"
+                className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-zinc-300 dark:text-[#AAA] border border-slate-200 dark:border-zinc-800 dark:border-[#333] hover:bg-[#F3F4F6] dark:hover:bg-[#252525]"
               >
                 Cancel
               </button>

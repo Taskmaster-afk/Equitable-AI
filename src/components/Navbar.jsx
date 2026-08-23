@@ -4,7 +4,6 @@ import {
   Users,
   Award,
   Library,
-  Globe,
   Calendar,
   LogOut,
   MessageSquare,
@@ -15,7 +14,6 @@ import {
   Bell,
   Sparkles
 } from "lucide-react";
-import { SUPPORTED_LANGUAGES } from "../data/oerKnowledgeBase";
 import { getTranslation } from "../data/translations";
 
 export const Navbar = ({
@@ -29,7 +27,6 @@ export const Navbar = ({
   currentClassInfo,
   isAiConnected,
   onLogout,
-  onOpenAuditModal,
   isDarkMode,
   setIsDarkMode,
   notifications = [],
@@ -61,37 +58,29 @@ export const Navbar = ({
           </button>
 
           {/* Notifications Bell (Teacher & Student) */}
-          {onOpenNotifications && (
-            <button
-              onClick={onOpenNotifications}
-              title="View verification alerts, notices & student requests"
-              className={`relative flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 border transition-colors ${
-                unreadNotifs > 0
-                  ? "border-amber-400 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
-                  : "border-[#E5E7EB] dark:border-[#333] hover:bg-[#F3F4F6] dark:hover:bg-[#222] text-[#4B5563] dark:text-[#E5E7EB]"
-              }`}
-            >
-              <Bell className={`w-3 h-3 ${unreadNotifs > 0 ? "text-amber-600 dark:text-amber-400" : "text-[#6B7280] dark:text-[#AAA]"}`} />
-              <span>{t("notifications", "Notifications")}</span>
-              {unreadNotifs > 0 ? (
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-              ) : (
-                <span className="text-[10px] font-mono text-neutral-400">({notifications?.length || 0})</span>
-              )}
-            </button>
-          )}
-
-          {/* Evaluator & Architecture Briefing Button */}
-          {onOpenAuditModal && (
-            <button
-              onClick={onOpenAuditModal}
-              title="System Architecture, Semantic RAG & Security Audit"
-              className="flex items-center gap-1 text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 px-2 py-0.5 hover:bg-emerald-100 transition-colors"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-              <span>{t("evaluatorAudit")}</span>
-            </button>
-          )}
+          <button
+            type="button"
+            id="navbar-notif-btn"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (onOpenNotifications) onOpenNotifications();
+            }}
+            title="View verification alerts, notices & student requests"
+            className={`relative flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer shadow-2xs ${
+              unreadNotifs > 0
+                ? "border-amber-400 dark:border-amber-600 bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-200 animate-pulse"
+                : "border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200"
+            }`}
+          >
+            <Bell className={`w-3.5 h-3.5 ${unreadNotifs > 0 ? "text-amber-600 dark:text-amber-400" : "text-slate-600 dark:text-zinc-400"}`} />
+            <span>{t("notifications", "Notifications")}</span>
+            {unreadNotifs > 0 ? (
+              <span className="w-2 h-2 rounded-full bg-rose-500" />
+            ) : (
+              <span className="text-[10px] font-mono text-slate-400 dark:text-zinc-500">({notifications?.length || 0})</span>
+            )}
+          </button>
 
           {/* User Badge */}
           {currentUser && (
@@ -115,39 +104,18 @@ export const Navbar = ({
                     🏫 {currentUser.institute || currentUser.school || currentStudent?.institute || currentTeacher?.school}
                   </span>
                 )}
-                {!isTeacher && currentStudent?.classCode && currentStudent.classCode !== "NCERT-10A" && (
-                  <span className="text-[10px] font-mono font-bold bg-[#F3F4F6] dark:bg-[#222] border border-[#E5E7EB] dark:border-[#333] px-1 text-[#4B5563] dark:text-[#AAA]">
-                    Class: {currentStudent.classCode}
-                  </span>
-                )}
               </div>
             </div>
           )}
 
-          {/* Language Selector */}
-          <div className="flex items-center gap-1">
-            <Globe className="w-3 h-3 text-[#6B7280] dark:text-[#9CA3AF]" />
-            <select
-              id="lang-select"
-              value={selectedLanguage}
-              onChange={(e) => setSelectedLanguage(e.target.value)}
-              className="bg-[#F8F9FA] dark:bg-[#1E1E1E] border border-[#E5E7EB] dark:border-[#333] text-[#1A1A1A] dark:text-[#E5E7EB] px-1.5 py-0.5 font-medium outline-none text-xs cursor-pointer hover:border-[#9CA3AF] transition-colors"
-            >
-              {SUPPORTED_LANGUAGES.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-          </div>
 
           {/* AI Grounding Status Indicator */}
           <div
             className="flex items-center gap-1 text-[11px] font-mono text-[#6B7280] dark:text-[#9CA3AF]"
-            title={isAiConnected ? "Gemini 3.7 Online" : "Grounded Offline Database Mode"}
+            title={isAiConnected ? "Socratic Core Online" : "Grounded Offline Database Mode"}
           >
             <div className={`w-1.5 h-1.5 rounded-full ${isAiConnected ? "bg-emerald-500" : "bg-amber-500"}`} />
-            <span className="hidden sm:inline">{isAiConnected ? "Gemini 3.7" : "Offline"}</span>
+            <span className="hidden sm:inline">{isAiConnected ? "Socratic Core" : "Offline"}</span>
           </div>
 
           {/* Sign Out Button */}

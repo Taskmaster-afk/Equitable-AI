@@ -23,7 +23,8 @@ import {
   X,
   Link2,
   User,
-  CheckCircle2
+  CheckCircle2,
+  Download
 } from "lucide-react";
 import { api } from "../services/api";
 import { SUPPORTED_LANGUAGES } from "../data/oerKnowledgeBase";
@@ -243,7 +244,6 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
     if (sess.messages && sess.messages.length > 0) {
       setMessages(sess.messages);
     }
-    if (sess.language) setSelectedLanguage(sess.language);
     if (sess.gradeLevel) setGradeLevel(sess.gradeLevel);
     setShowHistoryDrawer(false);
     scrollToBottom();
@@ -378,7 +378,7 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
 
   return (
     <div id="doubt-solver-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5">
-      {/* Full Width AI Doubt Solver Workspace */}
+      {/* Full Width Socratic Step Solver Workspace */}
       <div className="w-full flex flex-col h-[700px] bg-white dark:bg-[#1A1A1A] border border-[#E5E7EB] dark:border-[#2A2A2A] shadow-xs">
         {/* Streamlined Workspace Controls Bar */}
         <div className="px-4 py-2.5 border-b border-[#E5E7EB] dark:border-[#2A2A2A] bg-[#F8F9FA] dark:bg-[#222] flex flex-wrap items-center justify-between gap-2.5 text-xs">
@@ -495,7 +495,7 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
               >
                 <div className="flex items-center gap-1.5 mb-1 text-[10px] uppercase tracking-wider text-[#9CA3AF] font-bold">
                   <span className="text-[#4B5563] dark:text-[#AAA]">
-                    {msg.role === "user" ? currentStudent?.name || "You" : "AI Tutor"}
+                    {msg.role === "user" ? currentStudent?.name || "You" : "Socratic Tutor"}
                   </span>
                   <span>&bull;</span>
                   <span className="font-mono text-[10px] text-[#9CA3AF]">{msg.timestamp}</span>
@@ -524,90 +524,6 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                   <div className="whitespace-pre-wrap leading-relaxed space-y-2 font-sans">
                     {msg.content}
                   </div>
-
-                  {/* Inline Verified Citation Badge */}
-                  {msg.citations && msg.citations.length > 0 && (
-                    <div className="mt-3.5 pt-3 border-t border-[#E5E7EB] dark:border-[#333] bg-[#F8F9FA] dark:bg-[#181818] -mx-4 -mb-4 p-3.5">
-                      <div className="flex items-center justify-between mb-2.5">
-                        <span className="text-[11px] font-bold text-[#1A1A1A] dark:text-white flex items-center gap-1.5 uppercase tracking-wider">
-                          <BookOpen className="w-3.5 h-3.5 text-black dark:text-white" />
-                          Source Books & Classroom Citations ({msg.citations.length})
-                        </span>
-                        <span className="text-[10px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 font-bold uppercase tracking-wider font-mono flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Curriculum Grounded
-                        </span>
-                      </div>
-
-                      <div className="space-y-2">
-                        {(msg.citations || []).map((cite) => (
-                          <div
-                            key={cite.id}
-                            className="bg-white dark:bg-[#202020] border border-[#E5E7EB] dark:border-[#333] p-2.5 text-xs shadow-xs"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <Book className="w-3.5 h-3.5 text-black dark:text-white shrink-0" />
-                                <span className="font-bold text-[#1A1A1A] dark:text-white">{cite.sourceName}</span>
-                              </div>
-                              <span className={`px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider shrink-0 ${
-                                cite.docType === 'classroom_resource' 
-                                  ? 'bg-blue-900 text-white' 
-                                  : cite.docType === 'resource_dump'
-                                  ? 'bg-amber-900 text-white'
-                                  : 'bg-black text-white dark:bg-white dark:text-black'
-                              }`}>
-                                {cite.publisher}
-                              </span>
-                            </div>
-
-                            <p className="text-[#4B5563] dark:text-[#AAA] text-[11px] mt-1 font-medium">
-                              {cite.chapter} &bull; <span className="text-[#6B7280] dark:text-[#888]">{cite.section}</span>
-                              {cite.author && (
-                                <span className="ml-1.5 text-neutral-500 dark:text-neutral-400 font-normal">
-                                  (Author: <span className="text-neutral-800 dark:text-neutral-200 font-medium">{cite.author}</span>)
-                                </span>
-                              )}
-                            </p>
-
-                            <p className="mt-1.5 text-[#374151] dark:text-[#DDD] italic font-mono text-[11px] bg-[#F8F9FA] dark:bg-[#141414] p-2 border border-[#E5E7EB] dark:border-[#333] leading-relaxed">
-                              "{cite.excerptSnippet}"
-                            </p>
-
-                            <div className="mt-2 pt-2 border-t border-neutral-100 flex items-center justify-between flex-wrap gap-2">
-                              <p className="text-[10px] text-[#6B7280] font-mono">
-                                Reference: <span className="font-bold text-neutral-900">{cite.pageOrRef}</span>
-                              </p>
-
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedCitationModal(cite)}
-                                  className="inline-flex items-center gap-1 text-[11px] font-medium text-neutral-700 hover:text-black bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 px-2 py-1 transition-colors"
-                                  title="Inspect full source book passage & formulas"
-                                >
-                                  <Eye className="w-3 h-3" />
-                                  <span>View Passage</span>
-                                </button>
-
-                                <a
-                                  href={cite.bookUrl || cite.accessLink || "#/oer"}
-                                  target={cite.bookUrl && cite.bookUrl.startsWith("http") ? "_blank" : "_self"}
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-black hover:bg-neutral-800 px-2.5 py-1 transition-colors"
-                                  title="Open & Read the complete book or notes"
-                                >
-                                  <BookOpen className="w-3 h-3" />
-                                  <span>Open Book / Resource</span>
-                                  <ExternalLink className="w-2.5 h-2.5 ml-0.5 text-neutral-300" />
-                                </a>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
 
                   {/* Suggested Follow-Up Prompts */}
                   {msg.suggestedFollowUps && msg.suggestedFollowUps.length > 0 && (

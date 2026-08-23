@@ -15,8 +15,8 @@ import {
   Download,
   Search,
   Tag,
-  Image as ImageIcon,
-  Video as VideoIcon,
+  ImageIcon,
+  VideoIcon,
   FileUp,
   X,
   Maximize2,
@@ -35,7 +35,8 @@ import {
   UserPlus,
   School,
   KeyRound,
-  UploadCloud
+  UploadCloud,
+  LogOut
 } from "lucide-react";
 import { api } from "../services/api";
 
@@ -46,18 +47,43 @@ export const ClassHub = ({
   studentClasses = [],
   onSelectClass,
   onJoinClass,
+  onLeaveClass,
   onNavigateToTutor,
   onNavigateToPractice,
   onNavigateToCommunity
 }) => {
   const [teacherTeachingClasses, setTeacherTeachingClasses] = useState([]);
   const [selectedTeacherClass, setSelectedTeacherClass] = useState(null);
+  const [fetchedClassInfo, setFetchedClassInfo] = useState(null);
 
   const isTeacher = !!currentTeacher;
   const currentUser = currentTeacher || currentStudent;
-  const info = classInfo || selectedTeacherClass || currentStudent?.classInfo;
-  const classCode = info?.classCode || currentStudent?.classCode || "";
+  
+  // Resolve info and classCode
+  const resolvedInfo = classInfo || selectedTeacherClass || currentStudent?.classInfo || (studentClasses && studentClasses[0]) || fetchedClassInfo || null;
+  const classCode = resolvedInfo?.classCode || currentStudent?.classCode || (studentClasses && studentClasses[0]?.classCode) || "NCERT-12A";
+  
+  const info = resolvedInfo || {
+    classCode: classCode,
+    className: classCode === "NCERT-10A" ? "Class 10-A Secondary Mathematics & Science" : "Class 12-A Senior Secondary Physics",
+    school: currentStudent?.school || currentTeacher?.school || "Kendriya Vidyalaya No. 1, Model Cluster",
+    curriculum: "NCERT / CBSE National Curriculum",
+    subjects: ["Physics", "Chemistry", "Mathematics", "Biology"],
+    academicYear: "2025-2026",
+    teacherName: "Dr. Rajesh Varma",
+    section: "Section A"
+  };
+
   const studentSection = currentStudent?.section || info?.section || "Section A";
+
+  // Auto-fetch classroom details if not present
+  useEffect(() => {
+    if (classCode && (!resolvedInfo || !resolvedInfo.timetable)) {
+      api.getClass(classCode).then(res => {
+        if (res?.classInfo) setFetchedClassInfo(res.classInfo);
+      }).catch(() => {});
+    }
+  }, [classCode]);
 
   const [activeSubTab, setActiveSubTab] = useState("announcements"); // "announcements" | "discussion" | "roster" | "resources" | "schedule"
   const [selectedDay, setSelectedDay] = useState("Monday");
@@ -528,24 +554,24 @@ export const ClassHub = ({
   if (!info && !classCode) {
     if (isTeacher) {
       return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 text-center space-y-4">
-          <div className="bg-white border-2 border-black p-8 max-w-lg mx-auto shadow-md space-y-4 text-left">
+        <div className="min-h-screen bg-slate-100 dark:bg-[#0c0c0e] px-4 py-12 flex items-start justify-center">
+          <div className="bg-white dark:bg-[#18181b] border border-slate-300 dark:border-zinc-700 rounded-2xl p-8 w-full max-w-lg shadow-xl space-y-5">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-bold">
-                <School className="w-5 h-5" />
+              <div className="w-11 h-11 bg-slate-900 dark:bg-white rounded-xl flex items-center justify-center shrink-0">
+                <School className="w-5 h-5 text-white dark:text-slate-950" />
               </div>
               <div>
-                <h3 className="font-bold text-sm text-[#1A1A1A]">Welcome Teacher Lead</h3>
-                <p className="text-xs text-[#6B7280]">
-                  You have not created or selected an active classroom yet. Go to your Teacher Academic Desk to create a class code.
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">Welcome, Faculty Lead</h3>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                  You have not created or selected an active classroom yet. Open your Teacher Diagnostic Desk to create one.
                 </p>
               </div>
             </div>
             <button
               onClick={() => { window.location.hash = "#teacher"; }}
-              className="w-full clean-button-primary py-2 text-xs font-bold bg-black text-white"
+              className="clean-button-primary w-full py-2.5 text-xs font-bold rounded-lg"
             >
-              Open Teacher Academic Desk &rarr;
+              Open Teacher Academic Desk →
             </button>
           </div>
         </div>
@@ -553,42 +579,84 @@ export const ClassHub = ({
     }
 
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 text-center space-y-4">
-        <div className="bg-white border-2 border-black p-8 max-w-lg mx-auto shadow-md space-y-4 text-left">
+      <div className="min-h-screen bg-slate-100 dark:bg-[#0c0c0e] px-4 py-12 flex items-start justify-center">
+        <div className="bg-white dark:bg-[#18181b] border border-slate-300 dark:border-zinc-700 rounded-2xl p-8 w-full max-w-lg shadow-xl space-y-5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-bold">
-              <School className="w-5 h-5" />
+            <div className="w-11 h-11 bg-slate-900 dark:bg-white rounded-xl flex items-center justify-center shrink-0">
+              <School className="w-5 h-5 text-white dark:text-slate-950" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-[#1A1A1A]">Join Your Subject Classroom</h3>
-              <p className="text-xs text-[#6B7280]">
-                Enter any classroom code provided by your teacher (e.g. <strong>CLS-10A-PHY-42</strong> or <strong>NCERT-12A</strong>)
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white">Join Your Subject Classroom</h3>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                Enter a classroom code provided by your teacher (e.g. <strong>NCERT-10A</strong> or <strong>NCERT-12A</strong>)
               </p>
             </div>
           </div>
 
-          <form onSubmit={handleDirectJoinClass} className="space-y-3 pt-2">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                required
-                value={joinClassCodeInput}
-                onChange={(e) => setJoinClassCodeInput(e.target.value.toUpperCase())}
-                placeholder="e.g. CLS-10A-PHY-42"
-                className="flex-1 uppercase font-mono font-bold bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
-              />
-              <button
-                type="submit"
-                disabled={isJoiningClass || !joinClassCodeInput.trim()}
-                className="clean-button-primary px-4 py-2 text-xs font-bold shrink-0 bg-black text-white"
-              >
-                {isJoiningClass ? "Joining..." : "Join Classroom"}
-              </button>
+          <div className="space-y-3">
+            <div className="p-3 bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-xl space-y-2">
+              <span className="text-[11px] font-bold text-indigo-900 dark:text-indigo-200 uppercase tracking-wider block">
+                Recommended Foundation Classrooms (1-Click Instant Join):
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (onJoinClass) await onJoinClass("NCERT-10A");
+                    else if (currentStudent?.id) {
+                      await api.joinClass(currentStudent.id, "NCERT-10A");
+                      window.location.reload();
+                    }
+                  }}
+                  className="p-2.5 bg-white dark:bg-zinc-800 border border-indigo-300 dark:border-indigo-700 hover:border-indigo-600 rounded-lg text-left transition-all shadow-2xs"
+                >
+                  <div className="font-bold text-xs text-slate-900 dark:text-white">NCERT-10A</div>
+                  <div className="text-[10px] text-slate-500 dark:text-zinc-400">Class 10-A Secondary Math & Science</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (onJoinClass) await onJoinClass("NCERT-12A");
+                    else if (currentStudent?.id) {
+                      await api.joinClass(currentStudent.id, "NCERT-12A");
+                      window.location.reload();
+                    }
+                  }}
+                  className="p-2.5 bg-white dark:bg-zinc-800 border border-indigo-300 dark:border-indigo-700 hover:border-indigo-600 rounded-lg text-left transition-all shadow-2xs"
+                >
+                  <div className="font-bold text-xs text-slate-900 dark:text-white">NCERT-12A</div>
+                  <div className="text-[10px] text-slate-500 dark:text-zinc-400">Class 12-A Senior Secondary Physics</div>
+                </button>
+              </div>
             </div>
-            {joinClassError && (
-              <p className="text-xs text-rose-600 font-semibold">{joinClassError}</p>
-            )}
-          </form>
+
+            <form onSubmit={handleDirectJoinClass} className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  required
+                  value={joinClassCodeInput}
+                  onChange={(e) => setJoinClassCodeInput(e.target.value.toUpperCase())}
+                  placeholder="e.g. NCERT-10A"
+                  className="flex-1 uppercase font-mono font-bold clean-input"
+                />
+                <button
+                  type="submit"
+                  disabled={isJoiningClass || !joinClassCodeInput.trim()}
+                  className="clean-button-primary px-4 py-2 text-xs font-bold shrink-0"
+                >
+                  {isJoiningClass ? "Joining..." : "Join"}
+                </button>
+              </div>
+              {joinClassError && (
+                <p className="text-xs text-rose-600 dark:text-rose-400 font-semibold bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-lg px-3 py-2">{joinClassError}</p>
+              )}
+            </form>
+          </div>
+
+          <div className="pt-2 border-t border-slate-200 dark:border-zinc-800 text-xs text-slate-500 dark:text-zinc-400">
+            💡 Ask your teacher for your subject code. Once joined, announcements, resources, and discussion will be live.
+          </div>
         </div>
       </div>
     );
@@ -604,26 +672,47 @@ export const ClassHub = ({
       r.title?.toLowerCase().includes(term) ||
       r.chapter?.toLowerCase().includes(term) ||
       r.content?.toLowerCase().includes(term) ||
-      (r.aiExtractedContent && r.aiExtractedContent.toLowerCase().includes(term)) ||
+      (r.extractedContent && r.extractedContent.toLowerCase().includes(term)) ||
       r.keyConcepts?.some(k => k.toLowerCase().includes(term))
     );
     return matchesSubject && matchesMediaType && matchesSearch;
   });
 
-  const activeClassesList = isTeacher ? teacherTeachingClasses : (studentClasses || []);
+  const activeClassesList = (isTeacher ? teacherTeachingClasses : (studentClasses || [])).map(c => {
+    if (typeof c === "string") {
+      return {
+        classCode: c,
+        className: c === "NCERT-10A" ? "Class 10-A Secondary Math" : "Class 12-A Senior Physics",
+        teacherName: "Faculty Lead"
+      };
+    }
+    return c;
+  });
+  if (activeClassesList.length === 0) {
+    activeClassesList.push({
+      classCode: "NCERT-12A",
+      className: "Class 12-A Senior Secondary Physics",
+      teacherName: "Dr. Rajesh Varma"
+    });
+    activeClassesList.push({
+      classCode: "NCERT-10A",
+      className: "Class 10-A Secondary Math & Science",
+      teacherName: "Mrs. Sunita Sharma"
+    });
+  }
 
   return (
     <div id="class-hub-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5 space-y-5">
       {/* Multi-Classroom Switcher Bar */}
       {activeClassesList && activeClassesList.length > 0 && (
-        <div className="bg-white border border-[#E5E7EB] p-3 shadow-xs">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F0F2F5] pb-2 mb-2">
+        <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs p-3 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-zinc-800 pb-2 mb-2">
             <div className="flex items-center gap-2">
               <School className="w-4 h-4 text-black" />
-              <span className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A]">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
                 {isTeacher ? `Teacher Managed Classrooms (${activeClassesList.length})` : `My Enrolled Classrooms (${activeClassesList.length})`}
               </span>
-              <span className="text-[10px] text-[#6B7280]">
+              <span className="text-[10px] text-slate-500 dark:text-zinc-400">
                 &bull; Click any classroom to switch &bull; Multiple classrooms enabled
               </span>
             </div>
@@ -661,11 +750,11 @@ export const ClassHub = ({
                   className={`p-2 border text-left transition-all ${
                     isSelected
                       ? "border-2 border-black bg-[#F8F9FA] shadow-xs"
-                      : "border-[#E5E7EB] bg-white hover:border-[#9CA3AF]"
+                      : "border-slate-200 dark:border-zinc-800 bg-white hover:border-[#9CA3AF]"
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-xs text-[#1A1A1A]">
+                    <span className="font-bold text-xs text-slate-900 dark:text-white">
                       {cls.className || cls.classCode}
                     </span>
                     {isSelected && (
@@ -674,7 +763,7 @@ export const ClassHub = ({
                       </span>
                     )}
                   </div>
-                  <div className="text-[10px] text-[#6B7280] font-mono flex items-center gap-1.5 mt-0.5">
+                  <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-mono flex items-center gap-1.5 mt-0.5">
                     <span>{cls.classCode}</span>
                     <span>&bull;</span>
                     <span>{cls.teacherName || (isTeacher ? "Instructor Admin" : "Faculty Lead")}</span>
@@ -687,8 +776,8 @@ export const ClassHub = ({
       )}
 
       {/* Class Header Banner */}
-      <div className="bg-white border border-[#E5E7EB] p-5">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#F0F2F5] pb-4">
+      <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 dark:border-zinc-800 pb-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="bg-black text-white text-[10px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider">
@@ -700,17 +789,36 @@ export const ClassHub = ({
               <span className="bg-emerald-50 text-emerald-800 text-[10px] font-bold px-2 py-0.5 border border-emerald-300">
                 Admin: {info?.teacherName || (isTeacher ? (currentUser?.name || "Teacher") : "Faculty In-Charge")}
               </span>
-              {info?.academicYear && (
-                <span className="text-xs text-[#6B7280] font-medium">
-                  Academic Year {info.academicYear}
-                </span>
-              )}
+              <div className="inline-flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 px-2 py-0.5 rounded text-[11px] text-slate-700 dark:text-zinc-300">
+                <Calendar className="w-3 h-3 text-indigo-500" />
+                <span>Session: <strong className="text-slate-900 dark:text-white">{info?.academicYear || "2025-2026"}</strong></span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const newYear = window.prompt("Set Academic Year for this Classroom (e.g. 2025-2026, 2026-2027):", info?.academicYear || "2025-2026");
+                    if (newYear && newYear.trim() && classCode) {
+                      try {
+                        await api.updateClass(classCode, { academicYear: newYear.trim() });
+                        if (info) info.academicYear = newYear.trim();
+                        alert("Academic Year set to " + newYear.trim());
+                        window.location.reload();
+                      } catch (e) {
+                        alert(e.message || "Failed to update academic year");
+                      }
+                    }
+                  }}
+                  className="ml-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                  title="Change Academic Year"
+                >
+                  ✎ Edit Year
+                </button>
+              </div>
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-[#1A1A1A]">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
               {info?.className || `Class ${classCode}`}
             </h1>
-            <p className="text-xs text-[#4B5563] flex items-center gap-2 flex-wrap">
-              <Building className="w-3.5 h-3.5 text-[#6B7280]" />
+            <p className="text-xs text-slate-600 dark:text-zinc-300 flex items-center gap-2 flex-wrap">
+              <Building className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
               <span>{info?.school || currentUser?.school || currentUser?.institute || "School Campus"}</span>
               {!isTeacher && (
                 <button
@@ -728,7 +836,7 @@ export const ClassHub = ({
               {info?.teacherName && (
                 <>
                   <span className="text-[#D1D5DB]">&bull;</span>
-                  <User className="w-3.5 h-3.5 text-[#6B7280]" />
+                  <User className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
                   <span>Classroom Admin: <strong>{info.teacherName}</strong></span>
                 </>
               )}
@@ -819,11 +927,11 @@ export const ClassHub = ({
       )}
 
       {/* Sub-Navigation Tabs */}
-      <div className="flex border-b border-[#E5E7EB] bg-white text-xs font-medium flex-wrap">
+      <div className="flex border-b border-slate-200 dark:border-zinc-800 bg-white text-xs font-medium flex-wrap">
         <button
           onClick={() => setActiveSubTab("announcements")}
           className={`px-4 py-3 font-bold border-b-2 flex items-center gap-2 transition-colors ${
-            activeSubTab === "announcements" ? "border-amber-600 text-amber-900 bg-amber-50/40" : "border-transparent text-[#6B7280] hover:text-black"
+            activeSubTab === "announcements" ? "border-amber-600 text-amber-900 bg-amber-50/40" : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-black"
           }`}
         >
           <Megaphone className="w-4 h-4 text-amber-600" />
@@ -833,7 +941,7 @@ export const ClassHub = ({
         <button
           onClick={() => setActiveSubTab("discussion")}
           className={`px-4 py-3 font-bold border-b-2 flex items-center gap-2 transition-colors ${
-            activeSubTab === "discussion" ? "border-indigo-600 text-indigo-900 bg-indigo-50/40" : "border-transparent text-[#6B7280] hover:text-black"
+            activeSubTab === "discussion" ? "border-indigo-600 text-indigo-900 bg-indigo-50/40" : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-black"
           }`}
         >
           <MessageSquare className="w-4 h-4 text-indigo-600" />
@@ -843,7 +951,7 @@ export const ClassHub = ({
         <button
           onClick={() => setActiveSubTab("roster")}
           className={`px-4 py-3 font-bold border-b-2 flex items-center gap-2 transition-colors ${
-            activeSubTab === "roster" ? "border-black text-black bg-[#FAFAFA]" : "border-transparent text-[#6B7280] hover:text-black"
+            activeSubTab === "roster" ? "border-black text-black bg-slate-50 dark:bg-zinc-900/60" : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-black"
           }`}
         >
           <Users className="w-4 h-4" />
@@ -853,7 +961,7 @@ export const ClassHub = ({
         <button
           onClick={() => setActiveSubTab("resources")}
           className={`px-4 py-3 font-bold border-b-2 flex items-center gap-2 transition-colors ${
-            activeSubTab === "resources" ? "border-black text-black bg-[#FAFAFA]" : "border-transparent text-[#6B7280] hover:text-black"
+            activeSubTab === "resources" ? "border-black text-black bg-slate-50 dark:bg-zinc-900/60" : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-black"
           }`}
         >
           <Share2 className="w-4 h-4" />
@@ -863,7 +971,7 @@ export const ClassHub = ({
         <button
           onClick={() => setActiveSubTab("schedule")}
           className={`px-4 py-3 font-bold border-b-2 flex items-center gap-2 transition-colors ${
-            activeSubTab === "schedule" ? "border-black text-black bg-[#FAFAFA]" : "border-transparent text-[#6B7280] hover:text-black"
+            activeSubTab === "schedule" ? "border-black text-black bg-slate-50 dark:bg-zinc-900/60" : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-black"
           }`}
         >
           <Calendar className="w-4 h-4" />
@@ -874,13 +982,13 @@ export const ClassHub = ({
       {/* TAB 1: TEACHER ANNOUNCEMENTS BROADCAST CHANNEL */}
       {activeSubTab === "announcements" && (
         <div className="space-y-4">
-          <div className="bg-white border border-[#E5E7EB] p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs p-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
                 <Megaphone className="w-4 h-4 text-amber-600" />
-                <h3 className="font-bold text-sm text-[#1A1A1A]">Official Teacher Broadcast Channel</h3>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">Official Teacher Broadcast Channel</h3>
               </div>
-              <p className="text-xs text-[#6B7280] mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                 Official notices, test schedules, and homework circulars broadcasted by your faculty.
               </p>
             </div>
@@ -898,7 +1006,7 @@ export const ClassHub = ({
 
           <div className="space-y-3">
             {announcements.length === 0 ? (
-              <div className="bg-white border border-[#E5E7EB] p-8 text-center text-xs text-[#6B7280]">
+              <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs p-8 text-center text-xs text-slate-500 dark:text-zinc-400">
                 No announcements posted for this classroom yet. Check back soon for circulars!
               </div>
             ) : (
@@ -908,7 +1016,7 @@ export const ClassHub = ({
                 return (
                   <div
                     key={ann.id}
-                    className={`border p-4 bg-white space-y-2 ${isUrgent ? "border-rose-400 bg-rose-50/20" : isImportant ? "border-amber-300 bg-amber-50/20" : "border-[#E5E7EB]"}`}
+                    className={`border p-4 bg-white space-y-2 ${isUrgent ? "border-rose-400 bg-rose-50/20" : isImportant ? "border-amber-300 bg-amber-50/20" : "border-slate-200 dark:border-zinc-800"}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -923,15 +1031,15 @@ export const ClassHub = ({
                             &bull; {ann.createdAt || "Just now"}
                           </span>
                         </div>
-                        <h4 className="font-bold text-sm text-[#1A1A1A]">{ann.title}</h4>
+                        <h4 className="font-bold text-sm text-slate-900 dark:text-white">{ann.title}</h4>
                       </div>
                     </div>
 
-                    <p className="text-xs text-[#374151] leading-relaxed whitespace-pre-wrap">
+                    <p className="text-xs text-slate-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
                       {ann.content}
                     </p>
 
-                    <div className="pt-2 border-t border-[#F0F2F5] text-[11px] text-[#6B7280] flex items-center justify-between">
+                    <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 text-[11px] text-slate-500 dark:text-zinc-400 flex items-center justify-between">
                       <span>Posted by Faculty: <strong>{ann.teacherName || info?.teacherName || "Teacher"}</strong></span>
                       <span className="text-emerald-700 font-semibold flex items-center gap-1">
                         <ShieldCheck className="w-3 h-3" /> Teacher Verified Circular
@@ -950,8 +1058,8 @@ export const ClassHub = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           {/* Left Column: Doubt Questions List */}
           <div className="lg:col-span-5 space-y-3">
-            <div className="bg-white border border-[#E5E7EB] p-3 flex items-center justify-between">
-              <span className="text-xs font-bold text-[#1A1A1A]">
+            <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs p-3 flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-900 dark:text-white">
                 Doubt Threads ({classPosts.length})
               </span>
               <button
@@ -965,7 +1073,7 @@ export const ClassHub = ({
 
             <div className="space-y-2">
               {classPosts.length === 0 ? (
-                <div className="bg-white border border-[#E5E7EB] p-6 text-center text-xs text-[#6B7280]">
+                <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs p-6 text-center text-xs text-slate-500 dark:text-zinc-400">
                   No doubts asked yet in this class. Click <strong>Ask Doubt</strong> to start a peer discussion!
                 </div>
               ) : (
@@ -976,10 +1084,10 @@ export const ClassHub = ({
                     <div
                       key={post.id}
                       onClick={() => setActivePost(post)}
-                      className={`p-3 border cursor-pointer transition-colors bg-white ${isSelected ? "border-black ring-1 ring-black" : "border-[#E5E7EB] hover:border-[#9CA3AF]"}`}
+                      className={`p-3 border cursor-pointer transition-colors bg-white ${isSelected ? "border-black ring-1 ring-black" : "border-slate-200 dark:border-zinc-800 hover:border-[#9CA3AF]"}`}
                     >
                       <div className="flex items-center gap-1.5 mb-1">
-                        <span className="text-[10px] uppercase font-bold px-1.5 py-0.2 bg-[#F3F4F6] text-[#4B5563]">
+                        <span className="text-[10px] uppercase font-bold px-1.5 py-0.2 bg-[#F3F4F6] text-slate-600 dark:text-zinc-300">
                           {post.subject}
                         </span>
                         {hasTeacherVerified && (
@@ -988,9 +1096,9 @@ export const ClassHub = ({
                           </span>
                         )}
                       </div>
-                      <h4 className="font-bold text-xs text-[#1A1A1A] line-clamp-1">{post.title}</h4>
-                      <p className="text-[11px] text-[#6B7280] line-clamp-2 mt-0.5">{post.content}</p>
-                      <div className="flex items-center justify-between text-[10px] text-[#9CA3AF] mt-2 pt-1 border-t border-[#F0F2F5]">
+                      <h4 className="font-bold text-xs text-slate-900 dark:text-white line-clamp-1">{post.title}</h4>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-2 mt-0.5">{post.content}</p>
+                      <div className="flex items-center justify-between text-[10px] text-[#9CA3AF] mt-2 pt-1 border-t border-slate-100 dark:border-zinc-800">
                         <span>{post.authorName} ({post.authorRole})</span>
                         <span>{(post.answers || []).length} answers &bull; {post.upvotes || 0} upvotes</span>
                       </div>
@@ -1004,14 +1112,14 @@ export const ClassHub = ({
           {/* Right Column: Selected Thread & Answers */}
           <div className="lg:col-span-7">
             {activePost ? (
-              <div className="bg-white border border-[#E5E7EB] p-5 space-y-4">
-                <div className="border-b border-[#F0F2F5] pb-3 space-y-2">
+              <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs p-5 space-y-4">
+                <div className="border-b border-slate-100 dark:border-zinc-800 pb-3 space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-[#F3F4F6] text-[#4B5563]">
+                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-[#F3F4F6] text-slate-600 dark:text-zinc-300">
                         {activePost.subject}
                       </span>
-                      <span className="text-xs text-[#6B7280] font-medium">
+                      <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
                         By {activePost.authorName} ({activePost.authorRole}) &bull; {activePost.createdAt || "Just now"}
                       </span>
                     </div>
@@ -1023,28 +1131,28 @@ export const ClassHub = ({
                       <span>{activePost.upvotes || 0}</span>
                     </button>
                   </div>
-                  <h3 className="font-bold text-base text-[#1A1A1A]">{activePost.title}</h3>
-                  <p className="text-xs text-[#374151] leading-relaxed whitespace-pre-wrap">{activePost.content}</p>
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white">{activePost.title}</h3>
+                  <p className="text-xs text-slate-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">{activePost.content}</p>
                 </div>
 
                 {/* Answers Section */}
                 <div className="space-y-3">
-                  <h4 className="font-bold text-xs text-[#1A1A1A] uppercase tracking-wider text-[#9CA3AF]">
+                  <h4 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider text-[#9CA3AF]">
                     Class Answers & Teacher Feedback ({(activePost.answers || []).length})
                   </h4>
 
                   {(activePost.answers || []).length === 0 ? (
-                    <p className="text-xs text-[#6B7280] py-2">No peer solutions yet. Be the first to answer!</p>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 py-2">No peer solutions yet. Be the first to answer!</p>
                   ) : (
                     (activePost.answers || []).map((ans) => (
                       <div
                         key={ans.id}
-                        className={`p-3 text-xs space-y-1.5 border ${ans.isTeacherVerified ? "border-emerald-300 bg-emerald-50/20" : "border-[#E5E7EB] bg-[#FAFAFA]"}`}
+                        className={`p-3 text-xs space-y-1.5 border ${ans.isTeacherVerified ? "border-emerald-300 bg-emerald-50/20" : "border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/60"}`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-[#1A1A1A]">{ans.authorName}</span>
-                            <span className="text-[10px] text-[#6B7280]">({ans.authorRole})</span>
+                            <span className="font-bold text-slate-900 dark:text-white">{ans.authorName}</span>
+                            <span className="text-[10px] text-slate-500 dark:text-zinc-400">({ans.authorRole})</span>
                             {ans.isTeacherVerified && (
                               <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.2 flex items-center gap-0.5 border border-emerald-300">
                                 <CheckCircle2 className="w-3 h-3 text-emerald-700" /> Faculty Verified
@@ -1063,27 +1171,27 @@ export const ClassHub = ({
                             )}
                             <button
                               onClick={() => handleUpvoteAnswer(activePost.id, ans.id)}
-                              className="text-[11px] text-[#6B7280] hover:text-black flex items-center gap-1"
+                              className="text-[11px] text-slate-500 dark:text-zinc-400 hover:text-black flex items-center gap-1"
                             >
                               <ThumbsUp className="w-3 h-3" /> {ans.upvotes || 0}
                             </button>
                           </div>
                         </div>
 
-                        <p className="text-xs text-[#374151] leading-relaxed whitespace-pre-wrap">{ans.content}</p>
+                        <p className="text-xs text-slate-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">{ans.content}</p>
                       </div>
                     ))
                   )}
 
                   {/* Answer Input */}
-                  <form onSubmit={handleSubmitAnswer} className="space-y-2 pt-2 border-t border-[#F0F2F5]">
+                  <form onSubmit={handleSubmitAnswer} className="space-y-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
                     <textarea
                       rows={3}
                       required
                       placeholder="Write your explanation or step-by-step solution for your classmates..."
                       value={answerContent}
                       onChange={(e) => setAnswerContent(e.target.value)}
-                      className="w-full bg-[#F9FAFB] border border-[#E5E7EB] p-2.5 text-xs outline-none focus:border-black"
+                      className="w-full bg-[#F9FAFB] border border-slate-200 dark:border-zinc-800 p-2.5 text-xs outline-none focus:border-black"
                     />
                     <button
                       type="submit"
@@ -1097,7 +1205,7 @@ export const ClassHub = ({
                 </div>
               </div>
             ) : (
-              <div className="bg-white border border-[#E5E7EB] p-12 text-center text-xs text-[#6B7280]">
+              <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs p-12 text-center text-xs text-slate-500 dark:text-zinc-400">
                 Select a doubt from the left to view the thread and solutions.
               </div>
             )}
@@ -1107,16 +1215,16 @@ export const ClassHub = ({
 
       {/* TAB 3: CLASSMATES IN MY SECTION ROSTER */}
       {activeSubTab === "roster" && (
-        <div className="bg-white dark:bg-[#1A1A1A] border border-[#E5E7EB] dark:border-[#2A2A2A] p-5 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F0F2F5] dark:border-[#2A2A2A] pb-3">
+        <div className="bg-white dark:bg-[#1A1A1A] border border-slate-200 dark:border-zinc-800 dark:border-[#2A2A2A] p-5 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-zinc-800 dark:border-[#2A2A2A] pb-3">
             <div>
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-black dark:text-white" />
-                <h3 className="font-bold text-sm text-[#1A1A1A] dark:text-white">
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white dark:text-white">
                   {isTeacher ? "Classroom Student Roster" : `Classmates in Your Section (${studentSection || "Section A"})`}
                 </h3>
               </div>
-              <p className="text-xs text-[#6B7280] dark:text-[#AAA]">
+              <p className="text-xs text-slate-500 dark:text-zinc-400 dark:text-[#AAA]">
                 {isTeacher
                   ? `Students enrolled in ${info?.className || `Class ${classCode}`}`
                   : `Showing classmates belonging strictly to your assigned section (${studentSection || "Section A"}).`}
@@ -1132,7 +1240,7 @@ export const ClassHub = ({
                     className={`px-2.5 py-1 text-xs font-bold border transition-colors ${
                       selectedRosterSection === sec
                         ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white"
-                        : "bg-[#F8F9FA] dark:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-[#E5E7EB] dark:border-[#333]"
+                        : "bg-[#F8F9FA] dark:bg-[#252525] text-slate-600 dark:text-zinc-300 dark:text-[#CCC] border-slate-200 dark:border-zinc-800 dark:border-[#333]"
                     }`}
                   >
                     {sec === "all" ? "All Sections" : sec}
@@ -1159,12 +1267,12 @@ export const ClassHub = ({
               .map((student) => (
                 <div
                   key={student.studentId}
-                  className="border border-[#E5E7EB] dark:border-[#2A2A2A] p-3.5 bg-[#F9FAFB] dark:bg-[#222222] space-y-2"
+                  className="border border-slate-200 dark:border-zinc-800 dark:border-[#2A2A2A] p-3.5 bg-[#F9FAFB] dark:bg-[#222222] space-y-2"
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <h4 className="font-bold text-xs text-[#1A1A1A] dark:text-white">{student.studentName}</h4>
-                      <span className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF] font-mono">
+                      <h4 className="font-bold text-xs text-slate-900 dark:text-white dark:text-white">{student.studentName}</h4>
+                      <span className="text-[10px] text-slate-500 dark:text-zinc-400 dark:text-[#9CA3AF] font-mono">
                         {student.studentEmail || student.email}
                       </span>
                     </div>
@@ -1172,7 +1280,7 @@ export const ClassHub = ({
                       {student.section || "Section A"}
                     </span>
                   </div>
-                  <div className="text-[11px] text-[#4B5563] dark:text-[#AAA] pt-1.5 border-t border-[#E5E7EB] dark:border-[#333] flex items-center justify-between">
+                  <div className="text-[11px] text-slate-600 dark:text-zinc-300 dark:text-[#AAA] pt-1.5 border-t border-slate-200 dark:border-zinc-800 dark:border-[#333] flex items-center justify-between">
                     <span>
                       Grade: <strong>{student.gradeLevel || info?.grade || "Class 10"}</strong>
                     </span>
@@ -1188,25 +1296,25 @@ export const ClassHub = ({
       {activeSubTab === "resources" && (
         <div className="space-y-4">
           {/* Filter and Search Bar */}
-          <div className="bg-white border border-[#E5E7EB] p-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 flex-1 max-w-md bg-[#F8F9FA] border border-[#E5E7EB] px-3 py-1.5">
-              <Search className="w-3.5 h-3.5 text-[#6B7280]" />
+          <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-1 max-w-md bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-1.5">
+              <Search className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
               <input
                 type="text"
                 placeholder="Search classroom notes, formulas, video topics, images..."
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
-                className="bg-transparent border-none outline-none text-xs w-full text-[#1A1A1A]"
+                className="bg-transparent border-none outline-none text-xs w-full text-slate-900 dark:text-white"
               />
             </div>
 
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-bold text-[#6B7280] uppercase">Subject:</span>
+                <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase">Subject:</span>
                 <select
                   value={subjectFilter}
                   onChange={(e) => setSubjectFilter(e.target.value)}
-                  className="bg-[#F8F9FA] border border-[#E5E7EB] px-2.5 py-1 text-xs font-semibold outline-none cursor-pointer"
+                  className="bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg px-2.5 py-1 text-xs font-semibold outline-none cursor-pointer"
                 >
                   <option value="all">All Subjects</option>
                   <option value="Physics">Physics</option>
@@ -1217,11 +1325,11 @@ export const ClassHub = ({
               </div>
 
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-bold text-[#6B7280] uppercase">Type:</span>
+                <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase">Type:</span>
                 <select
                   value={mediaTypeFilter}
                   onChange={(e) => setMediaTypeFilter(e.target.value)}
-                  className="bg-[#F8F9FA] border border-[#E5E7EB] px-2.5 py-1 text-xs font-semibold outline-none cursor-pointer"
+                  className="bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg px-2.5 py-1 text-xs font-semibold outline-none cursor-pointer"
                 >
                   <option value="all">All Media Types</option>
                   <option value="text">📝 Written Notes</option>
@@ -1235,14 +1343,14 @@ export const ClassHub = ({
 
           {/* Resources List */}
           {loadingResources ? (
-            <div className="bg-white border border-[#E5E7EB] p-12 text-center text-xs text-[#6B7280]">
+            <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs p-12 text-center text-xs text-slate-500 dark:text-zinc-400">
               Loading classroom resources...
             </div>
           ) : filteredResources.length === 0 ? (
-            <div className="bg-white border border-[#E5E7EB] p-12 text-center space-y-3">
+            <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs p-12 text-center space-y-3">
               <FileText className="w-8 h-8 mx-auto text-[#9CA3AF]" />
-              <h3 className="font-bold text-sm text-[#1A1A1A]">No Classroom Resources Found</h3>
-              <p className="text-xs text-[#6B7280] max-w-md mx-auto">
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white">No Classroom Resources Found</h3>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-md mx-auto">
                 Teachers and students can upload notes, diagram photos, video explanations, or PDF files. The AI reads from all shared classroom documents to solve doubts and create practice tests.
               </p>
               <button
@@ -1256,21 +1364,27 @@ export const ClassHub = ({
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredResources.map((res) => {
+                if (!res) return null;
                 const isExpanded = expandedResourceId === res.id;
-                const isImage = res.mediaType === "image" && res.mediaData;
-                const isVideo = res.mediaType === "video" && res.mediaData;
-                const isFile = res.mediaType === "file" && res.mediaData;
+                const isImage = res.mediaType === "image" && !!res.mediaData;
+                const isVideo = res.mediaType === "video" && !!res.mediaData;
+                const isFile = res.mediaType === "file" && !!res.mediaData;
+                
+                const textContent = String(res.content || res.extractedContent || res.summary || "");
+                const concepts = Array.isArray(res.keyConcepts)
+                  ? res.keyConcepts
+                  : (typeof res.keyConcepts === "string" ? res.keyConcepts.split(",") : []);
 
                 return (
                   <div
-                    key={res.id}
-                    className="bg-white border border-[#E5E7EB] p-4 space-y-3 hover:border-[#9CA3AF] transition-colors flex flex-col justify-between"
+                    key={res.id || Math.random()}
+                    className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs p-4 space-y-3 hover:border-[#9CA3AF] transition-colors flex flex-col justify-between"
                   >
                     <div className="space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-[#F3F4F6] text-[#4B5563] border border-[#E5E7EB]">
-                            {res.subject} &bull; {res.gradeLevel}
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-[#F3F4F6] text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-800">
+                            {res.subject || "General"} &bull; {res.gradeLevel || "Class 10-12"}
                           </span>
                           
                           {/* Media Type Badge */}
@@ -1311,26 +1425,26 @@ export const ClassHub = ({
                           <span className={`text-[10px] font-bold px-2 py-0.5 ${
                             res.sharedByRole === "teacher" ? "bg-black text-white" : "bg-emerald-50 text-emerald-800 border border-emerald-200"
                           }`}>
-                            {res.sharedBy || res.authorName} ({res.sharedByRole || res.authorRole})
+                            {res.sharedBy || res.authorName || "Faculty Lead"} ({res.sharedByRole || res.authorRole || "teacher"})
                           </span>
                         </div>
                       </div>
 
-                      <h3 className="font-bold text-sm text-[#1A1A1A]">
-                        {res.title}
+                      <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                        {res.title || "Classroom Study Note"}
                       </h3>
 
-                      <div className="text-[11px] text-[#6B7280] font-medium flex items-center gap-1.5">
+                      <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium flex items-center gap-1.5">
                         <BookOpen className="w-3.5 h-3.5 text-[#9CA3AF]" />
-                        <span>Chapter / Topic: <strong>{res.chapter}</strong></span>
+                        <span>Chapter / Topic: <strong>{res.chapter || "Curriculum Unit"}</strong></span>
                       </div>
 
                       {/* Media Display Component */}
                       {isImage && (
-                        <div className="relative group border border-[#E5E7EB] bg-black/5 overflow-hidden rounded">
+                        <div className="relative group border border-slate-200 dark:border-zinc-800 bg-black/5 overflow-hidden rounded">
                           <img
                             src={res.mediaData}
-                            alt={res.title}
+                            alt={res.title || "Diagram preview"}
                             referrerPolicy="no-referrer"
                             className="w-full max-h-48 object-contain bg-white cursor-pointer"
                             onClick={() => setZoomedMedia({ type: "image", url: res.mediaData, title: res.title })}
@@ -1345,7 +1459,7 @@ export const ClassHub = ({
                       )}
 
                       {isVideo && (
-                        <div className="border border-[#E5E7EB] bg-black rounded overflow-hidden">
+                        <div className="border border-slate-200 dark:border-zinc-800 bg-black rounded overflow-hidden">
                           <video
                             controls
                             src={res.mediaData}
@@ -1357,12 +1471,12 @@ export const ClassHub = ({
                       )}
 
                       {isFile && (
-                        <div className="p-2.5 bg-[#F8F9FA] border border-[#E5E7EB] flex items-center justify-between flex-wrap gap-2">
+                        <div className="p-2.5 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg flex items-center justify-between flex-wrap gap-2">
                           <div className="flex items-center gap-2 overflow-hidden">
-                            <FileText className="w-4 h-4 text-[#4B5563] shrink-0" />
+                            <FileText className="w-4 h-4 text-slate-600 dark:text-zinc-300 shrink-0" />
                             <div className="truncate">
-                              <div className="text-xs font-semibold text-[#1A1A1A] truncate">{res.mediaMeta?.fileName || "Uploaded PDF Document"}</div>
-                              <div className="text-[10px] text-[#6B7280]">
+                              <div className="text-xs font-semibold text-slate-900 dark:text-white truncate">{res.mediaMeta?.fileName || "Uploaded PDF Document"}</div>
+                              <div className="text-[10px] text-slate-500 dark:text-zinc-400">
                                 {res.mediaMeta?.fileSize ? `${Math.round(res.mediaMeta.fileSize / 1024)} KB` : "Document File"} &bull; AI Grounded & Analyzed
                               </div>
                             </div>
@@ -1379,7 +1493,7 @@ export const ClassHub = ({
                               <a
                                 href={res.mediaData}
                                 download={res.mediaMeta?.fileName || "classroom-resource.pdf"}
-                                className="bg-white border border-[#E5E7EB] hover:border-black text-[11px] font-bold px-2.5 py-1 text-[#1A1A1A] flex items-center gap-1 transition-colors"
+                                className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs hover:border-black text-[11px] font-bold px-2.5 py-1 text-slate-900 dark:text-white flex items-center gap-1 transition-colors"
                               >
                                 <Download className="w-3 h-3" /> Download
                               </a>
@@ -1388,23 +1502,25 @@ export const ClassHub = ({
                         </div>
                       )}
 
-                      {res.keyConcepts && res.keyConcepts.length > 0 && (
+                      {concepts.length > 0 && (
                         <div className="flex items-center gap-1 flex-wrap pt-1">
                           <Tag className="w-3 h-3 text-[#9CA3AF]" />
-                          {res.keyConcepts.map((k, idx) => (
-                            <span key={idx} className="bg-[#F8F9FA] border border-[#E5E7EB] text-[10px] px-1.5 py-0.2 text-[#4B5563]">
+                          {concepts.map((k, idx) => (
+                            <span key={idx} className="bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg text-[10px] px-1.5 py-0.2 text-slate-600 dark:text-zinc-300">
                               {k}
                             </span>
                           ))}
                         </div>
                       )}
 
-                      {/* Content Preview / Full */}
-                      <div className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] text-xs font-mono text-[#374151] whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
-                        {isExpanded ? res.content : `${res.content.slice(0, 200)}${res.content.length > 200 ? "..." : ""}`}
-                      </div>
+                      {/* Safe Content Preview */}
+                      {textContent && (
+                        <div className="p-3 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs font-mono text-slate-700 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+                          {isExpanded ? textContent : `${textContent.slice(0, 200)}${textContent.length > 200 ? "..." : ""}`}
+                        </div>
+                      )}
 
-                      {res.content.length > 200 && (
+                      {textContent.length > 200 && (
                         <button
                           onClick={() => setExpandedResourceId(isExpanded ? null : res.id)}
                           className="text-[11px] text-blue-600 hover:underline font-semibold"
@@ -1415,7 +1531,7 @@ export const ClassHub = ({
                     </div>
 
                     {/* Action Bar */}
-                    <div className="pt-3 border-t border-[#F0F2F5] flex items-center justify-between gap-2 text-xs">
+                    <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-2 text-xs">
                       <span className="text-[10px] font-mono text-[#9CA3AF] flex items-center gap-1">
                         <Sparkles className="w-3 h-3 text-emerald-600" />
                         AI Multimodal Grounded
@@ -1470,28 +1586,28 @@ export const ClassHub = ({
 
       {/* TAB 2: WEEKLY TIMETABLE */}
       {activeSubTab === "schedule" && (
-        <div className="bg-white border border-[#E5E7EB]">
-          <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between">
+        <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs">
+          <div className="p-4 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-black" />
-              <h2 className="text-sm font-bold text-[#1A1A1A]">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
                 Weekly Class Timetable
               </h2>
             </div>
-            <span className="text-xs font-mono text-[#6B7280]">
+            <span className="text-xs font-mono text-slate-500 dark:text-zinc-400">
               Class {classCode} Schedule
             </span>
           </div>
 
           <div className="p-4">
             {/* Day Selector */}
-            <div className="flex gap-2 overflow-x-auto pb-3 border-b border-[#F0F2F5] text-xs">
+            <div className="flex gap-2 overflow-x-auto pb-3 border-b border-slate-100 dark:border-zinc-800 text-xs">
               {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day) => (
                 <button
                   key={day}
                   onClick={() => setSelectedDay(day)}
                   className={`px-3 py-1.5 font-bold transition-colors ${
-                    selectedDay === day ? "bg-black text-white" : "bg-[#F3F4F6] text-[#4B5563] hover:bg-[#E5E7EB]"
+                    selectedDay === day ? "bg-black text-white" : "bg-[#F3F4F6] text-slate-600 dark:text-zinc-300 hover:bg-[#E5E7EB]"
                   }`}
                 >
                   {day}
@@ -1505,29 +1621,29 @@ export const ClassHub = ({
                 currentTimetableDay.periods.map((p, idx) => (
                   <div
                     key={idx}
-                    className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] flex items-center justify-between flex-wrap gap-2 text-xs"
+                    className="p-3 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg flex items-center justify-between flex-wrap gap-2 text-xs"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="font-mono font-bold bg-[#E5E7EB] text-[#1A1A1A] px-2 py-0.5 text-[10px]">
+                      <span className="font-mono font-bold bg-[#E5E7EB] text-slate-900 dark:text-white px-2 py-0.5 text-[10px]">
                         Period {p.period}
                       </span>
-                      <span className="font-bold text-[#1A1A1A]">{p.subject}</span>
-                      <span className="text-[#6B7280]">{p.topic}</span>
+                      <span className="font-bold text-slate-900 dark:text-white">{p.subject}</span>
+                      <span className="text-slate-500 dark:text-zinc-400">{p.topic}</span>
                     </div>
 
-                    <div className="flex items-center gap-4 text-[#6B7280] text-[11px]">
+                    <div className="flex items-center gap-4 text-slate-500 dark:text-zinc-400 text-[11px]">
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" /> {p.time}
                       </span>
                       <span>Teacher: <strong>{p.teacher}</strong></span>
-                      <span className="bg-white border border-[#E5E7EB] px-1.5 py-0.5 text-[10px]">
+                      <span className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs px-1.5 py-0.5 text-[10px]">
                         Room {p.room}
                       </span>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="p-8 text-center text-xs text-[#6B7280]">
+                <div className="p-8 text-center text-xs text-slate-500 dark:text-zinc-400">
                   No periods scheduled for {selectedDay}.
                 </div>
               )}
@@ -1538,15 +1654,15 @@ export const ClassHub = ({
 
       {/* TAB 3: SYLLABUS ROADMAP */}
       {activeSubTab === "syllabus" && (
-        <div className="bg-white border border-[#E5E7EB]">
-          <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between">
+        <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs">
+          <div className="p-4 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-black" />
-              <h2 className="text-sm font-bold text-[#1A1A1A]">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
                 Class Syllabus & Academic Roadmap
               </h2>
             </div>
-            <span className="text-xs font-mono text-[#6B7280]">
+            <span className="text-xs font-mono text-slate-500 dark:text-zinc-400">
               Grade 11-12 Academic Track
             </span>
           </div>
@@ -1558,15 +1674,15 @@ export const ClassHub = ({
               { unit: "Unit 3", title: "Electromagnetic Waves & Optics", weightageMarks: 18, totalPeriods: 30, keyTopics: ["Displacement Current", "Ray Optics & Optical Instruments", "Wave Optics & Interference", "Diffraction & Polarization"] },
               { unit: "Unit 4", title: "Modern Physics & Electronic Devices", weightageMarks: 19, totalPeriods: 24, keyTopics: ["Photoelectric Effect", "Bohr Atomic Model", "Nuclear Binding Energy", "Semiconductor Diodes & Logic Gates"] }
             ]).map((unit, idx) => (
-              <div key={idx} className="p-4 bg-[#F8F9FA] border border-[#E5E7EB] space-y-2">
+              <div key={idx} className="p-4 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg space-y-2">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <span className="bg-black text-white font-mono text-[10px] font-bold px-2 py-0.5">
                       {unit.unit}
                     </span>
-                    <h3 className="font-bold text-xs text-[#1A1A1A]">{unit.title}</h3>
+                    <h3 className="font-bold text-xs text-slate-900 dark:text-white">{unit.title}</h3>
                   </div>
-                  <span className="text-[11px] font-semibold text-[#4B5563] bg-white border border-[#E5E7EB] px-2 py-0.5">
+                  <span className="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs px-2 py-0.5">
                     {unit.weightageMarks} Marks &bull; {unit.totalPeriods} Periods
                   </span>
                 </div>
@@ -1574,7 +1690,7 @@ export const ClassHub = ({
                 <div className="flex items-center gap-1.5 flex-wrap pt-1">
                   <span className="text-[10px] font-bold text-[#9CA3AF] uppercase">Topics:</span>
                   {unit.keyTopics.map((topic, tIdx) => (
-                    <span key={tIdx} className="bg-white border border-[#E5E7EB] text-[10px] px-2 py-0.5 text-[#374151]">
+                    <span key={tIdx} className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs text-[10px] px-2 py-0.5 text-slate-700 dark:text-zinc-300">
                       {topic}
                     </span>
                   ))}
@@ -1589,16 +1705,16 @@ export const ClassHub = ({
       {showShareModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-black max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
               <div>
-                <h3 className="font-bold text-base text-[#1A1A1A]">Share Resource with Class {classCode}</h3>
-                <p className="text-xs text-[#6B7280]">
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">Share Resource with Class {classCode}</h3>
+                <p className="text-xs text-slate-500 dark:text-zinc-400">
                   Upload handwritten notes, diagram images, lecture clips, PDFs, or formula sheets.
                 </p>
               </div>
               <button
                 onClick={() => setShowShareModal(false)}
-                className="text-[#6B7280] hover:text-black font-bold text-lg"
+                className="text-slate-500 dark:text-zinc-400 hover:text-black font-bold text-lg"
               >
                 &times;
               </button>
@@ -1606,13 +1722,13 @@ export const ClassHub = ({
 
             {/* Media Type Selector Tabs */}
             <div className="space-y-1">
-              <label className="font-bold text-xs text-[#1A1A1A] block">Select Resource Type:</label>
+              <label className="font-bold text-xs text-slate-900 dark:text-white block">Select Resource Type:</label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <button
                   type="button"
                   onClick={() => setUploadMode("text")}
                   className={`p-2.5 border text-xs font-bold flex flex-col items-center gap-1 transition-colors ${
-                    uploadMode === "text" ? "border-black bg-black text-white" : "border-[#E5E7EB] bg-[#F8F9FA] text-[#4B5563] hover:bg-[#E5E7EB]"
+                    uploadMode === "text" ? "border-black bg-black text-white" : "border-slate-200 dark:border-zinc-800 bg-[#F8F9FA] text-slate-600 dark:text-zinc-300 hover:bg-[#E5E7EB]"
                   }`}
                 >
                   <FileText className="w-4 h-4" />
@@ -1622,7 +1738,7 @@ export const ClassHub = ({
                   type="button"
                   onClick={() => setUploadMode("image")}
                   className={`p-2.5 border text-xs font-bold flex flex-col items-center gap-1 transition-colors ${
-                    uploadMode === "image" ? "border-black bg-black text-white" : "border-[#E5E7EB] bg-[#F8F9FA] text-[#4B5563] hover:bg-[#E5E7EB]"
+                    uploadMode === "image" ? "border-black bg-black text-white" : "border-slate-200 dark:border-zinc-800 bg-[#F8F9FA] text-slate-600 dark:text-zinc-300 hover:bg-[#E5E7EB]"
                   }`}
                 >
                   <ImageIcon className="w-4 h-4" />
@@ -1632,7 +1748,7 @@ export const ClassHub = ({
                   type="button"
                   onClick={() => setUploadMode("video")}
                   className={`p-2.5 border text-xs font-bold flex flex-col items-center gap-1 transition-colors ${
-                    uploadMode === "video" ? "border-black bg-black text-white" : "border-[#E5E7EB] bg-[#F8F9FA] text-[#4B5563] hover:bg-[#E5E7EB]"
+                    uploadMode === "video" ? "border-black bg-black text-white" : "border-slate-200 dark:border-zinc-800 bg-[#F8F9FA] text-slate-600 dark:text-zinc-300 hover:bg-[#E5E7EB]"
                   }`}
                 >
                   <VideoIcon className="w-4 h-4" />
@@ -1642,7 +1758,7 @@ export const ClassHub = ({
                   type="button"
                   onClick={() => setUploadMode("file")}
                   className={`p-2.5 border text-xs font-bold flex flex-col items-center gap-1 transition-colors ${
-                    uploadMode === "file" ? "border-black bg-black text-white" : "border-[#E5E7EB] bg-[#F8F9FA] text-[#4B5563] hover:bg-[#E5E7EB]"
+                    uploadMode === "file" ? "border-black bg-black text-white" : "border-slate-200 dark:border-zinc-800 bg-[#F8F9FA] text-slate-600 dark:text-zinc-300 hover:bg-[#E5E7EB]"
                   }`}
                 >
                   <FileUp className="w-4 h-4" />
@@ -1655,17 +1771,17 @@ export const ClassHub = ({
               {/* File Upload Drag & Drop Area if not pure text mode or if file uploaded */}
               {uploadMode !== "text" && (
                 <div className="space-y-2">
-                  <label className="font-bold text-[#1A1A1A] block">
+                  <label className="font-bold text-slate-900 dark:text-white block">
                     Upload {uploadMode === "image" ? "Image / Diagram (PNG, JPG, WEBP)" : uploadMode === "video" ? "Video Clip (MP4, WEBM)" : "Document File (PDF, DOCX, TXT)"} *
                   </label>
 
                   {uploadedFile ? (
-                    <div className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] rounded space-y-2">
+                    <div className="p-3 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg rounded space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           {uploadMode === "image" ? <ImageIcon className="w-4 h-4 text-blue-600" /> : uploadMode === "video" ? <VideoIcon className="w-4 h-4 text-purple-600" /> : <FileText className="w-4 h-4 text-amber-600" />}
-                          <span className="font-semibold text-[#1A1A1A]">{uploadedFile.name}</span>
-                          <span className="text-[10px] text-[#6B7280]">({Math.round(uploadedFile.size / 1024)} KB)</span>
+                          <span className="font-semibold text-slate-900 dark:text-white">{uploadedFile.name}</span>
+                          <span className="text-[10px] text-slate-500 dark:text-zinc-400">({Math.round(uploadedFile.size / 1024)} KB)</span>
                         </div>
                         <button
                           type="button"
@@ -1678,12 +1794,12 @@ export const ClassHub = ({
 
                       {/* Instant Preview */}
                       {uploadMode === "image" && (
-                        <div className="max-h-40 overflow-hidden bg-black/5 rounded border border-[#E5E7EB] flex items-center justify-center p-1">
+                        <div className="max-h-40 overflow-hidden bg-black/5 rounded border border-slate-200 dark:border-zinc-800 flex items-center justify-center p-1">
                           <img src={uploadedFile.dataUrl} alt="Preview" className="max-h-36 object-contain" />
                         </div>
                       )}
                       {uploadMode === "video" && (
-                        <div className="max-h-48 overflow-hidden bg-black rounded border border-[#E5E7EB]">
+                        <div className="max-h-48 overflow-hidden bg-black rounded border border-slate-200 dark:border-zinc-800">
                           <video controls src={uploadedFile.dataUrl} className="max-h-44 w-full" />
                         </div>
                       )}
@@ -1706,11 +1822,11 @@ export const ClassHub = ({
                         onChange={handleFileSelect}
                         className="hidden"
                       />
-                      <FileUp className="w-8 h-8 mx-auto text-[#6B7280]" />
-                      <div className="text-xs font-bold text-[#1A1A1A]">
+                      <FileUp className="w-8 h-8 mx-auto text-slate-500 dark:text-zinc-400" />
+                      <div className="text-xs font-bold text-slate-900 dark:text-white">
                         Click to browse or drop your {uploadMode} file here
                       </div>
-                      <div className="text-[11px] text-[#6B7280]">
+                      <div className="text-[11px] text-slate-500 dark:text-zinc-400">
                         Max 30MB &bull; AI Multimodal will analyze and transcribe text, formulas & diagrams
                       </div>
                     </div>
@@ -1719,24 +1835,24 @@ export const ClassHub = ({
               )}
 
               <div>
-                <label className="font-bold text-[#1A1A1A] block mb-1">Resource Title *</label>
+                <label className="font-bold text-slate-900 dark:text-white block mb-1">Resource Title *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g., Wave Optics Formula Sheet & Diagram Derivations"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full bg-[#F8F9FA] border border-[#E5E7EB] px-3 py-2 text-xs outline-none focus:border-black"
+                  className="w-full bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-xs outline-none focus:border-black"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="font-bold text-[#1A1A1A] block mb-1">Subject</label>
+                  <label className="font-bold text-slate-900 dark:text-white block mb-1">Subject</label>
                   <select
                     value={formData.subject}
                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    className="w-full bg-[#F8F9FA] border border-[#E5E7EB] px-2.5 py-2 text-xs outline-none focus:border-black cursor-pointer font-medium"
+                    className="w-full bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg px-2.5 py-2 text-xs outline-none focus:border-black cursor-pointer font-medium"
                   >
                     <option value="Physics">Physics</option>
                     <option value="Chemistry">Chemistry</option>
@@ -1747,40 +1863,40 @@ export const ClassHub = ({
                 </div>
 
                 <div>
-                  <label className="font-bold text-[#1A1A1A] block mb-1">Grade Level</label>
+                  <label className="font-bold text-slate-900 dark:text-white block mb-1">Grade Level</label>
                   <input
                     type="text"
                     value={formData.gradeLevel}
                     onChange={(e) => setFormData({ ...formData, gradeLevel: e.target.value })}
-                    className="w-full bg-[#F8F9FA] border border-[#E5E7EB] px-3 py-2 text-xs outline-none focus:border-black"
+                    className="w-full bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-xs outline-none focus:border-black"
                   />
                 </div>
 
                 <div>
-                  <label className="font-bold text-[#1A1A1A] block mb-1">Chapter / Unit</label>
+                  <label className="font-bold text-slate-900 dark:text-white block mb-1">Chapter / Unit</label>
                   <input
                     type="text"
                     placeholder="e.g., Chapter 10: Wave Optics"
                     value={formData.chapter}
                     onChange={(e) => setFormData({ ...formData, chapter: e.target.value })}
-                    className="w-full bg-[#F8F9FA] border border-[#E5E7EB] px-3 py-2 text-xs outline-none focus:border-black"
+                    className="w-full bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-xs outline-none focus:border-black"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="font-bold text-[#1A1A1A] block mb-1">Key Concepts (Comma separated tags)</label>
+                <label className="font-bold text-slate-900 dark:text-white block mb-1">Key Concepts (Comma separated tags)</label>
                 <input
                   type="text"
                   placeholder="e.g., Young Double Slit, Path Difference, Fringe Width, Huygens"
                   value={formData.keyConcepts}
                   onChange={(e) => setFormData({ ...formData, keyConcepts: e.target.value })}
-                  className="w-full bg-[#F8F9FA] border border-[#E5E7EB] px-3 py-2 text-xs outline-none focus:border-black"
+                  className="w-full bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-xs outline-none focus:border-black"
                 />
               </div>
 
               <div>
-                <label className="font-bold text-[#1A1A1A] block mb-1">
+                <label className="font-bold text-slate-900 dark:text-white block mb-1">
                   {uploadMode === "text" ? "Study Notes / Markdown / Formulae *" : "Accompanying Notes / Summary (Optional)"}
                 </label>
                 <textarea
@@ -1793,7 +1909,7 @@ export const ClassHub = ({
                   }
                   value={formData.content}
                   onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  className="w-full bg-[#F8F9FA] border border-[#E5E7EB] p-3 text-xs font-mono outline-none focus:border-black"
+                  className="w-full bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg p-3 text-xs font-mono outline-none focus:border-black"
                 />
               </div>
 
@@ -1808,7 +1924,7 @@ export const ClassHub = ({
                 <button
                   type="button"
                   onClick={() => setShowShareModal(false)}
-                  className="px-4 py-2 border border-[#E5E7EB] text-[#4B5563] hover:bg-[#F8F9FA]"
+                  className="px-4 py-2 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-[#F8F9FA]"
                 >
                   Cancel
                 </button>
@@ -1836,14 +1952,14 @@ export const ClassHub = ({
       {showCreatePostModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white border border-black max-w-lg w-full p-6 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-indigo-600" />
-                <h3 className="font-bold text-sm text-[#1A1A1A]">Ask a Doubt to Your Classroom</h3>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">Ask a Doubt to Your Classroom</h3>
               </div>
               <button
                 onClick={() => setShowCreatePostModal(false)}
-                className="text-[#6B7280] hover:text-black font-bold text-xs"
+                className="text-slate-500 dark:text-zinc-400 hover:text-black font-bold text-xs"
               >
                 ✕
               </button>
@@ -1851,24 +1967,24 @@ export const ClassHub = ({
 
             <form onSubmit={handleCreatePost} className="space-y-3 text-xs">
               <div className="space-y-1">
-                <label className="font-bold text-[#374151]">Question / Doubt Title *</label>
+                <label className="font-bold text-slate-700 dark:text-zinc-300">Question / Doubt Title *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. How does Lens Maker's formula change when immersed in water?"
                   value={postTitle}
                   onChange={(e) => setPostTitle(e.target.value)}
-                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs outline-none focus:border-black"
+                  className="w-full bg-[#F9FAFB] border border-slate-200 dark:border-zinc-800 px-3 py-2 text-xs outline-none focus:border-black"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="font-bold text-[#374151]">Subject</label>
+                  <label className="font-bold text-slate-700 dark:text-zinc-300">Subject</label>
                   <select
                     value={postSubject}
                     onChange={(e) => setPostSubject(e.target.value)}
-                    className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-2.5 py-2 text-xs outline-none focus:border-black"
+                    className="w-full bg-[#F9FAFB] border border-slate-200 dark:border-zinc-800 px-2.5 py-2 text-xs outline-none focus:border-black"
                   >
                     <option value="Physics">Physics</option>
                     <option value="Chemistry">Chemistry</option>
@@ -1879,26 +1995,26 @@ export const ClassHub = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-[#374151]">Tags (Optional)</label>
+                  <label className="font-bold text-slate-700 dark:text-zinc-300">Tags (Optional)</label>
                   <input
                     type="text"
                     placeholder="e.g. Optics, Refraction, Focal Length"
                     value={postTags}
                     onChange={(e) => setPostTags(e.target.value)}
-                    className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs outline-none focus:border-black"
+                    className="w-full bg-[#F9FAFB] border border-slate-200 dark:border-zinc-800 px-3 py-2 text-xs outline-none focus:border-black"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-[#374151]">Detailed Question & What you tried *</label>
+                <label className="font-bold text-slate-700 dark:text-zinc-300">Detailed Question & What you tried *</label>
                 <textarea
                   rows={4}
                   required
                   placeholder="Describe your step-by-step confusion so your classmates and teacher can help..."
                   value={postContent}
                   onChange={(e) => setPostContent(e.target.value)}
-                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] p-2.5 text-xs outline-none focus:border-black"
+                  className="w-full bg-[#F9FAFB] border border-slate-200 dark:border-zinc-800 p-2.5 text-xs outline-none focus:border-black"
                 />
               </div>
 
@@ -1928,14 +2044,14 @@ export const ClassHub = ({
       {showAnnounceModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white border border-black max-w-md w-full p-6 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
               <div className="flex items-center gap-2">
                 <Megaphone className="w-4 h-4 text-amber-600" />
-                <h3 className="font-bold text-sm text-[#1A1A1A]">Broadcast Teacher Circular</h3>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">Broadcast Teacher Circular</h3>
               </div>
               <button
                 onClick={() => setShowAnnounceModal(false)}
-                className="text-[#6B7280] hover:text-black font-bold text-xs"
+                className="text-slate-500 dark:text-zinc-400 hover:text-black font-bold text-xs"
               >
                 ✕
               </button>
@@ -1943,23 +2059,23 @@ export const ClassHub = ({
 
             <form onSubmit={handleCreateAnnouncement} className="space-y-3 text-xs">
               <div className="space-y-1">
-                <label className="font-bold text-[#374151]">Circular Title *</label>
+                <label className="font-bold text-slate-700 dark:text-zinc-300">Circular Title *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Unit Test 2 Date Sheet & Syllabus Allocation"
                   value={annTitle}
                   onChange={(e) => setAnnTitle(e.target.value)}
-                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs outline-none focus:border-black"
+                  className="w-full bg-[#F9FAFB] border border-slate-200 dark:border-zinc-800 px-3 py-2 text-xs outline-none focus:border-black"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-[#374151]">Priority *</label>
+                <label className="font-bold text-slate-700 dark:text-zinc-300">Priority *</label>
                 <select
                   value={annPriority}
                   onChange={(e) => setAnnPriority(e.target.value)}
-                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs outline-none focus:border-black font-bold"
+                  className="w-full bg-[#F9FAFB] border border-slate-200 dark:border-zinc-800 px-3 py-2 text-xs outline-none focus:border-black font-bold"
                 >
                   <option value="normal">Normal Circular</option>
                   <option value="important">Important Notice</option>
@@ -1968,14 +2084,14 @@ export const ClassHub = ({
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-[#374151]">Circular Details *</label>
+                <label className="font-bold text-slate-700 dark:text-zinc-300">Circular Details *</label>
                 <textarea
                   rows={4}
                   required
                   placeholder="Type notice message for enrolled students..."
                   value={annContent}
                   onChange={(e) => setAnnContent(e.target.value)}
-                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] p-2.5 text-xs outline-none focus:border-black"
+                  className="w-full bg-[#F9FAFB] border border-slate-200 dark:border-zinc-800 p-2.5 text-xs outline-none focus:border-black"
                 />
               </div>
 
@@ -2005,12 +2121,12 @@ export const ClassHub = ({
       {showJoinModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white border-2 border-black max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
               <div className="flex items-center gap-2">
                 <School className="w-5 h-5 text-black" />
                 <div>
-                  <h3 className="font-bold text-sm text-[#1A1A1A]">Join Another Classroom</h3>
-                  <p className="text-[10px] text-[#6B7280]">
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white">Join Another Classroom</h3>
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400">
                     Enter the code provided by your teacher for that subject
                   </p>
                 </div>
@@ -2020,7 +2136,7 @@ export const ClassHub = ({
                   setShowJoinModal(false);
                   setJoinClassError(null);
                 }}
-                className="text-[#6B7280] hover:text-black font-bold text-xs"
+                className="text-slate-500 dark:text-zinc-400 hover:text-black font-bold text-xs"
               >
                 ✕
               </button>
@@ -2028,7 +2144,7 @@ export const ClassHub = ({
 
             <form onSubmit={handleDirectJoinClass} className="space-y-3.5 text-xs">
               <div className="space-y-1">
-                <label className="font-bold text-[#374151]">Classroom Code *</label>
+                <label className="font-bold text-slate-700 dark:text-zinc-300">Classroom Code *</label>
                 <input
                   type="text"
                   required
@@ -2036,9 +2152,9 @@ export const ClassHub = ({
                   placeholder="e.g. CLS-10A-PHY-42 or NCERT-12A"
                   value={joinClassCodeInput}
                   onChange={(e) => setJoinClassCodeInput(e.target.value.toUpperCase())}
-                  className="w-full uppercase font-mono font-bold bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs outline-none focus:border-black"
+                  className="w-full uppercase font-mono font-bold bg-[#F9FAFB] border border-slate-200 dark:border-zinc-800 px-3 py-2 text-xs outline-none focus:border-black"
                 />
-                <p className="text-[10px] text-[#6B7280]">
+                <p className="text-[10px] text-slate-500 dark:text-zinc-400">
                   Students can join multiple classrooms simultaneously (e.g. Physics, Chemistry, Math, etc.).
                 </p>
               </div>
@@ -2077,14 +2193,14 @@ export const ClassHub = ({
       {showEditSchoolModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
           <div className="bg-white dark:bg-[#1E1E1E] border-2 border-black dark:border-white max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#333] pb-3">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 dark:border-[#333] pb-3">
               <div className="flex items-center gap-2">
                 <Building className="w-5 h-5 text-black dark:text-white" />
-                <h3 className="font-bold text-sm text-[#1A1A1A] dark:text-white">Update Your School</h3>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white dark:text-white">Update Your School</h3>
               </div>
               <button
                 onClick={() => setShowEditSchoolModal(false)}
-                className="text-[#6B7280] dark:text-[#AAA] hover:text-black dark:hover:text-white font-bold text-xs"
+                className="text-slate-500 dark:text-zinc-400 dark:text-[#AAA] hover:text-black dark:hover:text-white font-bold text-xs"
               >
                 ✕
               </button>
@@ -2092,7 +2208,7 @@ export const ClassHub = ({
 
             <form onSubmit={handleUpdateSchool} className="space-y-3.5 text-xs">
               <div className="space-y-1">
-                <label className="font-bold text-[#374151] dark:text-[#E5E7EB]">School / Institution Name *</label>
+                <label className="font-bold text-slate-700 dark:text-zinc-300 dark:text-[#E5E7EB]">School / Institution Name *</label>
                 <input
                   type="text"
                   required
@@ -2100,9 +2216,9 @@ export const ClassHub = ({
                   placeholder="e.g. Kendriya Vidyalaya No. 1, Delhi Public School..."
                   value={studentSchoolInput}
                   onChange={(e) => setStudentSchoolInput(e.target.value)}
-                  className="w-full bg-[#F9FAFB] dark:bg-[#141414] border border-[#E5E7EB] dark:border-[#333] px-3 py-2 text-xs text-[#1A1A1A] dark:text-white outline-none focus:border-black dark:focus:border-white font-medium"
+                  className="w-full bg-[#F9FAFB] dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 dark:border-[#333] px-3 py-2 text-xs text-slate-900 dark:text-white dark:text-white outline-none focus:border-black dark:focus:border-white font-medium"
                 />
-                <p className="text-[10px] text-[#6B7280] dark:text-[#AAA]">
+                <p className="text-[10px] text-slate-500 dark:text-zinc-400 dark:text-[#AAA]">
                   Type any school name — if found in registry it links automatically, otherwise it adds as your custom school.
                 </p>
               </div>
@@ -2134,9 +2250,9 @@ export const ClassHub = ({
           <div className="bg-white p-4 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col rounded space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b pb-2">
               <div className="overflow-hidden">
-                <h4 className="font-bold text-sm text-[#1A1A1A] truncate">{zoomedMedia.title}</h4>
+                <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">{zoomedMedia.title}</h4>
                 {zoomedMedia.fileName && (
-                  <p className="text-[11px] text-[#6B7280] font-mono truncate">{zoomedMedia.fileName}</p>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono truncate">{zoomedMedia.fileName}</p>
                 )}
               </div>
               <div className="flex items-center gap-2">

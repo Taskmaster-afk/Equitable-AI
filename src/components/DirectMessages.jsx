@@ -69,17 +69,22 @@ export const DirectMessages = ({
   }, [currentUser?.id, currentStudent?.id, currentTeacher?.id]);
 
   const loadContacts = async () => {
+    const list = [];
+    
     if (isTeacher) {
-      // Load enrolled students from teacher's classes
+      // 1. Fetch teacher classes
       try {
-        const teacherClasses = currentTeacher?.classes || [];
+        const tClassesRes = await api.getTeacherClasses(currentTeacher?.id || currentUser?.id).catch(() => ({ classes: [] }));
+        const tClasses = tClassesRes?.classes || [];
         const studentsMap = new Map();
-        for (const cls of teacherClasses) {
-          const code = typeof cls === "string" ? cls : cls.classCode;
+
+        // Check rosters for each class
+        for (const c of tClasses) {
+          const code = c.classCode;
           if (code) {
-            const roster = await api.getClassStudents(code);
-            const list = roster?.students || roster || [];
-            list.forEach(s => {
+            const roster = await api.getClassStudents(code).catch(() => ({ students: [] }));
+            const rList = roster?.students || [];
+            rList.forEach(s => {
               if (s.studentId && !studentsMap.has(s.studentId)) {
                 studentsMap.set(s.studentId, {
                   id: s.studentId,
@@ -93,46 +98,66 @@ export const DirectMessages = ({
             });
           }
         }
-        const studentList = Array.from(studentsMap.values());
-        setContacts(studentList);
-        if (studentList.length > 0 && !selectedContact) {
-          setSelectedContact(studentList[0]);
+
+        // Add foundation student contacts
+        const defaultStudents = [
+          { id: "student-1", name: "Aarav Sharma", role: "student", classCode: "NCERT-12A", section: "Section A" },
+          { id: "student-3", name: "Rohan Das", role: "student", classCode: "NCERT-10A", section: "Section A" },
+          { id: "student-2", name: "Priya Patel", role: "student", classCode: "NCERT-12A", section: "Section B" }
+        ];
+
+        defaultStudents.forEach(ds => {
+          if (!studentsMap.has(ds.id)) {
+            studentsMap.set(ds.id, ds);
+          }
+        });
+
+        const finalList = Array.from(studentsMap.values());
+        setContacts(finalList);
+        if (finalList.length > 0 && !selectedContact) {
+          setSelectedContact(finalList[0]);
         }
       } catch (err) {
-        console.error("Failed to load teacher student contacts:", err);
+        console.error("Failed to load teacher contacts:", err);
       }
     } else {
-      // For student: list teachers of their enrolled classes
-      const teachersMap = new Map();
-      studentClasses.forEach(cls => {
-        const tId = cls.teacherId || `teacher-${cls.classCode}`;
-        const tName = cls.teacherName || "Faculty Lead";
-        if (!teachersMap.has(tId)) {
-          teachersMap.set(tId, {
-            id: tId,
-            name: tName,
+      // Student view: list all teachers & classmates
+      const contactMap = new Map();
+
+      // Default Faculty leads
+      const defaultTeachers = [
+        { id: "teacher-1", name: "Dr. Rajesh Varma", role: "teacher", classCode: "NCERT-12A", department: "Senior Physics HOD" },
+        { id: "teacher-2", name: "Mrs. Sunita Sharma", role: "teacher", classCode: "NCERT-10A", department: "Secondary Mathematics Lead" },
+        { id: "teacher-3", name: "Dr. Arvind Gupta", role: "teacher", classCode: "NCERT-11A", department: "Physical Chemistry Lead" }
+      ];
+
+      defaultTeachers.forEach(t => contactMap.set(t.id, t));
+
+      // Add enrolled class teachers
+      (studentClasses || []).forEach(cls => {
+        if (cls.teacherId) {
+          contactMap.set(cls.teacherId, {
+            id: cls.teacherId,
+            name: cls.teacherName || "Faculty Instructor",
             role: "teacher",
-            classCode: cls.classCode,
-            className: cls.className,
-            school: cls.school || "Model Cluster"
+            classCode: cls.classCode
           });
         }
       });
-      // Add default faculty if none
-      if (teachersMap.size === 0) {
-        teachersMap.set("teacher-1", {
-          id: "teacher-1",
-          name: "Dr. Rajesh Varma (Senior Physics & Science Lead)",
-          role: "teacher",
-          classCode: "NCERT-12A",
-          className: "Class 12 Physics",
-          school: "Kendriya Vidyalaya No. 1"
-        });
-      }
-      const teacherList = Array.from(teachersMap.values());
-      setContacts(teacherList);
-      if (teacherList.length > 0 && !selectedContact) {
-        setSelectedContact(teacherList[0]);
+
+      // Add peer classmates
+      const peerStudents = [
+        { id: "student-1", name: "Aarav Sharma (Classmate)", role: "student", classCode: "NCERT-12A" },
+        { id: "student-3", name: "Rohan Das (Classmate)", role: "student", classCode: "NCERT-10A" },
+        { id: "student-2", name: "Priya Patel (Classmate)", role: "student", classCode: "NCERT-12A" }
+      ].filter(p => p.id !== currentUser?.id);
+
+      peerStudents.forEach(p => contactMap.set(p.id, p));
+
+      const finalList = Array.from(contactMap.values());
+      setContacts(finalList);
+      if (finalList.length > 0 && !selectedContact) {
+        setSelectedContact(finalList[0]);
       }
     }
   };
@@ -308,33 +333,33 @@ export const DirectMessages = ({
   return (
     <div id="direct-messages-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5 space-y-5">
       {/* Header Banner */}
-      <div className="bg-white dark:bg-[#1A1A1A] border border-[#E5E7EB] dark:border-[#2A2A2A] p-5">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#F0F2F5] dark:border-[#2A2A2A] pb-4">
+      <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 dark:border-zinc-800 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 dark:border-zinc-800 dark:border-zinc-800 pb-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="bg-indigo-600 text-white text-[10px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider">
                 Direct Communication & Wellness
               </span>
-              <span className="text-xs text-[#6B7280] dark:text-[#AAA]">
+              <span className="text-xs text-slate-500 dark:text-zinc-400 dark:text-[#AAA]">
                 Private &bull; Protected &bull; 1-on-1 Faculty & Counselor Support
               </span>
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-[#1A1A1A] dark:text-white">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white dark:text-white">
               Personal Teacher Messaging & Mental Health Sanctum
             </h1>
-            <p className="text-xs text-[#4B5563] dark:text-[#AAA]">
+            <p className="text-xs text-slate-600 dark:text-zinc-300 dark:text-[#AAA]">
               Communicate privately with your subject teachers for personal doubts, share notes/diagrams, or connect with our confidential Mental Health counseling service.
             </p>
           </div>
 
           {/* Section Mode Switcher */}
-          <div className="flex items-center gap-2 bg-[#F8F9FA] dark:bg-[#252525] p-1 border border-[#E5E7EB] dark:border-[#333]">
+          <div className="flex items-center gap-2 bg-[#F8F9FA] dark:bg-[#252525] p-1 border border-slate-200 dark:border-zinc-800 dark:border-zinc-700">
             <button
               onClick={() => setActiveSection("direct")}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold transition-all ${
                 activeSection === "direct"
                   ? "bg-black text-white dark:bg-white dark:text-black shadow-xs"
-                  : "text-[#4B5563] dark:text-[#AAA] hover:text-black dark:hover:text-white"
+                  : "text-slate-600 dark:text-zinc-300 dark:text-[#AAA] hover:text-black dark:hover:text-white"
               }`}
             >
               <MessageSquare className="w-3.5 h-3.5" />
@@ -346,7 +371,7 @@ export const DirectMessages = ({
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold transition-all ${
                 activeSection === "wellness"
                   ? "bg-emerald-700 text-white shadow-xs"
-                  : "text-[#4B5563] dark:text-[#AAA] hover:text-emerald-700 dark:hover:text-emerald-400"
+                  : "text-slate-600 dark:text-zinc-300 dark:text-[#AAA] hover:text-emerald-700 dark:hover:text-emerald-400"
               }`}
             >
               <Heart className="w-3.5 h-3.5" />
@@ -355,7 +380,7 @@ export const DirectMessages = ({
           </div>
         </div>
 
-        <div className="pt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#6B7280] dark:text-[#AAA]">
+        <div className="pt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-zinc-400 dark:text-[#AAA]">
           <span className="flex items-center gap-1.5">
             <Lock className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
             <span>End-to-End Private Channel: Peer-to-peer student chat is restricted for student safety.</span>
@@ -370,18 +395,18 @@ export const DirectMessages = ({
       {activeSection === "direct" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-[520px]">
           {/* Contacts Sidebar (4 cols) */}
-          <div className="lg:col-span-4 bg-white dark:bg-[#1A1A1A] border border-[#E5E7EB] dark:border-[#2A2A2A] flex flex-col">
-            <div className="p-3.5 border-b border-[#E5E7EB] dark:border-[#2A2A2A] bg-[#FAFAFA] dark:bg-[#222] flex items-center justify-between">
-              <h3 className="font-bold text-xs text-[#1A1A1A] dark:text-white flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-[#6B7280] dark:text-[#AAA]" />
+          <div className="lg:col-span-4 bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 dark:border-zinc-800 flex flex-col">
+            <div className="p-3.5 border-b border-slate-200 dark:border-zinc-800 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/60 dark:bg-[#222] flex items-center justify-between">
+              <h3 className="font-bold text-xs text-slate-900 dark:text-white dark:text-white flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400 dark:text-[#AAA]" />
                 <span>{isTeacher ? "Enrolled Students" : "Subject Teachers"}</span>
               </h3>
-              <span className="text-[10px] font-mono text-[#6B7280] dark:text-[#AAA]">{contacts.length} Contacts</span>
+              <span className="text-[10px] font-mono text-slate-500 dark:text-zinc-400 dark:text-[#AAA]">{contacts.length} Contacts</span>
             </div>
 
             <div className="flex-1 overflow-y-auto divide-y divide-[#F0F2F5] dark:divide-[#2A2A2A] max-h-[500px]">
               {contacts.length === 0 ? (
-                <div className="p-6 text-center text-xs text-[#6B7280] dark:text-[#AAA]">
+                <div className="p-6 text-center text-xs text-slate-500 dark:text-zinc-400 dark:text-[#AAA]">
                   No contacts found. Join a classroom to automatically link with your subject teachers.
                 </div>
               ) : (
@@ -403,8 +428,13 @@ export const DirectMessages = ({
                         {contact.name.slice(0, 1).toUpperCase()}
                       </div>
                       <div className="truncate flex-1">
-                        <div className="font-bold text-xs text-[#1A1A1A] dark:text-white truncate">{contact.name}</div>
-                        <div className="text-[10px] text-[#6B7280] dark:text-[#AAA] truncate">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-bold text-xs text-slate-900 dark:text-white truncate">{contact.name}</span>
+                          <span className="shrink-0 px-1.5 py-0.2 text-[9px] font-bold rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 animate-pulse">
+                            ACTIVE
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 dark:text-zinc-400 truncate mt-0.5">
                           {contact.classCode ? `Class: ${contact.classCode}` : ""} {contact.school ? `• ${contact.school}` : ""}
                         </div>
                       </div>
@@ -416,16 +446,16 @@ export const DirectMessages = ({
           </div>
 
           {/* Conversation Pane (8 cols) */}
-          <div className="lg:col-span-8 bg-white dark:bg-[#1A1A1A] border border-[#E5E7EB] dark:border-[#2A2A2A] flex flex-col justify-between">
+          <div className="lg:col-span-8 bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 dark:border-zinc-800 flex flex-col justify-between">
             {/* Header */}
-            <div className="p-3.5 border-b border-[#E5E7EB] dark:border-[#2A2A2A] bg-[#FAFAFA] dark:bg-[#222] flex items-center justify-between">
+            <div className="p-3.5 border-b border-slate-200 dark:border-zinc-800 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/60 dark:bg-[#222] flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-black text-white dark:bg-white dark:text-black flex items-center justify-center font-bold text-xs">
                   {selectedContact?.name?.slice(0, 1).toUpperCase() || "?"}
                 </div>
                 <div>
-                  <h3 className="font-bold text-xs text-[#1A1A1A] dark:text-white">{selectedContact?.name || "Select Contact"}</h3>
-                  <p className="text-[10px] text-[#6B7280] dark:text-[#AAA]">
+                  <h3 className="font-bold text-xs text-slate-900 dark:text-white dark:text-white">{selectedContact?.name || "Select Contact"}</h3>
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400 dark:text-[#AAA]">
                     {selectedContact?.role === "teacher" ? "Classroom Faculty" : "Student"} &bull; Private 1-on-1 Live Conversation
                   </p>
                 </div>
@@ -433,7 +463,7 @@ export const DirectMessages = ({
               <button
                 onClick={loadMessages}
                 title="Refresh messages"
-                className="p-1 text-[#6B7280] dark:text-[#AAA] hover:text-black dark:hover:text-white transition-colors"
+                className="p-1 text-slate-500 dark:text-zinc-400 dark:text-[#AAA] hover:text-black dark:hover:text-white transition-colors"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
@@ -448,8 +478,9 @@ export const DirectMessages = ({
                   <p className="text-[11px] text-[#9CA3AF]">Send a private message or upload diagram/notes to discuss homework, grades, or concepts.</p>
                 </div>
               ) : (
-                messages.map((m) => {
+                messages.map((m, msgIdx) => {
                   const isMe = m.senderId === currentUser?.id;
+                  const isRecent = msgIdx >= messages.length - 2 && !isMe;
                   return (
                     <div
                       key={m.id}
@@ -461,13 +492,21 @@ export const DirectMessages = ({
                         <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                       <div
-                        className={`p-3 text-xs max-w-md rounded leading-relaxed ${
+                        className={`p-3 text-xs max-w-md rounded-xl leading-relaxed shadow-2xs transition-all ${
                           isMe
-                            ? "bg-black text-white dark:bg-white dark:text-black"
-                            : "bg-[#F0F2F5] dark:bg-[#252525] text-[#1A1A1A] dark:text-[#E5E7EB] border border-[#E5E7EB] dark:border-[#333]"
+                            ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950 rounded-br-none"
+                            : isRecent
+                            ? "bg-emerald-50/90 dark:bg-emerald-950/40 text-slate-900 dark:text-white border-2 border-emerald-400 dark:border-emerald-600 rounded-bl-none shadow-md"
+                            : "bg-slate-100 dark:bg-zinc-800/90 text-slate-900 dark:text-white border border-slate-200 dark:border-zinc-700 rounded-bl-none"
                         }`}
                       >
-                        <div>{m.message}</div>
+                        {isRecent && (
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider mb-1.5 pb-1 border-b border-emerald-200 dark:border-emerald-800/60">
+                            <Sparkles className="w-3 h-3 text-emerald-600" />
+                            <span>⭐ New Message</span>
+                          </div>
+                        )}
+                        <div className="whitespace-pre-wrap">{m.message}</div>
 
                         {/* Render Attached Image */}
                         {m.mediaUrl && m.mediaType === "image" && (
@@ -497,7 +536,7 @@ export const DirectMessages = ({
 
             {/* Attachment Preview Chip */}
             {attachedMedia && (
-              <div className="px-3.5 py-2 bg-indigo-50 dark:bg-indigo-950/60 border-t border-[#E5E7EB] dark:border-[#333] flex items-center justify-between text-xs">
+              <div className="px-3.5 py-2 bg-indigo-50 dark:bg-indigo-950/60 border-t border-slate-200 dark:border-zinc-800 dark:border-zinc-700 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2 text-indigo-950 dark:text-indigo-200">
                   {attachedMedia.type === "image" ? (
                     <ImageIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
@@ -521,7 +560,7 @@ export const DirectMessages = ({
             )}
 
             {/* Input Bar */}
-            <form onSubmit={handleSendMessage} className="p-3 border-t border-[#E5E7EB] dark:border-[#2A2A2A] bg-white dark:bg-[#1A1A1A] flex items-center gap-2">
+            <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-200 dark:border-zinc-800 dark:border-zinc-800 bg-white dark:bg-[#18181b] flex items-center gap-2">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -533,7 +572,7 @@ export const DirectMessages = ({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 title="Attach study image, diagram or document"
-                className="p-2 border border-[#E5E7EB] dark:border-[#333] text-[#6B7280] dark:text-[#AAA] hover:text-black dark:hover:text-white hover:border-black dark:hover:border-white transition-colors"
+                className="p-2 border border-slate-200 dark:border-zinc-800 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 dark:text-[#AAA] hover:text-black dark:hover:text-white hover:border-black dark:hover:border-white transition-colors"
               >
                 <Paperclip className="w-4 h-4" />
               </button>
@@ -543,7 +582,7 @@ export const DirectMessages = ({
                 placeholder={isTeacher ? "Reply to student inquiry..." : "Type personal question for your teacher..."}
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                className="flex-1 bg-[#F9FAFB] dark:bg-[#222] border border-[#E5E7EB] dark:border-[#333] px-3 py-2 text-xs text-[#1A1A1A] dark:text-white outline-none focus:border-black dark:focus:border-white"
+                className="flex-1 bg-[#F9FAFB] dark:bg-[#222] border border-slate-200 dark:border-zinc-800 dark:border-zinc-700 px-3 py-2 text-xs text-slate-900 dark:text-white dark:text-white outline-none focus:border-black dark:focus:border-white"
               />
               <button
                 type="submit"
@@ -575,7 +614,7 @@ export const DirectMessages = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2 bg-white dark:bg-[#1A1A1A] p-1 border border-emerald-300 dark:border-emerald-700">
+            <div className="flex items-center gap-2 bg-white dark:bg-[#18181b] p-1 border border-emerald-300 dark:border-emerald-700">
               <button
                 onClick={() => setWellnessMode("ai")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold transition-all ${
@@ -603,18 +642,18 @@ export const DirectMessages = ({
           </div>
 
           {/* Chat Window */}
-          <div className="bg-white dark:bg-[#1A1A1A] border border-[#E5E7EB] dark:border-[#2A2A2A] flex flex-col justify-between min-h-[460px]">
+          <div className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 dark:border-zinc-800 flex flex-col justify-between min-h-[460px]">
             {/* Wellness Header */}
-            <div className="p-3.5 border-b border-[#E5E7EB] dark:border-[#2A2A2A] bg-[#FAFAFA] dark:bg-[#222] flex items-center justify-between">
+            <div className="p-3.5 border-b border-slate-200 dark:border-zinc-800 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/60 dark:bg-[#222] flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-emerald-700 text-white flex items-center justify-center font-bold text-xs">
                   {wellnessMode === "ai" ? "🤖" : "🧑‍⚕️"}
                 </div>
                 <div>
-                  <h4 className="font-bold text-xs text-[#1A1A1A] dark:text-white">
+                  <h4 className="font-bold text-xs text-slate-900 dark:text-white dark:text-white">
                     {wellnessMode === "ai" ? "AI Empathetic Wellness Tutor" : "Dr. Shalini (Clinical Counseling Psychologist)"}
                   </h4>
-                  <p className="text-[10px] text-[#6B7280] dark:text-[#AAA]">
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400 dark:text-[#AAA]">
                     {wellnessMode === "ai" ? "Instant, non-judgmental stress & mindfulness support" : "Certified Human Counselor • Active Session"}
                   </p>
                 </div>
@@ -660,13 +699,13 @@ export const DirectMessages = ({
             </div>
 
             {/* Input Bar */}
-            <form onSubmit={handleSendWellnessMessage} className="p-3 border-t border-[#E5E7EB] dark:border-[#2A2A2A] bg-white dark:bg-[#1A1A1A] flex items-center gap-2">
+            <form onSubmit={handleSendWellnessMessage} className="p-3 border-t border-slate-200 dark:border-zinc-800 dark:border-zinc-800 bg-white dark:bg-[#18181b] flex items-center gap-2">
               <input
                 type="text"
                 placeholder={wellnessMode === "ai" ? "Share what is making you feel stressed, overwhelmed, or anxious..." : "Message Dr. Shalini confidentially..."}
                 value={wellnessInput}
                 onChange={(e) => setWellnessInput(e.target.value)}
-                className="flex-1 bg-[#F9FAFB] dark:bg-[#222] border border-[#E5E7EB] dark:border-[#333] px-3 py-2 text-xs text-[#1A1A1A] dark:text-white outline-none focus:border-emerald-600"
+                className="flex-1 bg-[#F9FAFB] dark:bg-[#222] border border-slate-200 dark:border-zinc-800 dark:border-zinc-700 px-3 py-2 text-xs text-slate-900 dark:text-white dark:text-white outline-none focus:border-emerald-600"
               />
               <button
                 type="submit"

@@ -1261,7 +1261,7 @@ function seedInitialData() {
       gradeLevel: "Grade 11-12",
       institute: "Kendriya Vidyalaya No. 1, Model Cluster",
       school: "Kendriya Vidyalaya No. 1, Model Cluster",
-      primaryLanguage: "hi",
+      primaryLanguage: "en",
       avatarSeed: "priya",
       familyIncomeBracket: "1.5 - 3.0 Lakhs/yr",
       category: "General",
@@ -1326,13 +1326,13 @@ function seedInitialData() {
       email: "rohan.das@student.edu.in",
       password: hashPassword("password123"),
       role: "student",
-      classCode: "",
+      classCode: "NCERT-10A",
       studentClass: "Class 10",
-      classInfo: null,
+      classInfo: sampleClass10A,
       gradeLevel: "Grade 9-10",
       institute: "Kendriya Vidyalaya No. 1, Model Cluster",
       school: "Kendriya Vidyalaya No. 1, Model Cluster",
-      primaryLanguage: "bn",
+      primaryLanguage: "en",
       avatarSeed: "rohan",
       familyIncomeBracket: "< 1.5 Lakhs/yr",
       category: "SC",
@@ -2246,17 +2246,6 @@ function generateClassMasteryList(studentClass, gradeLevel) {
         weakConcepts: [],
         attemptsCount: 0,
         lastAttemptedAt: "Registered Today"
-      },
-      {
-        topicId: "force-pressure-foundations",
-        topicName: "Force and Pressure Foundations",
-        subject: "Science",
-        gradeLevel: "Grade 6-8",
-        masteryPercentage: 65,
-        recentStreak: 1,
-        weakConcepts: [],
-        attemptsCount: 0,
-        lastAttemptedAt: "Registered Today"
       }
     ];
   }
@@ -2269,12 +2258,14 @@ app.get("/api/health", (req, res) => {
     status: "ok",
     aiEnabled: hasGeminiKey,
     database: getMongoStatus(),
+    oerDocsCount: OER_CORPUS.length,
     timestamp: new Date().toISOString()
   });
 });
 
 app.post("/api/auth/login", async (req, res) => {
-  const { role, identifier, password } = req.body;
+  const { role, password } = req.body;
+  const identifier = req.body.identifier || req.body.email;
   if (!identifier || !String(identifier).trim()) {
     return res.status(400).json({ error: "Please provide your email or username/ID." });
   }
@@ -2459,6 +2450,23 @@ app.get("/api/system/probe-retrieval", (req, res) => {
     citations
   });
 });
+app.post("/api/class/:code/update", async (req, res) => {
+  const { code } = req.params;
+  const { academicYear, className, section, subject } = req.body;
+  try {
+    const cls = inMemDb.classes.get(code.toUpperCase());
+    if (!cls) return res.status(404).json({ error: "Class not found." });
+    if (academicYear) cls.academicYear = academicYear.trim();
+    if (className) cls.className = className.trim();
+    if (section) cls.section = section.trim();
+    if (subject) cls.subject = subject.trim();
+    inMemDb.classes.set(code.toUpperCase(), cls);
+    res.json({ success: true, classInfo: cls });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to update classroom." });
+  }
+});
+
 app.get("/api/class/:code", (req, res) => {
   const code = req.params.code.trim().toUpperCase();
   const classInfo = db.classes.get(code);
@@ -2624,6 +2632,7 @@ app.post("/api/auth/register-teacher", async (req, res) => {
     message: `Welcome, ${name}! Your faculty account and classroom code ${generatedClassCode} for ${cleanInstituteName} have been created.`
   });
 });
+
 app.post("/api/auth/register-student", async (req, res) => {
   const {
     name,
@@ -2647,19 +2656,18 @@ app.post("/api/auth/register-student", async (req, res) => {
   if (!password || password.length < 6) {
     return res.status(400).json({ error: "Password is required and must be at least 6 characters long." });
   }
-  if (!instituteName || !instituteName.trim()) {
-    return res.status(400).json({
-      error: "Please select your institute from the dropdown menu. Students can only join existing registered institutes."
-    });
-  }
 
-  const cleanInstituteName = instituteName.trim();
-  const existingInstitute = (await getInstitutes()).find(
+  const cleanInstituteName = (instituteName || "National School Campus").trim();
+  let existingInstitute = (await getInstitutes()).find(
     (i) => i.name.toLowerCase() === cleanInstituteName.toLowerCase()
   );
   if (!existingInstitute) {
-    return res.status(400).json({
-      error: `Institute "${cleanInstituteName}" is not registered in the system. Students can only select existing registered institutes. Please ask your faculty or teacher to sign up your institute.`
+    existingInstitute = await createInstitute({
+      id: `inst-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      name: cleanInstituteName,
+      type: "School / College / Institute",
+      tier: "Secondary / Senior Secondary",
+      location: "National Campus"
     });
   }
 
@@ -4245,35 +4253,25 @@ ${d.content}`
       : `Grounded in ${citations.length} verified educational sources and classroom materials (${citations.map((c) => c.publisher).join(", ")}).`;
 
     if (isGreeting) {
-      explanation = `Hello! 👋 I am your AI Curriculum & Classroom Tutor.
+      explanation = `Hello! 👋 I am your Socratic Tutor.
 
-I am here to help you understand concepts, solve problems step-by-step, and prepare for your exams in **Physics, Chemistry, Mathematics, and Biology** across Class 6 to 12 and beyond.
+I am here to help you understand concepts, solve problems step-by-step, and prepare for your exams in **Physics, Chemistry, Mathematics, and Biology** across all standards.
 
-What subject or topic would you like to explore today? You can also upload a photo of any textbook problem or handwritten work!`;
+What question or problem would you like help solving today? You can also upload a photo of any handwritten problem!`;
     } else {
-      const matchedDoc = docs[0] || OER_CORPUS[0];
-      explanation = `### Step-by-Step Explanation (Grounded in ${matchedDoc.title})
+      explanation = `### Step-by-Step Solution
 
 **Core Principle:**
-${matchedDoc.summary}
+Understand the core mathematical/scientific principles underlying the question.
 
-**Step 1: Understand the Given Quantities**
-Look closely at the components from ${matchedDoc.chapter} (${matchedDoc.section}).
+**Step 1: Given Quantities & Formula**
+Identify knowns, unknowns, and write down the relevant governing formula ($...$).
 
-**Step 2: Apply the Open Curriculum Formula & Classroom Notes**
-Referencing ${matchedDoc.pageOrRef}:
-\`\`\`
-${matchedDoc.content.split("\n").slice(0, 4).join("\n")}
-\`\`\`
+**Step 2: Step-by-Step Calculation**
+Substitute the given values and perform the calculations methodically step by step.
 
-**Step 3: Solve Step-by-Step**
-Work through the equation step-by-step to arrive at the final simplified value. Verify with equivalent balance on both sides.
-
-**Verified Educational Source Book & Reference:**
-- **Source Book:** [${matchedDoc.title}](${matchedDoc.bookUrl || matchedDoc.accessLink || '#/oer'})
-- **Author / Publisher:** ${matchedDoc.author || matchedDoc.publisher}
-- **Section / Origin:** ${matchedDoc.chapter} - ${matchedDoc.section} (${matchedDoc.pageOrRef})
-- **Access Link:** [Open & Read "${matchedDoc.title}"](${matchedDoc.bookUrl || matchedDoc.accessLink || '#/oer'})`;
+**Step 3: Final Answer**
+State the clear result with correct scientific units and precision.`;
     }
 
     const ai = getGeminiClient();
@@ -4285,7 +4283,7 @@ Work through the equation step-by-step to arrive at the final simplified value. 
             contents: `The student sent the greeting: "${question}".
 Previous conversation: ${JSON.stringify(previousContext.slice(-3))}
 
-Respond warmly, politely, and enthusiastically in ${langName} as "Equitable-AI Tutor". Ask what science, math, or biology topic or homework problem they would like help solving today! Keep the response concise, friendly, and helpful.`,
+Respond warmly, politely, and concisely in English as a Socratic Tutor. Ask what STEM topic or problem they would like to solve today.`,
             config: {
               temperature: 0.7
             }
@@ -4294,30 +4292,28 @@ Respond warmly, politely, and enthusiastically in ${langName} as "Equitable-AI T
             explanation = response.text;
           }
         } else {
-          const systemInstruction = `You are a patient, pedagogically grounded AI tutor designed for equitable education access for students.
-Your primary directive is to provide clear, level-appropriate explanations STRICTLY GROUNDED in verified educational curriculum textbooks, classroom notes uploaded globally by teachers and students, and community resource dumps.
+          const systemInstruction = `You are a world-class Socratic STEM and Academic Tutor.
+Your mission is to provide 100% mathematically and scientifically ACCURATE, pedagogically structured, crystal-clear step-by-step solutions to the student's exact question.
 
-STRICT RULES:
-1. Target Grade Level: ${gradeLevel}. Adjust vocabulary, pacing, and complexity specifically for this grade.
-2. Target Output Language: ${langName} (${language}). Explain the entire answer in ${langName}. If technical terms are used, you may provide English transliteration or bilingual keywords where helpful for clarity.
-3. Explanation Style: ${explanationStyle} (e.g. step-by-step breakdown, simple analogy, or prerequisite basics).
-4. CITATION REQUIREMENT: You MUST explicitly reference the provided curriculum chapters, teacher/student classroom notes, or resource dump passages.
-5. SOURCE BOOK LINK CITATION: At the bottom of your answer, include a clear reference acknowledging the exact source book, notes, or uploaded resource, citing the title and author/publisher.
-6. HONESTY: If the question cannot be grounded in standard secondary/high school curriculum or the provided corpus, politely explain what foundational concept applies rather than fabricating facts.
-7. NO MOCK JARGON: Keep the tone encouraging, supportive, and crystal clear.
-8. Format with clear numbered steps, bold highlights, and clean typography with LaTeX math ($...$ or $$...$$).`;
-          const promptContent = `Student Doubt / Question:
+RULES:
+1. Target Audience: ${gradeLevel} students. Use clear, accessible, yet rigorous explanations.
+2. Language: Output strictly in clear English.
+3. Solution Structure:
+   - **Core Concept & Formula**: State the underlying principles and formulas clearly ($...$).
+   - **Step-by-Step Solution**: Break down the calculation or reasoning step-by-step with clear numbered stages. Show all intermediate math steps.
+   - **Final Answer**: Clearly highlight the final answer in bold.
+   - **Pro-Tip / Key Takeaway**: A brief 1-line tip explaining what common pitfall to avoid.
+4. Typography & Math: Always format formulas using LaTeX notation ($...$ for inline, $$...$$ for standalone equations).
+5. DO NOT recommend external books, textbooks, or reference libraries. DO NOT mention other books or topics. Focus 100% directly on answering the student's question accurately.`;
+          const promptContent = `Student Question / Problem:
 "${question}"
 
 ${imageData ? "[Student uploaded an image of their handwritten work or textbook problem]" : ""}
 
-OPEN REFERENCE PASSAGES & CLASSROOM SHARED NOTES (Ground your answer strictly in these):
-${contextText}
-
 Previous conversation context (if any):
 ${JSON.stringify(previousContext.slice(-3))}
 
-Provide a step-by-step grounded explanation in ${langName} citing the exact source material and classroom resources.`;
+Please provide a complete, strictly accurate, step-by-step solution in English with full mathematical working and clear conceptual explanation.`;
           let contentsPayload = promptContent;
           if (imageData) {
             const base64Clean = imageData.replace(/^data:image\/\w+;base64,/, "");
@@ -4340,7 +4336,7 @@ Provide a step-by-step grounded explanation in ${langName} citing the exact sour
             contents: contentsPayload,
             config: {
               systemInstruction,
-              temperature: 0.3
+              temperature: 0.2
             }
           });
           if (response && response.text) {
@@ -4398,7 +4394,7 @@ Provide a step-by-step grounded explanation in ${langName} citing the exact sour
 
 app.post("/api/practice/generate", async (req, res) => {
   try {
-    const { studentId = "student-1", topicId, requestedDifficulty, classCode, customTopic, customSubject } = req.body;
+    const { studentId = "student-1", topicId, requestedDifficulty, classCode, customTopic, customSubject, classLevel = "Class 10", questionNumber = 1 } = req.body;
     const student = db.students.get(studentId);
     const effectiveClassCode = classCode || student?.classCode;
     let targetTopic = student?.masteryList?.find((t) => t.topicId === topicId);
@@ -4482,17 +4478,23 @@ app.post("/api/practice/generate", async (req, res) => {
     const ai = getGeminiClient();
     if (ai) {
       try {
-        const prompt = `Generate a single multiple-choice adaptive practice test question for a student.
-Topic: ${targetTopic?.topicName || "Linear Equations & Fractions"}
-Subject: ${targetTopic?.subject || "Mathematics"}
-Difficulty Level: ${difficulty}
-Is Step-Down Prerequisite after wrong answer: ${isStepDownPrerequisite}
-Grounding Source (Classroom Resource / Curriculum): ${groundingTitle}
+        const prompt = `You are an expert Indian curriculum teacher (CBSE/NCERT). Generate question #${questionNumber} in an adaptive practice session.
 
-Reference Notes & Source Passage:
-${groundingContent}
+Topic: ${targetTopic?.topicName || customTopic || "Linear Equations"}
+Subject: ${targetTopic?.subject || customSubject || "Mathematics"}
+Class Level: ${classLevel}
+Difficulty: ${difficulty} (${difficulty === "Foundational" ? "basic definitions, simple recall" : difficulty === "Intermediate" ? "application and problem solving" : "analysis, multi-step reasoning, higher order thinking"})
+Is Prerequisite Step-Down (student is struggling): ${isStepDownPrerequisite}
 
-Generate a clear, pedagogical question strictly testing concepts from the provided classroom resource/curriculum notes, with 4 options, the exact 0-based index of the correct option, a step-by-step worked explanation, and a helpful hint.`;
+Generate ONE clear multiple-choice question with:
+- A well-phrased question statement appropriate for ${classLevel} students
+- Exactly 4 answer options (A, B, C, D)
+- 0-based index of the correct answer
+- A detailed step-by-step explanation (3-5 sentences) showing HOW to solve it
+- A short helpful hint for the student
+- Do NOT repeat questions from earlier in the session
+
+Make the question ${difficulty === "Foundational" ? "straightforward and concept-checking" : difficulty === "Intermediate" ? "application-based with moderate calculation" : "challenging with multiple steps and deeper reasoning"}.`;
         const response = await callGeminiWithFallback(ai, {
           model: "gemini-3.7-flash",
           contents: prompt,
@@ -4598,6 +4600,66 @@ app.post("/api/practice/submit", async (req, res) => {
     updatedProfile: student
   });
 });
+
+// POST /api/practice/feedback — sends session summary to teacher
+app.post("/api/practice/feedback", async (req, res) => {
+  try {
+    const {
+      studentId, studentName, subject, topic, classLevel,
+      totalQuestions, correctAnswers, accuracy,
+      highestDifficulty, sessionDate, weakAreas = []
+    } = req.body;
+
+    const student = (await getStudentById(studentId)) || db.students.get(studentId);
+    const teacherId = student?.classCode
+      ? (await getClassesByCode?.(student.classCode))?.[0]?.teacherId
+      : null;
+
+    // Create notification for teacher
+    const notifId = `pf-${Date.now()}`;
+    const weakText = weakAreas.length > 0
+      ? ` Weak areas: ${weakAreas.join("; ")}.`
+      : "";
+    const notif = {
+      id: notifId,
+      type: "practice_feedback",
+      title: `📊 Practice Session: ${studentName}`,
+      message: `${studentName} completed ${totalQuestions} questions on "${topic}" (${subject}, ${classLevel}). Score: ${correctAnswers}/${totalQuestions} (${accuracy}%). Highest level reached: ${highestDifficulty}.${weakText}`,
+      studentId,
+      subject,
+      topic,
+      accuracy,
+      sessionDate,
+      createdAt: new Date().toISOString(),
+      isRead: false
+    };
+
+    // Store notification for teacher if available
+    if (teacherId) {
+      if (!db.notifications) db.notifications = new Map();
+      const teacherNotifs = db.notifications.get(teacherId) || [];
+      teacherNotifs.unshift(notif);
+      db.notifications.set(teacherId, teacherNotifs.slice(0, 100));
+    }
+
+    // Also store in student record
+    if (student) {
+      if (!student.practiceHistory) student.practiceHistory = [];
+      student.practiceHistory.unshift({
+        subject, topic, classLevel, totalQuestions, correctAnswers, accuracy,
+        highestDifficulty, sessionDate, weakAreas
+      });
+      student.practiceHistory = student.practiceHistory.slice(0, 50);
+      await updateStudent(studentId, student);
+    }
+
+    res.json({ success: true, notifId });
+  } catch (error) {
+    console.error("Error in /api/practice/feedback:", error);
+    res.json({ success: false });
+  }
+});
+
 app.get("/api/teacher/insights", async (req, res) => {
   const { classCode } = req.query;
   let teacherId = req.query.teacherId;
