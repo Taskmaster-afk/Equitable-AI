@@ -16,7 +16,14 @@ import {
   Plus,
   Trash2,
   Clock,
-  MessageSquare
+  MessageSquare,
+  ExternalLink,
+  Eye,
+  Book,
+  X,
+  Link2,
+  User,
+  CheckCircle2
 } from "lucide-react";
 import { api } from "../services/api";
 import { SUPPORTED_LANGUAGES } from "../data/oerKnowledgeBase";
@@ -195,6 +202,7 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
   const [isLoading, setIsLoading] = useState(false);
   const [activeCategoryIndex, setActiveCategoryIndex] = useState(0);
   const [sidebarTab, setSidebarTab] = useState("citations");
+  const [selectedCitationModal, setSelectedCitationModal] = useState(null);
 
   const userId = currentStudent?.id || currentStudent?.email || "student-1";
 
@@ -550,38 +558,82 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
 
                   {/* Inline Verified Citation Badge */}
                   {msg.citations && msg.citations.length > 0 && (
-                    <div className="mt-3.5 pt-3 border-t border-[#E5E7EB] bg-[#F8F9FA] -mx-4 -mb-4 p-3">
-                      <div className="flex items-center justify-between mb-2">
+                    <div className="mt-3.5 pt-3 border-t border-[#E5E7EB] bg-[#F8F9FA] -mx-4 -mb-4 p-3.5">
+                      <div className="flex items-center justify-between mb-2.5">
                         <span className="text-[11px] font-bold text-[#1A1A1A] flex items-center gap-1.5 uppercase tracking-wider">
                           <BookOpen className="w-3.5 h-3.5 text-black" />
-                          Curriculum & Classroom Citations ({msg.citations.length})
+                          Source Books & Classroom Citations ({msg.citations.length})
                         </span>
-                        <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 font-bold uppercase tracking-wider font-mono">
-                          Grounding Verified
+                        <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 font-bold uppercase tracking-wider font-mono flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Curriculum Grounded
                         </span>
                       </div>
 
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         {(msg.citations || []).map((cite) => (
                           <div
                             key={cite.id}
-                            className="bg-white border border-[#E5E7EB] p-2 text-xs"
+                            className="bg-white border border-[#E5E7EB] p-2.5 text-xs shadow-xs"
                           >
                             <div className="flex items-start justify-between gap-2">
-                              <span className="font-bold text-[#1A1A1A]">{cite.sourceName}</span>
-                              <span className="bg-black text-white px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider shrink-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <Book className="w-3.5 h-3.5 text-black shrink-0" />
+                                <span className="font-bold text-[#1A1A1A]">{cite.sourceName}</span>
+                              </div>
+                              <span className={`px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider shrink-0 ${
+                                cite.docType === 'classroom_resource' 
+                                  ? 'bg-blue-900 text-white' 
+                                  : cite.docType === 'resource_dump'
+                                  ? 'bg-amber-900 text-white'
+                                  : 'bg-black text-white'
+                              }`}>
                                 {cite.publisher}
                               </span>
                             </div>
-                            <p className="text-[#6B7280] text-[11px] mt-0.5">
-                              {cite.chapter} &bull; {cite.section}
+
+                            <p className="text-[#4B5563] text-[11px] mt-1 font-medium">
+                              {cite.chapter} &bull; <span className="text-[#6B7280]">{cite.section}</span>
+                              {cite.author && (
+                                <span className="ml-1.5 text-neutral-500 font-normal">
+                                  (Author: <span className="text-neutral-800 font-medium">{cite.author}</span>)
+                                </span>
+                              )}
                             </p>
-                            <p className="mt-1 text-[#4B5563] italic font-mono text-[11px] bg-[#F8F9FA] p-1 border border-[#E5E7EB]">
+
+                            <p className="mt-1.5 text-[#374151] italic font-mono text-[11px] bg-[#F8F9FA] p-2 border border-[#E5E7EB] leading-relaxed">
                               "{cite.excerptSnippet}"
                             </p>
-                            <p className="mt-1 text-[10px] text-[#9CA3AF] font-mono">
-                              Reference: {cite.pageOrRef}
-                            </p>
+
+                            <div className="mt-2 pt-2 border-t border-neutral-100 flex items-center justify-between flex-wrap gap-2">
+                              <p className="text-[10px] text-[#6B7280] font-mono">
+                                Reference: <span className="font-bold text-neutral-900">{cite.pageOrRef}</span>
+                              </p>
+
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedCitationModal(cite)}
+                                  className="inline-flex items-center gap-1 text-[11px] font-medium text-neutral-700 hover:text-black bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 px-2 py-1 transition-colors"
+                                  title="Inspect full source book passage & formulas"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  <span>View Passage</span>
+                                </button>
+
+                                <a
+                                  href={cite.bookUrl || cite.accessLink || "#/oer"}
+                                  target={cite.bookUrl && cite.bookUrl.startsWith("http") ? "_blank" : "_self"}
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-black hover:bg-neutral-800 px-2.5 py-1 transition-colors"
+                                  title="Open & Read the complete book or notes"
+                                >
+                                  <BookOpen className="w-3 h-3" />
+                                  <span>Open Book / Resource</span>
+                                  <ExternalLink className="w-2.5 h-2.5 ml-0.5 text-neutral-300" />
+                                </a>
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -763,21 +815,49 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
               {activeCitations && activeCitations.length > 0 ? (
                 <div className="space-y-3">
                   {(activeCitations || []).map((c) => (
-                    <div key={c.id} className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] space-y-1.5 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-[#1A1A1A]">{c.sourceName}</span>
-                        <span className="bg-black text-white text-[9px] px-1 py-0.5 font-bold">
+                    <div key={c.id} className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] space-y-2 text-xs">
+                      <div className="flex items-start justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5 font-bold text-[#1A1A1A]">
+                          <Book className="w-3.5 h-3.5 text-black shrink-0" />
+                          <span>{c.sourceName}</span>
+                        </div>
+                        <span className="bg-black text-white text-[9px] px-1.5 py-0.5 font-bold uppercase tracking-wider shrink-0">
                           {c.publisher}
                         </span>
                       </div>
-                      <p className="text-[#4B5563] text-[11px]">{c.chapter}</p>
-                      <p className="text-[#6B7280] text-[11px]">{c.section}</p>
-                      <div className="p-2 bg-white border border-[#E5E7EB] text-[11px] font-mono text-[#374151]">
+                      <p className="text-[#4B5563] text-[11px] font-medium">{c.chapter} &bull; <span className="text-[#6B7280]">{c.section}</span></p>
+                      {c.author && (
+                        <p className="text-[11px] text-neutral-600">
+                          Author: <span className="font-semibold text-neutral-900">{c.author}</span>
+                        </p>
+                      )}
+                      <div className="p-2 bg-white border border-[#E5E7EB] text-[11px] font-mono text-[#374151] leading-relaxed">
                         "{c.excerptSnippet}"
                       </div>
-                      <p className="text-[10px] text-[#9CA3AF]">
-                        Official Reference: <span className="font-bold text-black">{c.pageOrRef}</span>
+                      <p className="text-[10px] text-[#9CA3AF] font-mono">
+                        Official Ref: <span className="font-bold text-black">{c.pageOrRef}</span>
                       </p>
+                      
+                      <div className="pt-2 border-t border-[#E5E7EB] flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCitationModal(c)}
+                          className="flex-1 clean-button-secondary py-1 text-[11px] justify-center"
+                        >
+                          <Eye className="w-3 h-3" />
+                          <span>View Full Notes</span>
+                        </button>
+                        <a
+                          href={c.bookUrl || c.accessLink || "#/oer"}
+                          target={c.bookUrl && c.bookUrl.startsWith("http") ? "_blank" : "_self"}
+                          rel="noreferrer"
+                          className="flex-1 clean-button-primary py-1 text-[11px] justify-center"
+                        >
+                          <BookOpen className="w-3 h-3" />
+                          <span>Open Book</span>
+                          <ExternalLink className="w-2.5 h-2.5 ml-0.5 text-neutral-300" />
+                        </a>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -848,6 +928,128 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
           </div>
         </div>
       </div>
+
+      {/* Source Book & Resource Modal */}
+      {selectedCitationModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border-2 border-black max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between bg-neutral-50">
+              <div className="flex items-center gap-2">
+                <Book className="w-4 h-4 text-black" />
+                <div>
+                  <h3 className="text-sm font-bold text-black">{selectedCitationModal.sourceName}</h3>
+                  <p className="text-[11px] text-neutral-500 font-mono">
+                    {selectedCitationModal.chapter} &bull; {selectedCitationModal.section}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedCitationModal(null)}
+                className="p-1 hover:bg-neutral-200 text-neutral-600 hover:text-black transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 overflow-y-auto space-y-4 text-xs">
+              {/* Metadata Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-[#F8F9FA] p-3 border border-[#E5E7EB]">
+                <div>
+                  <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider block">Author / Origin</span>
+                  <span className="font-semibold text-neutral-900">{selectedCitationModal.author || selectedCitationModal.publisher}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider block">Publisher / Scope</span>
+                  <span className="font-semibold text-neutral-900">{selectedCitationModal.publisher}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider block">Reference / Page</span>
+                  <span className="font-semibold text-neutral-900">{selectedCitationModal.pageOrRef}</span>
+                </div>
+              </div>
+
+              {/* Full Text / Passage */}
+              <div>
+                <h4 className="text-xs font-bold text-neutral-800 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <FileText className="w-3.5 h-3.5 text-black" />
+                  Source Chapter & Notes Content:
+                </h4>
+                <div className="bg-neutral-50 border border-[#E5E7EB] p-4 text-xs font-sans whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto text-neutral-800">
+                  {selectedCitationModal.fullContent || selectedCitationModal.excerptSnippet}
+                </div>
+              </div>
+
+              {/* Multimodal Preview if any */}
+              {selectedCitationModal.mediaData && selectedCitationModal.mediaType === "image" && (
+                <div className="border border-[#E5E7EB] p-2 bg-neutral-900 text-center rounded">
+                  <img
+                    src={selectedCitationModal.mediaData}
+                    alt={selectedCitationModal.sourceName}
+                    className="max-h-60 mx-auto object-contain bg-white rounded"
+                  />
+                  <p className="text-[10px] text-neutral-400 font-mono mt-1">Uploaded Study Image Reference</p>
+                </div>
+              )}
+
+              {selectedCitationModal.mediaData && selectedCitationModal.mediaType === "file" && (
+                <div className="border border-[#E5E7EB] p-3 bg-neutral-50 rounded flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Book className="w-5 h-5 text-amber-600" />
+                    <div>
+                      <div className="text-xs font-bold text-neutral-900">{selectedCitationModal.sourceName}</div>
+                      <div className="text-[10px] text-neutral-500">Uploaded Classroom & Library Study PDF Document</div>
+                    </div>
+                  </div>
+                  <a
+                    href={selectedCitationModal.mediaData}
+                    download={`${selectedCitationModal.sourceName.toLowerCase().replace(/[^a-z0-9]/g, "-")}.pdf`}
+                    className="clean-button-secondary py-1 px-3 text-xs flex items-center gap-1 font-bold"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Download Attached PDF
+                  </a>
+                </div>
+              )}
+
+              {selectedCitationModal.mediaData && selectedCitationModal.mediaType === "video" && (
+                <div className="border border-[#E5E7EB] bg-black rounded overflow-hidden">
+                  <video controls src={selectedCitationModal.mediaData} className="w-full max-h-56">
+                    Your browser does not support video playback.
+                  </video>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-[#E5E7EB] bg-neutral-50 flex items-center justify-between gap-3">
+              <span className="text-[11px] text-neutral-500 font-mono">
+                License: <span className="text-neutral-800 font-medium">{selectedCitationModal.license || "Open Educational Resource"}</span>
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCitationModal(null)}
+                  className="clean-button-secondary py-1.5 px-3 text-xs"
+                >
+                  Close
+                </button>
+                <a
+                  href={selectedCitationModal.bookUrl || selectedCitationModal.accessLink || "#/oer"}
+                  target={selectedCitationModal.bookUrl && selectedCitationModal.bookUrl.startsWith("http") ? "_blank" : "_self"}
+                  rel="noreferrer"
+                  className="clean-button-primary py-1.5 px-4 text-xs"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>Open Full Book Online</span>
+                  <ExternalLink className="w-3 h-3 ml-1" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

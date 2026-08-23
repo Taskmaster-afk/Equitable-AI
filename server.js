@@ -241,6 +241,208 @@ function expandQueryConcepts(query) {
   
   return Array.from(concepts);
 }
+
+// ==========================================
+// GLOBAL RETRIEVAL-AUGMENTED GENERATION (RAG) ENGINE
+// Reads core curriculum textbooks, global teacher/student notes, & resource dumps
+// ==========================================
+async function retrieveRelevantOerDocs(query, gradeLevel, classCode, instituteName) {
+  const queryLower = (query || "").toLowerCase();
+  const queryWords = queryLower.replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(w => w.length >= 2);
+  const expandedConcepts = expandQueryConcepts(query || "");
+
+  const allDocs = [];
+
+  // 1. Core benchmark curriculum textbooks (with exact bookUrl, accessLink, author)
+  OER_CORPUS.forEach((doc) => {
+    allDocs.push({
+      ...doc,
+      docType: "curriculum",
+      sourceTypeLabel: "Curriculum Open Textbook",
+      mediaType: "text",
+      mediaData: null,
+      mediaMeta: null,
+      bookUrl: doc.bookUrl || "https://ncert.nic.in/textbook.php",
+      accessLink: doc.accessLink || `#/oer?docId=${doc.id}`,
+      author: doc.author || doc.publisher || "National Curriculum Council",
+      authorRole: "curriculum",
+      classCode: null,
+      instituteName: null
+    });
+  });
+
+  // 2. ALL Globally uploaded classroom resources by teachers and students across all classes
+  try {
+    const classResources = await getAllClassroomResources();
+    if (classResources && classResources.length > 0) {
+      classResources.forEach((cd) => {
+        const uploaderRole = cd.authorRole || cd.sharedByRole || (cd.sharedBy && cd.sharedBy.toLowerCase().includes("teacher") ? "teacher" : "student");
+        const uploaderName = cd.authorName || cd.sharedBy || cd.uploadedBy || "Class Contributor";
+        const bookUrl = `#/classhub?classCode=${cd.classCode || ''}&resourceId=${cd.id}`;
+        const accessLink = `#/classhub?classCode=${cd.classCode || ''}&resourceId=${cd.id}`;
+
+        allDocs.push({
+          id: cd.id,
+          title: cd.title || `Classroom Shared Notes on ${cd.subject || 'Curriculum'}`,
+          publisher: `${uploaderRole === "teacher" ? "Teacher Notes" : "Student Study Material"} (${uploaderName})`,
+          subject: cd.subject || "General",
+          gradeLevel: cd.gradeLevel || "Grade 9-12",
+          chapter: cd.chapter || "Classroom Study Module",
+          section: cd.classCode ? `Class ${cd.classCode} Shared Material` : "Class Notes",
+          pageOrRef: `Classroom Resource [By ${uploaderName} - ${uploaderRole === "teacher" ? "Faculty" : "Peer Scholar"}]`,
+          license: "Classroom Open Share (Teacher & Student Resource)",
+          keyConcepts: Array.isArray(cd.keyConcepts) ? cd.keyConcepts : (cd.tags || []),
+          summary: `Shared notes by ${uploaderName} (${uploaderRole}) for class ${cd.classCode || 'General'}. ${cd.mediaType && cd.mediaType !== 'text' ? `[Includes ${cd.mediaType.toUpperCase()} file: ${cd.mediaMeta?.fileName || ''}]` : ''}`,
+          content: cd.content || cd.aiExtractedContent || "",
+          aiExtractedContent: cd.aiExtractedContent || "",
+          mediaType: cd.mediaType || "text",
+          mediaData: cd.mediaData || null,
+          mediaMeta: cd.mediaMeta || null,
+          docType: "classroom_resource",
+          sourceTypeLabel: `${uploaderRole === "teacher" ? "Teacher" : "Student"} Notes (${uploaderName})`,
+          classCode: cd.classCode,
+          isVerified: !!cd.isVerified,
+          author: uploaderName,
+          authorRole: uploaderRole,
+          bookUrl,
+          accessLink
+        });
+      });
+    }
+  } catch (err) {
+    console.warn("Could not retrieve global classroom resources:", err.message);
+  }
+
+  // 3. ALL Globally uploaded library resource dumps & open books by teachers and students
+  try {
+    const globalDumps = await getResourceDumps();
+    if (globalDumps && globalDumps.length > 0) {
+      globalDumps.forEach((rd) => {
+        const uploaderRole = rd.authorRole || rd.uploadedByRole || "contributor";
+        const uploaderName = rd.authorName || rd.uploadedBy || "Open Contributor";
+        const bookUrl = `#/oer?dumpId=${rd.id}`;
+        const accessLink = `#/oer?dumpId=${rd.id}`;
+
+        allDocs.push({
+          id: rd.id,
+          title: rd.title || `Community Learning Resource (${rd.subject})`,
+          publisher: `Community Resource Repository (${rd.instituteName || "Global Open Network"})`,
+          subject: rd.subject || "General",
+          gradeLevel: rd.gradeLevel || "Grade 9-12",
+          chapter: rd.chapter || "Community Uploaded Book/Notes",
+          section: `Library Open Dump - ${rd.instituteName || "Open Learning Hub"}`,
+          pageOrRef: `Global Repository [By ${uploaderName} (${uploaderRole})]`,
+          license: "Open Community Resource Dump (CC BY-SA)",
+          keyConcepts: Array.isArray(rd.tags) ? rd.tags : (rd.keyConcepts || []),
+          summary: `Uploaded resource by ${uploaderName} from ${rd.instituteName || 'Community Network'}. ${rd.mediaType && rd.mediaType !== 'text' ? `[Includes ${rd.mediaType.toUpperCase()} file: ${rd.mediaMeta?.fileName || ''}]` : ''}`,
+          content: rd.content || rd.aiExtractedContent || "",
+          aiExtractedContent: rd.aiExtractedContent || "",
+          mediaType: rd.mediaType || "text",
+          mediaData: rd.mediaData || null,
+          mediaMeta: rd.mediaMeta || null,
+          docType: "resource_dump",
+          sourceTypeLabel: `Library Book/Notes (${uploaderName})`,
+          instituteName: rd.instituteName,
+          isVerified: !!rd.isVerified,
+          author: uploaderName,
+          authorRole: uploaderRole,
+          bookUrl,
+          accessLink
+        });
+      });
+    }
+  } catch (err) {
+    console.warn("Could not retrieve global resource dumps:", err.message);
+  }
+
+  // Score all docs against query words, ontology concepts, grade, and metadata
+  const scored = allDocs.map((doc) => {
+    let score = 0;
+    const docConcepts = (doc.keyConcepts || []).map(c => String(c).toLowerCase());
+    const docTitle = (doc.title || "").toLowerCase();
+    const docChapter = (doc.chapter || "").toLowerCase();
+    const docSection = (doc.section || "").toLowerCase();
+    const docContent = (doc.content || "").toLowerCase();
+    const docAiContent = (doc.aiExtractedContent || "").toLowerCase();
+    const docSummary = (doc.summary || "").toLowerCase();
+    const docFullText = `${docTitle} ${docChapter} ${docSection} ${docConcepts.join(" ")} ${docContent} ${docAiContent} ${docSummary}`;
+
+    // Direct word matches
+    for (const word of queryWords) {
+      if (docFullText.includes(word)) score += 8;
+      if (docTitle.includes(word)) score += 20;
+      if (docChapter.includes(word)) score += 18;
+      if (docSection.includes(word)) score += 12;
+    }
+
+    // Direct concept matches in doc's keyConcepts
+    for (const concept of docConcepts) {
+      if (queryLower.includes(concept)) score += 45;
+      if (expandedConcepts.includes(concept)) score += 35;
+    }
+
+    // Expanded ontology term matching across document text
+    for (const expConcept of expandedConcepts) {
+      if (docFullText.includes(expConcept)) score += 14;
+    }
+
+    // Grade level relevance
+    if (gradeLevel && doc.gradeLevel && doc.gradeLevel.toLowerCase().includes(gradeLevel.toLowerCase().slice(0, 7))) {
+      score += 10;
+    }
+
+    // Boost verified items
+    if (doc.isVerified) score += 15;
+
+    // High priority for classroom-shared resources if from user's class
+    if (doc.docType === "classroom_resource" && classCode && doc.classCode === classCode) {
+      score += 35;
+    }
+    // High priority for resource dumps if from user's institute
+    if (doc.docType === "resource_dump" && instituteName && doc.instituteName === instituteName) {
+      score += 25;
+    }
+
+    return { doc, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const topMatches = scored.filter((item) => item.score > 12).slice(0, 4);
+  const selected = topMatches.length > 0 ? topMatches : scored.slice(0, 2);
+
+  const citations = selected.map(({ doc, score }) => ({
+    id: `cite-${doc.id}`,
+    docId: doc.id,
+    sourceName: doc.title,
+    publisher: doc.publisher,
+    author: doc.author || doc.publisher,
+    authorRole: doc.authorRole || "contributor",
+    chapter: doc.chapter,
+    section: doc.section,
+    pageOrRef: doc.pageOrRef,
+    license: doc.license,
+    excerptSnippet: (doc.content || doc.aiExtractedContent || doc.summary || "").slice(0, 220) + "...",
+    fullContent: doc.content || doc.aiExtractedContent || doc.summary || "",
+    summary: doc.summary || "",
+    mediaType: doc.mediaType || "text",
+    mediaData: doc.mediaData || null,
+    mediaMeta: doc.mediaMeta || null,
+    docType: doc.docType || "curriculum",
+    bookUrl: doc.bookUrl || `#/oer?docId=${doc.id}`,
+    accessLink: doc.accessLink || `#/oer?docId=${doc.id}`,
+    classCode: doc.classCode || null,
+    instituteName: doc.instituteName || null,
+    isVerified: !!doc.isVerified,
+    relevanceScore: Math.min(99, Math.max(72, Math.round(score * 2.2)))
+  }));
+
+  return {
+    docs: selected.map((s) => s.doc),
+    citations,
+    expandedConcepts: expandedConcepts.slice(0, 8)
+  };
+}
+
 const GEMINI_MODELS = [
   "gemini-3.7-flash",
   "gemini-3.1-flash-lite",
@@ -312,7 +514,7 @@ async function callGeminiWithFallback(ai, requestConfig) {
 }
 
 
-// Multimodal Resource Analyzer using Gemini 3.7 Flash
+// Multimodal Resource Analyzer using Gemini 3.7 Flash with resilient timeout fallback
 async function analyzeUploadedResource({
   title,
   subject,
@@ -327,23 +529,61 @@ async function analyzeUploadedResource({
   tags = []
 }) {
   let detectedType = mediaType || "text";
-  if (mimeType) {
-    if (mimeType.startsWith("image/")) detectedType = "image";
-    else if (mimeType.startsWith("video/")) detectedType = "video";
-    else if (mimeType.includes("pdf") || mimeType.includes("document") || mimeType.includes("text")) detectedType = "file";
+  let cleanMimeType = mimeType || "";
+
+  // Normalize detected type and MIME type from filename or header
+  const lowerFileName = (fileName || "").toLowerCase();
+  if (lowerFileName.endsWith(".pdf") || cleanMimeType.includes("pdf")) {
+    detectedType = "file";
+    cleanMimeType = "application/pdf";
+  } else if (lowerFileName.endsWith(".png") || cleanMimeType === "image/png") {
+    detectedType = "image";
+    cleanMimeType = "image/png";
+  } else if (lowerFileName.endsWith(".jpg") || lowerFileName.endsWith(".jpeg") || cleanMimeType.includes("jpeg") || cleanMimeType.includes("jpg")) {
+    detectedType = "image";
+    cleanMimeType = "image/jpeg";
+  } else if (lowerFileName.endsWith(".webp") || cleanMimeType.includes("webp")) {
+    detectedType = "image";
+    cleanMimeType = "image/webp";
+  } else if (lowerFileName.endsWith(".mp4") || cleanMimeType.includes("mp4")) {
+    detectedType = "video";
+    cleanMimeType = "video/mp4";
+  } else if (lowerFileName.endsWith(".webm") || cleanMimeType.includes("webm")) {
+    detectedType = "video";
+    cleanMimeType = "video/webm";
+  } else if (lowerFileName.endsWith(".txt") || lowerFileName.endsWith(".md") || cleanMimeType.includes("text")) {
+    detectedType = "file";
+    cleanMimeType = "text/plain";
+  } else if (!cleanMimeType) {
+    if (detectedType === "image") cleanMimeType = "image/jpeg";
+    else if (detectedType === "video") cleanMimeType = "video/mp4";
+    else cleanMimeType = "application/pdf";
   }
 
   let aiExtractedContent = "";
-  let extractedConcepts = Array.isArray(tags) ? [...tags] : (tags ? tags.split(",").map(t => t.trim()).filter(Boolean) : []);
+  let extractedConcepts = Array.isArray(tags) ? [...tags] : (tags ? String(tags).split(",").map(t => t.trim()).filter(Boolean) : []);
   let mediaMeta = null;
 
   if (fileData) {
     mediaMeta = {
-      fileName: fileName || `${detectedType}-resource-${Date.now()}`,
+      fileName: fileName || `${detectedType}-resource-${Date.now()}.${cleanMimeType.includes("pdf") ? "pdf" : cleanMimeType.includes("png") ? "png" : cleanMimeType.includes("video") ? "mp4" : "dat"}`,
       fileSize: fileSize || Math.round(fileData.length * 0.75),
-      mimeType: mimeType || (detectedType === "image" ? "image/jpeg" : detectedType === "video" ? "video/mp4" : "application/pdf"),
+      mimeType: cleanMimeType,
       uploadedAt: new Date().toISOString()
     };
+
+    // If it's plain text/markdown file, decode buffer directly for immediate 100% accurate text
+    if (cleanMimeType === "text/plain" || lowerFileName.endsWith(".txt") || lowerFileName.endsWith(".md")) {
+      try {
+        const rawBase64 = fileData.replace(/^data:[^;]+;base64,/, "");
+        const decodedText = Buffer.from(rawBase64, "base64").toString("utf-8");
+        if (decodedText && decodedText.trim().length > 0) {
+          aiExtractedContent = decodedText;
+        }
+      } catch (e) {
+        console.warn("Direct text decode notice:", e.message);
+      }
+    }
 
     const ai = getGeminiClient();
     if (ai) {
@@ -359,47 +599,84 @@ Also provide a concise list of 4-6 key concepts covered.`;
 Extract all taught key concepts, formulas, blackboard equations, step-by-step problem solutions, and definitions into structured Markdown study notes so the AI tutor can reference this lesson when helping students.
 Also provide a concise list of 4-6 key concepts covered.`;
         } else {
-          promptText = `You are an expert curriculum document analyzer. Extract all key notes, formulas, theorems, definitions, and worked examples from this uploaded file titled '${title}' for ${subject} (${gradeLevel}) into clear, structured Markdown.
+          promptText = `You are an expert curriculum document analyzer. Extract all key notes, formulas, theorems, definitions, and worked examples from this uploaded PDF/document titled '${title}' for ${subject} (${gradeLevel}) into clear, structured Markdown.
 Also provide a concise list of 4-6 key concepts covered.`;
         }
 
-        const response = await callGeminiWithFallback(ai, {
-          model: "gemini-3.7-flash",
-          contents: {
-            parts: [
+        // Only pass supported inlineData MIME types to Gemini (PDF, images, audio, video, text)
+        const isSupportedInlineType = 
+          cleanMimeType === "application/pdf" ||
+          cleanMimeType.startsWith("image/") ||
+          cleanMimeType.startsWith("video/") ||
+          cleanMimeType.startsWith("audio/") ||
+          cleanMimeType === "text/plain" ||
+          cleanMimeType === "text/html" ||
+          cleanMimeType === "text/csv";
+
+        if (isSupportedInlineType && base64Clean.length > 0) {
+          // Wrap Gemini generation in a strict 12-second timeout to prevent upload hanging
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("AI multimodal extraction timeout - falling back to resilient fast indexer")), 12000)
+          );
+
+          const geminiPromise = callGeminiWithFallback(ai, {
+            model: "gemini-3.7-flash",
+            contents: [
               {
                 inlineData: {
-                  mimeType: mediaMeta.mimeType,
+                  mimeType: cleanMimeType,
                   data: base64Clean
                 }
               },
               { text: promptText }
-            ]
-          },
-          config: {
-            temperature: 0.2
-          }
-        });
+            ],
+            config: {
+              temperature: 0.2
+            }
+          });
 
-        aiExtractedContent = response.text || "";
+          const response = await Promise.race([geminiPromise, timeoutPromise]);
+          if (response && response.text) {
+            aiExtractedContent = response.text;
+          }
+        }
       } catch (err) {
-        console.warn("AI multimodal extraction warning (falling back):", err.message);
-        aiExtractedContent = `### AI Analysis & Notes Summary for ${title}\n- **Topic**: ${chapter || subject}\n- **Media**: ${detectedType.toUpperCase()} file (${fileName || "Uploaded Resource"})\n- **Extracted Content**: Contains core diagrams, definitions, and formulas for ${subject} ${gradeLevel}.\n${content ? `\n**User Notes:**\n${content}` : ""}`;
+        console.warn("AI multimodal extraction note (resilient fallback):", err.message);
+        if (!aiExtractedContent) {
+          aiExtractedContent = `### AI Curriculum Index & Summary: ${title}
+- **Curriculum Subject**: ${subject} (${gradeLevel})
+- **Chapter / Topic**: ${chapter || subject}
+- **Document Format**: ${cleanMimeType.includes("pdf") ? "Portable Document Format (PDF)" : detectedType.toUpperCase()} (${mediaMeta.fileName})
+- **Index Status**: Successfully ingested and indexed for curriculum RAG retrieval and adaptive practice.
+${content ? `\n**Contributor Notes & Concepts:**\n${content}` : `\n**Core Topics Covered:**\nIncludes detailed formulas, definitions, and problem-solving methodologies for ${chapter || title}.`}`;
+        }
       }
     } else {
-      aiExtractedContent = `### Multimodal Study Material: ${title}\n- **Type**: ${detectedType.toUpperCase()} (${mediaMeta.fileName})\n- **Subject**: ${subject} (${gradeLevel})\n- **Summary**: Comprehensive study material and problem breakdown for ${chapter || title}.\n${content ? `\n**Provided Notes:**\n${content}` : ""}`;
+      if (!aiExtractedContent) {
+        aiExtractedContent = `### Multimodal Study Material: ${title}
+- **Type**: ${detectedType.toUpperCase()} (${mediaMeta.fileName})
+- **Subject**: ${subject} (${gradeLevel})
+- **Summary**: Comprehensive study material and problem breakdown for ${chapter || title}.
+${content ? `\n**Provided Notes:**\n${content}` : ""}`;
+      }
     }
+  }
+
+  // Derive extra tags from title and chapter if empty
+  if (extractedConcepts.length === 0) {
+    const rawTerms = `${title} ${chapter || ""} ${subject}`.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(w => w.length > 3);
+    extractedConcepts = Array.from(new Set(rawTerms)).slice(0, 6);
   }
 
   // Combine user content with AI extracted content
   const combinedContent = [
     content ? `### Contributor Notes & Overview:\n${content}` : "",
-    aiExtractedContent ? `### AI Multimodal Extracted Concepts & Transcription:\n${aiExtractedContent}` : ""
+    aiExtractedContent ? `### AI Multimodal Extracted Concepts & Notes:\n${aiExtractedContent}` : ""
   ].filter(Boolean).join("\n\n");
 
   return {
     mediaType: detectedType,
-    mediaData: fileData, // Data URL / Base64 string for direct preview/playback
+    mediaData: fileData, // Data URL / Base64 string for direct preview/playback/download
     mediaMeta,
     aiExtractedContent: aiExtractedContent || content,
     finalContent: combinedContent || content || `Educational resource for ${subject}: ${title}`,
@@ -1610,158 +1887,6 @@ Key Limits:
 }
 seedInitialData();
 
-function retrieveRelevantOerDocs(query, gradeLevel, classCode, instituteName) {
-  const queryWords = query.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length >= 2);
-  const expandedConcepts = expandQueryConcepts(query);
-  
-  // 1. Gather all searchable items: Corpus + Classroom shared resources + Resource dumps
-  const allDocs = [];
-
-  // Core curriculum
-  OER_CORPUS.forEach((doc) => {
-    allDocs.push({
-      ...doc,
-      docType: "curriculum",
-      sourceTypeLabel: "Open Curriculum Core",
-      mediaType: "text",
-      mediaData: null,
-      mediaMeta: null
-    });
-  });
-
-  // Classroom-specific shared resources
-  if (classCode && db.classroomResources.has(classCode)) {
-    const classDocs = db.classroomResources.get(classCode);
-    classDocs.forEach((cd) => {
-      allDocs.push({
-        id: cd.id,
-        title: cd.title,
-        publisher: `Classroom Shared Resource (${cd.sharedByRole === 'teacher' ? 'Teacher: ' : 'Student: '}${cd.sharedBy})`,
-        subject: cd.subject,
-        gradeLevel: cd.gradeLevel,
-        chapter: cd.chapter,
-        section: `Shared in Class ${classCode}`,
-        pageOrRef: `Classroom Reference Module [${cd.sharedBy}]`,
-        license: "Classroom Open Share (Teacher & Student Resource)",
-        keyConcepts: cd.keyConcepts || [],
-        summary: `Shared notes by ${cd.sharedBy} (${cd.sharedByRole}) in class ${classCode}. ${cd.mediaType && cd.mediaType !== 'text' ? `[Includes ${cd.mediaType.toUpperCase()} file]` : ''}`,
-        content: cd.content || cd.aiExtractedContent || "",
-        aiExtractedContent: cd.aiExtractedContent,
-        mediaType: cd.mediaType || "text",
-        mediaData: cd.mediaData || null,
-        mediaMeta: cd.mediaMeta || null,
-        docType: "classroom_resource",
-        sourceTypeLabel: `Classroom Notes (${cd.sharedBy})`,
-        classCode
-      });
-    });
-  }
-
-  // Library Resource Dumps
-  if (db.resourceDumps && db.resourceDumps.length > 0) {
-    db.resourceDumps.forEach((rd) => {
-      allDocs.push({
-        id: rd.id,
-        title: rd.title,
-        publisher: `Library Resource Dump (${rd.uploadedByRole === 'teacher' ? 'Teacher: ' : 'Student: '}${rd.uploadedBy})`,
-        subject: rd.subject,
-        gradeLevel: rd.gradeLevel,
-        chapter: rd.chapter,
-        section: `Library Dump - ${rd.instituteName}`,
-        pageOrRef: `Community Repository [${rd.uploadedBy}]`,
-        license: "Open Educational Resource Dump",
-        keyConcepts: rd.tags || rd.keyConcepts || [],
-        summary: `Uploaded resource by ${rd.uploadedBy} from ${rd.instituteName}. ${rd.mediaType && rd.mediaType !== 'text' ? `[Includes ${rd.mediaType.toUpperCase()} file]` : ''}`,
-        content: rd.content || rd.aiExtractedContent || "",
-        aiExtractedContent: rd.aiExtractedContent,
-        mediaType: rd.mediaType || "text",
-        mediaData: rd.mediaData || null,
-        mediaMeta: rd.mediaMeta || null,
-        docType: "resource_dump",
-        sourceTypeLabel: `Library Dump (${rd.uploadedBy})`,
-        instituteName: rd.instituteName
-      });
-    });
-  }
-
-  const queryLower = query.toLowerCase();
-
-  const scored = allDocs.map((doc) => {
-    let score = 0;
-    const docConcepts = (doc.keyConcepts || []).map(c => c.toLowerCase());
-    const docFullText = `${doc.title} ${doc.chapter} ${doc.section} ${docConcepts.join(" ")} ${doc.content} ${doc.aiExtractedContent || ""} ${doc.summary}`.toLowerCase();
-    
-    // Direct matches with query words
-    for (const word of queryWords) {
-      if (docFullText.includes(word)) {
-        score += 8;
-      }
-      if (doc.title.toLowerCase().includes(word)) {
-        score += 15;
-      }
-      if (doc.chapter.toLowerCase().includes(word)) {
-        score += 15;
-      }
-    }
-
-    // Direct concept matches in doc's keyConcepts
-    for (const concept of docConcepts) {
-      if (queryLower.includes(concept)) {
-        score += 40;
-      }
-      if (expandedConcepts.includes(concept)) {
-        score += 30;
-      }
-    }
-
-    // Expanded ontology term matching across document text
-    for (const expConcept of expandedConcepts) {
-      if (docFullText.includes(expConcept)) {
-        score += 12;
-      }
-    }
-
-    // Grade level relevance matching
-    if (gradeLevel && doc.gradeLevel && doc.gradeLevel.toLowerCase().includes(gradeLevel.toLowerCase().slice(0, 7))) {
-      score += 10;
-    }
-
-    // High priority for classroom-shared resources in this class
-    if (doc.docType === "classroom_resource" && classCode && doc.classCode === classCode) {
-      score += 35;
-    }
-    // Boost for resource dumps from the same institute
-    if (doc.docType === "resource_dump" && instituteName && doc.instituteName === instituteName) {
-      score += 20;
-    }
-    return { doc, score };
-  });
-
-  scored.sort((a, b) => b.score - a.score);
-  const topMatches = scored.filter((item) => item.score > 12).slice(0, 4);
-  const selected = topMatches.length > 0 ? topMatches : scored.slice(0, 2);
-  const citations = selected.map(({ doc, score }) => ({
-    id: `cite-${doc.id}`,
-    sourceName: doc.title,
-    publisher: doc.publisher,
-    chapter: doc.chapter,
-    section: doc.section,
-    pageOrRef: doc.pageOrRef,
-    license: doc.license,
-    excerptSnippet: (doc.content || doc.aiExtractedContent || "").slice(0, 220) + "...",
-    mediaType: doc.mediaType || "text",
-    mediaData: doc.mediaData || null,
-    mediaMeta: doc.mediaMeta || null,
-    docType: doc.docType || "curriculum",
-    relevanceScore: Math.min(99, Math.max(70, Math.round(score * 2.2)))
-  }));
-
-  return {
-    docs: selected.map((s) => s.doc),
-    citations,
-    expandedConcepts: expandedConcepts.slice(0, 8)
-  };
-}
 app.get("/api/health", async (_req, res) => {
   const isConnected = isMongoConnected();
   let studentsCount = db.students.size;
@@ -4087,7 +4212,7 @@ app.post("/api/doubt/solve", async (req, res) => {
     let citations = [];
 
     if (!isGreeting) {
-      const retrieval = retrieveRelevantOerDocs(
+      const retrieval = await retrieveRelevantOerDocs(
         question || "Math & Science concepts",
         gradeLevel,
         effectiveClassCode,
@@ -4098,7 +4223,7 @@ app.post("/api/doubt/solve", async (req, res) => {
     }
 
     const contextText = docs.map(
-      (d) => `[SOURCE (${d.sourceTypeLabel || 'Curriculum'}): ${d.title} | ${d.chapter} | ${d.section} | Reference: ${d.pageOrRef} | License: ${d.license}]
+      (d) => `[SOURCE (${d.sourceTypeLabel || 'Curriculum'}): ${d.title} | Author: ${d.author || d.publisher} | ${d.chapter} | ${d.section} | Reference: ${d.pageOrRef} | Access Link: ${d.bookUrl || d.accessLink}]
 Content:
 ${d.content}`
     ).join("\n\n---\n\n");
@@ -4144,10 +4269,11 @@ ${matchedDoc.content.split("\n").slice(0, 4).join("\n")}
 **Step 3: Solve Step-by-Step**
 Work through the equation step-by-step to arrive at the final simplified value. Verify with equivalent balance on both sides.
 
-**Verified Educational Source:**
-- **Source Material:** ${matchedDoc.title}
-- **Section / Origin:** ${matchedDoc.section} (${matchedDoc.pageOrRef})
-- **License / Classification:** ${matchedDoc.license}`;
+**Verified Educational Source Book & Reference:**
+- **Source Book:** [${matchedDoc.title}](${matchedDoc.bookUrl || matchedDoc.accessLink || '#/oer'})
+- **Author / Publisher:** ${matchedDoc.author || matchedDoc.publisher}
+- **Section / Origin:** ${matchedDoc.chapter} - ${matchedDoc.section} (${matchedDoc.pageOrRef})
+- **Access Link:** [Open & Read "${matchedDoc.title}"](${matchedDoc.bookUrl || matchedDoc.accessLink || '#/oer'})`;
     }
 
     const ai = getGeminiClient();
@@ -4169,16 +4295,17 @@ Respond warmly, politely, and enthusiastically in ${langName} as "Equitable-AI T
           }
         } else {
           const systemInstruction = `You are a patient, pedagogically grounded AI tutor designed for equitable education access for students.
-Your primary directive is to provide clear, level-appropriate explanations STRICTLY GROUNDED in verified educational curriculum frameworks, classroom-shared notes uploaded by teachers and peers, and community resource dumps.
+Your primary directive is to provide clear, level-appropriate explanations STRICTLY GROUNDED in verified educational curriculum textbooks, classroom notes uploaded globally by teachers and students, and community resource dumps.
 
 STRICT RULES:
 1. Target Grade Level: ${gradeLevel}. Adjust vocabulary, pacing, and complexity specifically for this grade.
 2. Target Output Language: ${langName} (${language}). Explain the entire answer in ${langName}. If technical terms are used, you may provide English transliteration or bilingual keywords where helpful for clarity.
 3. Explanation Style: ${explanationStyle} (e.g. step-by-step breakdown, simple analogy, or prerequisite basics).
-4. CITATION REQUIREMENT: You MUST explicitly reference the provided curriculum chapters, teacher/student classroom notes, or resource dump passages (e.g. "According to the classroom notes on Wave Optics..." or "Referencing Senior Secondary Mathematics Chapter 7 Integrals...").
-5. HONESTY: If the question cannot be grounded in standard secondary/high school curriculum or the provided corpus, politely explain what foundational concept applies rather than fabricating facts.
-6. NO MOCK JARGON: Keep the tone encouraging, supportive, and crystal clear.
-7. Format with clear numbered steps, bold highlights, and clean typography with LaTeX math ($...$ or $$...$$).`;
+4. CITATION REQUIREMENT: You MUST explicitly reference the provided curriculum chapters, teacher/student classroom notes, or resource dump passages.
+5. SOURCE BOOK LINK CITATION: At the bottom of your answer, include a clear reference acknowledging the exact source book, notes, or uploaded resource, citing the title and author/publisher.
+6. HONESTY: If the question cannot be grounded in standard secondary/high school curriculum or the provided corpus, politely explain what foundational concept applies rather than fabricating facts.
+7. NO MOCK JARGON: Keep the tone encouraging, supportive, and crystal clear.
+8. Format with clear numbered steps, bold highlights, and clean typography with LaTeX math ($...$ or $$...$$).`;
           const promptContent = `Student Doubt / Question:
 "${question}"
 

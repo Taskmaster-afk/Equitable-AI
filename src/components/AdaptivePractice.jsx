@@ -8,7 +8,8 @@ import {
   BookOpen,
   ArrowRight,
   RefreshCw,
-  Zap
+  Zap,
+  ExternalLink
 } from "lucide-react";
 import { api } from "../services/api";
 const CURRICULUM_PRACTICE_TOPICS = [
@@ -315,15 +316,28 @@ export const AdaptivePractice = ({
                       {currentQuestion.explanation}
                     </div>
 
-                    {currentQuestion.groundedCitation && <div className="pt-2 border-t border-[#E5E7EB] text-[11px] text-[#6B7280] flex flex-wrap items-center justify-between gap-1">
-                        <span className="flex items-center gap-1">
-                          <BookOpen className="w-3.5 h-3.5 text-black" />
-                          Curriculum Source: <strong className="text-black">{currentQuestion.groundedCitation.sourceName}</strong> ({currentQuestion.groundedCitation.chapter})
-                        </span>
-                        <span className="font-mono text-[10px] text-[#9CA3AF]">
-                          {currentQuestion.groundedCitation.pageOrRef}
-                        </span>
-                      </div>}
+                    {currentQuestion.groundedCitation && (
+                      <div className="pt-2.5 border-t border-[#E5E7EB] text-[11px] text-[#6B7280] flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <BookOpen className="w-3.5 h-3.5 text-black shrink-0" />
+                          <span>Curriculum Source: <strong className="text-black">{currentQuestion.groundedCitation.sourceName}</strong> ({currentQuestion.groundedCitation.chapter})</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[10px] text-[#9CA3AF]">
+                            {currentQuestion.groundedCitation.pageOrRef}
+                          </span>
+                          <a
+                            href={currentQuestion.groundedCitation.bookUrl || currentQuestion.groundedCitation.accessLink || "#/oer"}
+                            target={currentQuestion.groundedCitation.bookUrl?.startsWith("http") ? "_blank" : "_self"}
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-black hover:bg-neutral-800 px-2 py-0.5"
+                          >
+                            <span>Open Book</span>
+                            <ExternalLink className="w-2.5 h-2.5 ml-0.5 text-neutral-300" />
+                          </a>
+                        </div>
+                      </div>
+                    )}
                   </div>}
               </div> : null}
 
