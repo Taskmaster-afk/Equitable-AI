@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Search,
   Shield,
@@ -12,6 +12,10 @@ import {
   Building,
   User,
   CheckCircle2,
+  Clock,
+  Trophy,
+  Award,
+  Medal,
   Image as ImageIcon,
   Video as VideoIcon,
   FileUp,
@@ -181,13 +185,18 @@ export const OerLibrary = ({ currentStudent, currentTeacher, onNavigateToTutor, 
         fileSize: uploadedFile?.size || 0,
         uploadedBy: currentUser?.name || (isTeacher ? "Teacher" : "Student"),
         uploadedByRole: isTeacher ? "teacher" : "student",
+        authorName: currentUser?.name || (isTeacher ? "Teacher" : "Student"),
+        authorRole: isTeacher ? "teacher" : "student",
+        authorId: currentUser?.id || "user-1",
         instituteName: dumpFormData.instituteName || currentUser?.institute || currentUser?.school || "Open Education Network"
       };
 
       const res = await api.uploadResourceDump(payload);
       setStatusMessage({
         type: "success",
-        text: `Resource with ${payload.mediaType.toUpperCase()} successfully uploaded to Knowledge Dump! AI Multimodal Engine is reading from it.`
+        text: isTeacher
+          ? `Verified study resource published to Knowledge Dump!`
+          : `Resource uploaded to Knowledge Dump! It will earn verified scholar status upon faculty review.`
       });
       setDumpFormData({
         title: "",
@@ -211,6 +220,21 @@ export const OerLibrary = ({ currentStudent, currentTeacher, onNavigateToTutor, 
     }
   };
 
+  const handleVerifyDump = async (id) => {
+    if (!isTeacher) return;
+    try {
+      await api.verifyResourceDump(id, currentUser?.name || "Faculty Lead");
+      setDumps(prev => prev.map(d => d.id === id ? { ...d, isVerified: true, verifiedBy: currentUser?.name || "Faculty Lead", verifiedAt: "Just now" } : d));
+      if (selectedDump?.id === id) {
+        setSelectedDump(prev => ({ ...prev, isVerified: true, verifiedBy: currentUser?.name || "Faculty Lead", verifiedAt: "Just now" }));
+      }
+      setStatusMessage({ type: "success", text: "Resource verified and endorsed by faculty! Top contributor rankings updated." });
+    } catch (err) {
+      console.error("Failed to verify dump:", err);
+      setStatusMessage({ type: "error", text: err.message || "Failed to verify dump" });
+    }
+  };
+
   const handleDeleteDump = async (id) => {
     if (!confirm("Are you sure you want to remove this resource dump?")) return;
     try {
@@ -223,6 +247,38 @@ export const OerLibrary = ({ currentStudent, currentTeacher, onNavigateToTutor, 
       console.error("Failed to delete dump:", err);
     }
   };
+
+  const topContributors = useMemo(() => {
+    const map = new Map();
+    dumps.forEach((d) => {
+      const author = d.uploadedBy || d.authorName || "Scholar";
+      const role = d.uploadedByRole || d.authorRole || "student";
+      const institute = d.instituteName || "Open Education Network";
+      const isVer = typeof d.isVerified === "boolean" ? d.isVerified : role === "teacher";
+
+      if (!map.has(author)) {
+        map.set(author, {
+          name: author,
+          role,
+          institute,
+          totalUploads: 0,
+          verifiedUploads: 0
+        });
+      }
+      const item = map.get(author);
+      item.totalUploads += 1;
+      if (isVer) {
+        item.verifiedUploads += 1;
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+      if (b.verifiedUploads !== a.verifiedUploads) {
+        return b.verifiedUploads - a.verifiedUploads;
+      }
+      return b.totalUploads - a.totalUploads;
+    });
+  }, [dumps]);
 
   const filteredCoreDocs = corpus.filter((doc) => {
     const matchesSubject = selectedSubject === "all" || doc.subject.toLowerCase() === selectedSubject.toLowerCase();
@@ -394,124 +450,240 @@ export const OerLibrary = ({ currentStudent, currentTeacher, onNavigateToTutor, 
 
       {/* VIEW 1: RESOURCE DUMP REPOSITORY */}
       {activeTab === "dumps" && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          {/* Resource Dumps Directory List (5 cols) */}
-          <div className="lg:col-span-5 space-y-2.5 max-h-[640px] overflow-y-auto pr-1">
-            {isLoadingDumps ? (
-              <div className="bg-white border border-[#E5E7EB] p-8 text-center text-xs text-[#6B7280]">
-                Loading resource dumps...
+        <div className="space-y-4">
+          {/* TOP CONTRIBUTORS & VERIFIED SCHOLARS LEADERBOARD */}
+          <div className="bg-gradient-to-r from-amber-50/80 via-white to-indigo-50/80 border border-[#E5E7EB] p-4 space-y-3 shadow-xs">
+            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-[#F0F2F5] pb-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                  🏆
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-[#1A1A1A] flex items-center gap-2">
+                    <span>Top Academic Contributors & Verified Scholars</span>
+                    <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-mono px-1.5 py-0.2 font-bold uppercase">
+                      Hall of Fame
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-[#6B7280]">
+                    Ranked by faculty-verified uploads & endorsed materials. Teacher uploads are pre-verified; student uploads earn verified ranking upon teacher endorsement.
+                  </p>
+                </div>
               </div>
-            ) : filteredDumps.length === 0 ? (
-              <div className="bg-white border border-[#E5E7EB] p-8 text-center space-y-2">
-                <UploadCloud className="w-8 h-8 mx-auto text-[#9CA3AF]" />
-                <h3 className="font-bold text-xs text-[#1A1A1A]">No Dump Resources Found</h3>
-                <p className="text-[11px] text-[#6B7280]">
-                  Be the first to upload revision sheets, handwritten notes, diagrams, or video lectures.
-                </p>
-                <button
-                  onClick={() => setShowUploadModal(true)}
-                  className="bg-black text-white text-xs font-bold px-3 py-1.5 mt-2"
-                >
-                  Upload Resource
-                </button>
+              <div className="text-[11px] font-mono text-[#6B7280]">
+                {topContributors.length} Active Contributors
               </div>
-            ) : (
-              filteredDumps.map((dump) => {
-                const isSelected = selectedDump?.id === dump.id;
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pt-1">
+              {topContributors.slice(0, 4).map((contributor, idx) => {
+                const isGold = idx === 0;
+                const isSilver = idx === 1;
+                const isBronze = idx === 2;
+                const rankBadge = isGold ? "🥇 Rank 1" : isSilver ? "🥈 Rank 2" : isBronze ? "🥉 Rank 3" : `#${idx + 1}`;
+                const medalColor = isGold
+                  ? "bg-amber-100 border-amber-300 text-amber-900 font-bold"
+                  : isSilver
+                  ? "bg-slate-100 border-slate-300 text-slate-900 font-bold"
+                  : isBronze
+                  ? "bg-orange-100 border-orange-300 text-orange-900 font-bold"
+                  : "bg-gray-50 border-gray-200 text-gray-700 font-medium";
+
                 return (
                   <div
-                    key={dump.id}
-                    onClick={() => setSelectedDump(dump)}
-                    className={`p-3 border text-xs cursor-pointer transition-colors ${
-                      isSelected ? "border-black bg-[#F8F9FA]" : "border-[#E5E7EB] bg-white hover:border-[#9CA3AF]"
+                    key={contributor.name}
+                    className={`bg-white border p-3 flex flex-col justify-between gap-2.5 transition-all hover:shadow-xs ${
+                      isGold ? "border-amber-400 ring-1 ring-amber-200" : "border-[#E5E7EB]"
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="font-bold text-[#1A1A1A] text-sm">{dump.title}</span>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {dump.mediaType === "image" && (
-                          <span className="px-1.5 py-0.5 text-[9px] font-bold bg-blue-100 text-blue-800 flex items-center gap-0.5">
-                            <ImageIcon className="w-2.5 h-2.5" /> IMG
-                          </span>
-                        )}
-                        {dump.mediaType === "video" && (
-                          <span className="px-1.5 py-0.5 text-[9px] font-bold bg-purple-100 text-purple-800 flex items-center gap-0.5">
-                            <VideoIcon className="w-2.5 h-2.5" /> VID
-                          </span>
-                        )}
-                        {dump.mediaType === "file" && (
-                          <span className="px-1.5 py-0.5 text-[9px] font-bold bg-amber-100 text-amber-800 flex items-center gap-0.5">
-                            <FileText className="w-2.5 h-2.5" /> DOC
-                          </span>
-                        )}
-                        <span className={`px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                          dump.uploadedByRole === "teacher" ? "bg-black text-white" : "bg-gray-100 text-gray-800"
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs font-mono shrink-0 ${
+                          contributor.role === "teacher" ? "bg-black text-white" : "bg-emerald-600 text-white"
                         }`}>
-                          {dump.uploadedByRole}
-                        </span>
+                          {contributor.name.slice(0, 1).toUpperCase()}
+                        </div>
+                        <div className="truncate">
+                          <div className="font-bold text-xs text-[#1A1A1A] truncate">{contributor.name}</div>
+                          <div className="text-[10px] text-[#6B7280] capitalize truncate">{contributor.role} &bull; {contributor.institute}</div>
+                        </div>
                       </div>
+                      <span className={`text-[10px] font-mono px-1.5 py-0.2 border shrink-0 ${medalColor}`}>
+                        {rankBadge}
+                      </span>
                     </div>
 
-                    <p className="text-[#4B5563] text-xs mb-1">
-                      {dump.subject} &bull; <span className="text-[#6B7280]">{dump.gradeLevel}</span>
-                    </p>
-
-                    <div className="text-[11px] text-[#6B7280] flex items-center gap-2 mb-1.5">
-                      <Building className="w-3 h-3 text-[#9CA3AF]" />
-                      <span className="truncate">{dump.instituteName}</span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1">
-                      {dump.tags && dump.tags.slice(0, 3).map((tag, i) => (
-                        <span key={i} className="bg-[#F0F2F5] text-[#374151] px-1.5 py-0.5 text-[10px] font-mono">
-                          #{tag}
-                        </span>
-                      ))}
+                    <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#F0F2F5]">
+                      <span className="text-emerald-700 font-bold flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>{contributor.verifiedUploads} Verified</span>
+                      </span>
+                      <span className="text-[#6B7280] font-mono text-[10px]">
+                        {contributor.totalUploads} total
+                      </span>
                     </div>
                   </div>
                 );
-              })
-            )}
+              })}
+            </div>
           </div>
 
-          {/* Selected Dump Document Full View (7 cols) */}
-          <div className="lg:col-span-7 bg-white border border-[#E5E7EB] p-5">
-            {selectedDump ? (
-              <div className="space-y-4">
-                <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#E5E7EB]">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="text-[10px] uppercase tracking-wider font-bold text-[#9CA3AF]">
-                        {selectedDump.subject} &bull; {selectedDump.gradeLevel}
-                      </span>
-                      <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[9px] font-bold px-1.5 py-0.2 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-emerald-600" />
-                        AI Grounded & Indexed
-                      </span>
-                      {selectedDump.mediaType && selectedDump.mediaType !== "text" && (
-                        <span className="bg-purple-50 text-purple-800 border border-purple-200 text-[9px] font-bold px-1.5 py-0.2 uppercase">
-                          {selectedDump.mediaType} Resource
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="text-base font-bold text-[#1A1A1A]">
-                      {selectedDump.title}
-                    </h3>
-                    <p className="text-xs text-[#6B7280] mt-0.5 flex items-center gap-2 flex-wrap">
-                      <span>Contributed by: <strong>{selectedDump.uploadedBy}</strong> ({selectedDump.uploadedByRole})</span>
-                      <span className="text-[#D1D5DB]">&bull;</span>
-                      <span>{selectedDump.instituteName}</span>
-                    </p>
-                  </div>
-
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            {/* Resource Dumps Directory List (5 cols) */}
+            <div className="lg:col-span-5 space-y-2.5 max-h-[640px] overflow-y-auto pr-1">
+              {isLoadingDumps ? (
+                <div className="bg-white border border-[#E5E7EB] p-8 text-center text-xs text-[#6B7280]">
+                  Loading resource dumps...
+                </div>
+              ) : filteredDumps.length === 0 ? (
+                <div className="bg-white border border-[#E5E7EB] p-8 text-center space-y-2">
+                  <UploadCloud className="w-8 h-8 mx-auto text-[#9CA3AF]" />
+                  <h3 className="font-bold text-xs text-[#1A1A1A]">No Dump Resources Found</h3>
+                  <p className="text-[11px] text-[#6B7280]">
+                    Be the first to upload revision sheets, handwritten notes, diagrams, or video lectures.
+                  </p>
                   <button
-                    onClick={() => handleDeleteDump(selectedDump.id)}
-                    title="Delete Resource Dump"
-                    className="text-[#9CA3AF] hover:text-rose-600 p-1 transition-colors"
+                    onClick={() => setShowUploadModal(true)}
+                    className="bg-black text-white text-xs font-bold px-3 py-1.5 mt-2"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    Upload Resource
                   </button>
                 </div>
+              ) : (
+                filteredDumps.map((dump) => {
+                  const isSelected = selectedDump?.id === dump.id;
+                  const isVerified = typeof dump.isVerified === "boolean" ? dump.isVerified : dump.uploadedByRole === "teacher";
+                  return (
+                    <div
+                      key={dump.id}
+                      onClick={() => setSelectedDump(dump)}
+                      className={`p-3 border text-xs cursor-pointer transition-colors ${
+                        isSelected ? "border-black bg-[#F8F9FA]" : "border-[#E5E7EB] bg-white hover:border-[#9CA3AF]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="font-bold text-[#1A1A1A] text-sm">{dump.title}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {dump.mediaType === "image" && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold bg-blue-100 text-blue-800 flex items-center gap-0.5">
+                              <ImageIcon className="w-2.5 h-2.5" /> IMG
+                            </span>
+                          )}
+                          {dump.mediaType === "video" && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold bg-purple-100 text-purple-800 flex items-center gap-0.5">
+                              <VideoIcon className="w-2.5 h-2.5" /> VID
+                            </span>
+                          )}
+                          {dump.mediaType === "file" && (
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold bg-amber-100 text-amber-800 flex items-center gap-0.5">
+                              <FileText className="w-2.5 h-2.5" /> DOC
+                            </span>
+                          )}
+                          <span className={`px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                            dump.uploadedByRole === "teacher" ? "bg-black text-white" : "bg-gray-100 text-gray-800"
+                          }`}>
+                            {dump.uploadedByRole}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        {isVerified ? (
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-1.5 py-0.2 flex items-center gap-1">
+                            <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                            <span>Verified Material</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-300 px-1.5 py-0.2 flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5 text-amber-600" />
+                            <span>Pending Verification</span>
+                          </span>
+                        )}
+                        <span className="text-[#4B5563] text-xs">
+                          {dump.subject} &bull; <span className="text-[#6B7280]">{dump.gradeLevel}</span>
+                        </span>
+                      </div>
+
+                      <div className="text-[11px] text-[#6B7280] flex items-center gap-2 mb-1.5">
+                        <Building className="w-3 h-3 text-[#9CA3AF]" />
+                        <span className="truncate">{dump.instituteName}</span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1">
+                        {dump.tags && dump.tags.slice(0, 3).map((tag, i) => (
+                          <span key={i} className="bg-[#F0F2F5] text-[#374151] px-1.5 py-0.5 text-[10px] font-mono">
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Selected Dump Document Full View (7 cols) */}
+            <div className="lg:col-span-7 bg-white border border-[#E5E7EB] p-5">
+              {selectedDump ? (
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#E5E7EB]">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="text-[10px] uppercase tracking-wider font-bold text-[#9CA3AF]">
+                          {selectedDump.subject} &bull; {selectedDump.gradeLevel}
+                        </span>
+                        {selectedDump.isVerified || selectedDump.uploadedByRole === "teacher" ? (
+                          <span className="bg-emerald-50 text-emerald-800 border border-emerald-300 text-[10px] font-bold px-2 py-0.5 flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Verified {selectedDump.verifiedBy ? `by ${selectedDump.verifiedBy}` : "Faculty Endorsed"}</span>
+                          </span>
+                        ) : (
+                          <span className="bg-amber-50 text-amber-800 border border-amber-300 text-[10px] font-bold px-2 py-0.5 flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Pending Faculty Verification</span>
+                          </span>
+                        )}
+                        <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[9px] font-bold px-1.5 py-0.2 flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-emerald-600" />
+                          AI Grounded & Indexed
+                        </span>
+                        {selectedDump.mediaType && selectedDump.mediaType !== "text" && (
+                          <span className="bg-purple-50 text-purple-800 border border-purple-200 text-[9px] font-bold px-1.5 py-0.2 uppercase">
+                            {selectedDump.mediaType} Resource
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-base font-bold text-[#1A1A1A]">
+                        {selectedDump.title}
+                      </h3>
+                      <p className="text-xs text-[#6B7280] mt-0.5 flex items-center gap-2 flex-wrap">
+                        <span>Contributed by: <strong>{selectedDump.uploadedBy || selectedDump.authorName}</strong> ({selectedDump.uploadedByRole || selectedDump.authorRole})</span>
+                        <span className="text-[#D1D5DB]">&bull;</span>
+                        <span>{selectedDump.instituteName}</span>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isTeacher && !selectedDump.isVerified && selectedDump.uploadedByRole !== "teacher" && (
+                        <button
+                          onClick={() => handleVerifyDump(selectedDump.id)}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 text-xs font-bold flex items-center gap-1 transition-colors shadow-xs"
+                          title="Endorse and verify this student material"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Verify & Endorse</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => handleDeleteDump(selectedDump.id)}
+                        title="Delete Resource Dump"
+                        className="text-[#9CA3AF] hover:text-rose-600 p-1 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
 
                 {/* Media Playback / Preview */}
                 {selectedDump.mediaType === "image" && selectedDump.mediaData && (
@@ -617,6 +789,7 @@ export const OerLibrary = ({ currentStudent, currentTeacher, onNavigateToTutor, 
               </div>
             )}
           </div>
+        </div>
         </div>
       )}
 

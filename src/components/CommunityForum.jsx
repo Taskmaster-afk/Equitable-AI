@@ -74,9 +74,8 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
   const loadPosts = async () => {
     setIsLoading(true);
     try {
-      const isGlobal = selectedChannel === "global";
       const data = await api.getCommunityPosts({
-        classCode: !isGlobal ? selectedChannel : void 0
+        classCode: selectedChannel
       });
       const fetchedPosts = data.posts || [];
       const sorted = [...fetchedPosts].reverse();

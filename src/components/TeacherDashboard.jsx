@@ -1038,34 +1038,17 @@ export const TeacherDashboard = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="font-bold text-[#374151]">Target Section</label>
-                  <select
-                    value={announcementSection}
-                    onChange={(e) => setAnnouncementSection(e.target.value)}
-                    className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-2.5 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
-                  >
-                    <option value="all">All Sections</option>
-                    <option value="Section A">Section A only</option>
-                    <option value="Section B">Section B only</option>
-                    <option value="Section C">Section C only</option>
-                    <option value="Section D">Section D only</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-bold text-[#374151]">Notice Priority</label>
-                  <select
-                    value={announcementPriority}
-                    onChange={(e) => setAnnouncementPriority(e.target.value)}
-                    className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-2.5 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black font-bold"
-                  >
-                    <option value="normal">Normal Circular</option>
-                    <option value="important">Important Notice</option>
-                    <option value="urgent">Urgent / Exam Alert</option>
-                  </select>
-                </div>
+              <div className="space-y-1">
+                <label className="font-bold text-[#374151]">Notice Priority *</label>
+                <select
+                  value={announcementPriority}
+                  onChange={(e) => setAnnouncementPriority(e.target.value)}
+                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black font-bold"
+                >
+                  <option value="normal">Normal Circular</option>
+                  <option value="important">Important Notice</option>
+                  <option value="urgent">Urgent / Exam Alert</option>
+                </select>
               </div>
 
               <div className="space-y-1">

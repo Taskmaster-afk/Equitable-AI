@@ -177,7 +177,10 @@ const ClassroomResourceSchema = new mongoose.Schema({
   fileData: { type: String, default: null },
   authorName: { type: String, default: "Faculty" },
   authorRole: { type: String, default: "teacher" },
-  authorId: { type: String, default: "" }
+  authorId: { type: String, default: "" },
+  isVerified: { type: Boolean, default: false },
+  verifiedBy: { type: String, default: "" },
+  verifiedAt: { type: String, default: "" }
 }, { timestamps: true, strict: false });
 
 const ResourceDumpSchema = new mongoose.Schema({
@@ -200,7 +203,10 @@ const ResourceDumpSchema = new mongoose.Schema({
   authorName: { type: String, default: "Scholar" },
   authorRole: { type: String, default: "student" },
   authorId: { type: String, default: "" },
-  instituteName: { type: String, default: "Open School Education Network" }
+  instituteName: { type: String, default: "Open School Education Network" },
+  isVerified: { type: Boolean, default: false },
+  verifiedBy: { type: String, default: "" },
+  verifiedAt: { type: String, default: "" }
 }, { timestamps: true, strict: false });
 
 const CommunityPostSchema = new mongoose.Schema({

@@ -438,7 +438,14 @@ export async function getAllClassroomResources() {
 
 export async function createClassroomResource(resourceData) {
   const code = (resourceData.classCode || "").toUpperCase().trim();
-  const normalized = { ...resourceData, classCode: code };
+  const isTeacher = resourceData.authorRole === "teacher";
+  const normalized = {
+    ...resourceData,
+    classCode: code,
+    isVerified: typeof resourceData.isVerified === "boolean" ? resourceData.isVerified : isTeacher,
+    verifiedBy: resourceData.verifiedBy || (isTeacher ? resourceData.authorName || "Faculty Lead" : ""),
+    verifiedAt: resourceData.verifiedAt || (isTeacher ? new Date().toISOString() : "")
+  };
 
   if (!inMemDb.classroomResources.has(code)) {
     inMemDb.classroomResources.set(code, []);
@@ -449,6 +456,30 @@ export async function createClassroomResource(resourceData) {
     await ClassroomResource.findOneAndUpdate({ id: normalized.id }, normalized, { upsert: true, new: true });
   }
   return normalized;
+}
+
+export async function verifyClassroomResource(id, classCode, teacherName) {
+  const code = (classCode || "").toUpperCase().trim();
+  let updated = null;
+  const list = inMemDb.classroomResources.get(code) || [];
+  for (let i = 0; i < list.length; i++) {
+    if (list[i].id === id) {
+      list[i].isVerified = true;
+      list[i].verifiedBy = teacherName || "Faculty Lead";
+      list[i].verifiedAt = new Date().toISOString();
+      updated = list[i];
+      break;
+    }
+  }
+
+  if (isMongoConnected()) {
+    updated = await ClassroomResource.findOneAndUpdate(
+      { id },
+      { $set: { isVerified: true, verifiedBy: teacherName || "Faculty Lead", verifiedAt: new Date().toISOString() } },
+      { new: true }
+    ).lean();
+  }
+  return updated;
 }
 
 export async function deleteClassroomResource(id, classCode) {
@@ -487,11 +518,39 @@ export async function getResourceDumps(filters = {}) {
 }
 
 export async function createResourceDump(dumpData) {
-  inMemDb.resourceDumps.unshift(dumpData);
+  const isTeacher = dumpData.authorRole === "teacher" || dumpData.uploadedByRole === "teacher";
+  const normalized = {
+    ...dumpData,
+    isVerified: typeof dumpData.isVerified === "boolean" ? dumpData.isVerified : isTeacher,
+    verifiedBy: dumpData.verifiedBy || (isTeacher ? dumpData.authorName || dumpData.uploadedBy || "Faculty Lead" : ""),
+    verifiedAt: dumpData.verifiedAt || (isTeacher ? new Date().toISOString() : "")
+  };
+  inMemDb.resourceDumps.unshift(normalized);
   if (isMongoConnected()) {
-    await ResourceDump.findOneAndUpdate({ id: dumpData.id }, dumpData, { upsert: true, new: true });
+    await ResourceDump.findOneAndUpdate({ id: normalized.id }, normalized, { upsert: true, new: true });
   }
-  return dumpData;
+  return normalized;
+}
+
+export async function verifyResourceDump(id, teacherName) {
+  let updated = null;
+  for (let i = 0; i < inMemDb.resourceDumps.length; i++) {
+    if (inMemDb.resourceDumps[i].id === id) {
+      inMemDb.resourceDumps[i].isVerified = true;
+      inMemDb.resourceDumps[i].verifiedBy = teacherName || "Faculty Lead";
+      inMemDb.resourceDumps[i].verifiedAt = new Date().toISOString();
+      updated = inMemDb.resourceDumps[i];
+      break;
+    }
+  }
+  if (isMongoConnected()) {
+    updated = await ResourceDump.findOneAndUpdate(
+      { id },
+      { $set: { isVerified: true, verifiedBy: teacherName || "Faculty Lead", verifiedAt: new Date().toISOString() } },
+      { new: true }
+    ).lean();
+  }
+  return updated;
 }
 
 export async function deleteResourceDump(id) {
@@ -506,10 +565,17 @@ export async function deleteResourceDump(id) {
 // COMMUNITY FORUM POSTS & ANSWERS
 // -------------------------------------------------------------
 export async function getCommunityPosts(filters = {}) {
+  const isGlobalReq = filters.classCode === "global";
+  const targetCode = filters.classCode && filters.classCode !== "all" && !isGlobalReq
+    ? filters.classCode.toUpperCase().trim()
+    : null;
+
   if (isMongoConnected()) {
     const query = {};
-    if (filters.classCode && filters.classCode !== "all") {
-      query.classCode = filters.classCode;
+    if (targetCode) {
+      query.classCode = targetCode;
+    } else if (isGlobalReq) {
+      query.$or = [{ classCode: "" }, { classCode: null }, { classCode: "global" }, { classCode: { $exists: false } }];
     }
     if (filters.section && filters.section !== "all") {
       query.section = { $in: [filters.section, "all"] };
@@ -522,9 +588,12 @@ export async function getCommunityPosts(filters = {}) {
     }
     return await CommunityPost.find(query).sort({ createdAt: -1 }).lean();
   }
+
   let posts = [...inMemDb.communityPosts];
-  if (filters.classCode && filters.classCode !== "all") {
-    posts = posts.filter(p => !p.classCode || p.classCode === filters.classCode);
+  if (targetCode) {
+    posts = posts.filter(p => p.classCode && p.classCode.toUpperCase().trim() === targetCode);
+  } else if (isGlobalReq) {
+    posts = posts.filter(p => !p.classCode || p.classCode === "global" || p.classCode === "");
   }
   if (filters.section && filters.section !== "all") {
     posts = posts.filter(p => !p.section || p.section === filters.section || p.section === "all");

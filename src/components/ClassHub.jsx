@@ -323,6 +323,17 @@ export const ClassHub = ({
     }
   };
 
+  const handleVerifyResource = async (id) => {
+    if (!isTeacher) return;
+    try {
+      await api.verifyClassroomResource(classCode, id, currentUser?.name || "Faculty Lead");
+      setResources(prev => prev.map(r => r.id === id ? { ...r, isVerified: true, verifiedBy: currentUser?.name || "Faculty Lead" } : r));
+      setStatusMessage({ type: "success", text: "Resource verified and endorsed for this classroom!" });
+    } catch (err) {
+      console.error("Failed to verify resource:", err);
+    }
+  };
+
   const handleCreatePost = async (e) => {
     e.preventDefault();
     if (!postTitle.trim() || !postContent.trim()) return;
@@ -1210,11 +1221,24 @@ export const ClassHub = ({
                           )}
                         </div>
 
-                        <span className={`text-[10px] font-bold px-2 py-0.5 shrink-0 ${
-                          res.sharedByRole === "teacher" ? "bg-black text-white" : "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                        }`}>
-                          {res.sharedBy} ({res.sharedByRole})
-                        </span>
+                        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                          {res.isVerified || res.sharedByRole === "teacher" || res.authorRole === "teacher" ? (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>Verified {res.verifiedBy ? `by ${res.verifiedBy}` : "by Faculty"}</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-300 px-2 py-0.5 flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-amber-600" />
+                              <span>Pending Verification</span>
+                            </span>
+                          )}
+                          <span className={`text-[10px] font-bold px-2 py-0.5 ${
+                            res.sharedByRole === "teacher" ? "bg-black text-white" : "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                          }`}>
+                            {res.sharedBy || res.authorName} ({res.sharedByRole || res.authorRole})
+                          </span>
+                        </div>
                       </div>
 
                       <h3 className="font-bold text-sm text-[#1A1A1A]">
@@ -1314,6 +1338,17 @@ export const ClassHub = ({
                       </span>
 
                       <div className="flex items-center gap-2">
+                        {isTeacher && !res.isVerified && res.sharedByRole !== "teacher" && (
+                          <button
+                            onClick={() => handleVerifyResource(res.id)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 text-[11px] font-bold flex items-center gap-1 transition-colors shadow-xs"
+                            title="Endorse and verify student study material for the classroom"
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Verify Material</span>
+                          </button>
+                        )}
+
                         {onNavigateToPractice && (
                           <button
                             onClick={() => onNavigateToPractice()}
@@ -1828,34 +1863,17 @@ export const ClassHub = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="font-bold text-[#374151]">Target Section</label>
-                  <select
-                    value={annSection}
-                    onChange={(e) => setAnnSection(e.target.value)}
-                    className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-2.5 py-2 text-xs outline-none focus:border-black"
-                  >
-                    <option value="all">All Sections</option>
-                    <option value="Section A">Section A only</option>
-                    <option value="Section B">Section B only</option>
-                    <option value="Section C">Section C only</option>
-                    <option value="Section D">Section D only</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-bold text-[#374151]">Priority</label>
-                  <select
-                    value={annPriority}
-                    onChange={(e) => setAnnPriority(e.target.value)}
-                    className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-2.5 py-2 text-xs outline-none focus:border-black font-bold"
-                  >
-                    <option value="normal">Normal Circular</option>
-                    <option value="important">Important Notice</option>
-                    <option value="urgent">Urgent / Exam Notice</option>
-                  </select>
-                </div>
+              <div className="space-y-1">
+                <label className="font-bold text-[#374151]">Priority *</label>
+                <select
+                  value={annPriority}
+                  onChange={(e) => setAnnPriority(e.target.value)}
+                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs outline-none focus:border-black font-bold"
+                >
+                  <option value="normal">Normal Circular</option>
+                  <option value="important">Important Notice</option>
+                  <option value="urgent">Urgent / Exam Notice</option>
+                </select>
               </div>
 
               <div className="space-y-1">

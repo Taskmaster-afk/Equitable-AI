@@ -33,9 +33,11 @@ import {
   getClassroomResources,
   getAllClassroomResources,
   createClassroomResource,
+  verifyClassroomResource,
   deleteClassroomResource,
   getResourceDumps,
   createResourceDump,
+  verifyResourceDump,
   deleteResourceDump,
   getCommunityPosts,
   getCommunityPostById,
@@ -1316,9 +1318,15 @@ Range R = (u² sin 2θ) / g. Max range at θ = 45°.`,
 4. Solvents: Polar protic favors SN1; polar aprotic (Acetone, DMSO) favors SN2.`,
       uploadedBy: "Dr. Rajesh Varma",
       uploadedByRole: "teacher",
+      authorName: "Dr. Rajesh Varma",
+      authorRole: "teacher",
+      authorId: "teacher-1",
       instituteName: "Kendriya Vidyalaya No. 1, Model Cluster",
       fileType: "text/markdown",
       readCount: 142,
+      isVerified: true,
+      verifiedBy: "Dr. Rajesh Varma (Faculty HOD)",
+      verifiedAt: "3 days ago",
       createdAt: "3 days ago"
     },
     {
@@ -1335,9 +1343,15 @@ Range R = (u² sin 2θ) / g. Max range at θ = 45°.`,
 4. Impulse = Force × time = Change in momentum (Δp).`,
       uploadedBy: "Priya Sharma",
       uploadedByRole: "student",
+      authorName: "Priya Sharma",
+      authorRole: "student",
+      authorId: "student-2",
       instituteName: "Kendriya Vidyalaya No. 1, Model Cluster",
       fileType: "text/markdown",
       readCount: 98,
+      isVerified: true,
+      verifiedBy: "Dr. Rajesh Varma",
+      verifiedAt: "2 days ago",
       createdAt: "2 days ago"
     },
     {
@@ -1354,9 +1368,15 @@ Range R = (u² sin 2θ) / g. Max range at θ = 45°.`,
 - Key enzyme: RuBisCO (Ribulose-1,5-bisphosphate carboxylase-oxygenase).`,
       uploadedBy: "Dr. Sunita Sharma",
       uploadedByRole: "teacher",
-      instituteName: "Sarvodaya Kanya Vidyalaya No. 2",
+      authorName: "Dr. Sunita Sharma",
+      authorRole: "teacher",
+      authorId: "teacher-2",
+      instituteName: "Kendriya Vidyalaya No. 1, Model Cluster",
       fileType: "text/markdown",
       readCount: 115,
+      isVerified: true,
+      verifiedBy: "Dr. Sunita Sharma",
+      verifiedAt: "4 days ago",
       createdAt: "4 days ago"
     },
     {
@@ -1371,12 +1391,44 @@ Key Limits:
 - lim (x->0) [ sin x / x ] = 1
 - lim (x->0) [ (e^x - 1) / x ] = 1
 - lim (x->a) [ (x^n - a^n) / (x - a) ] = n · a^(n-1)`,
-      uploadedBy: "Rohan Sen",
+      uploadedBy: "Rohan Das",
       uploadedByRole: "student",
-      instituteName: "Delhi Public School, Sector 12",
+      authorName: "Rohan Das",
+      authorRole: "student",
+      authorId: "student-3",
+      instituteName: "Kendriya Vidyalaya No. 1, Model Cluster",
       fileType: "text/markdown",
       readCount: 88,
+      isVerified: false,
+      verifiedBy: "",
+      verifiedAt: "",
       createdAt: "5 days ago"
+    },
+    {
+      id: "dump-5",
+      title: "Wave Optics Interference & Young's Double Slit Numerical Handout",
+      subject: "Physics",
+      gradeLevel: "Grade 11-12",
+      chapter: "Chapter 10: Wave Optics",
+      tags: ["physics", "wave optics", "interference", "fringe width", "numerical formulas"],
+      content: `Key Formulas for YDSE:
+- Position of nth bright fringe: y_n = n · λ · D / d
+- Position of nth dark fringe: y_n' = (2n - 1) · λ · D / (2d)
+- Fringe width: β = λ · D / d
+- Angular fringe width: θ = λ / d
+- Path difference with mica sheet of thickness t and refractive index μ: Δx = (μ - 1) · t`,
+      uploadedBy: "Aarav Patel",
+      uploadedByRole: "student",
+      authorName: "Aarav Patel",
+      authorRole: "student",
+      authorId: "student-1",
+      instituteName: "Kendriya Vidyalaya No. 1, Model Cluster",
+      fileType: "text/markdown",
+      readCount: 160,
+      isVerified: true,
+      verifiedBy: "Dr. Rajesh Varma",
+      verifiedAt: "Yesterday",
+      createdAt: "1 day ago"
     }
   ];
 
@@ -1385,6 +1437,8 @@ Key Limits:
     {
       id: "post-1",
       instituteName: "Kendriya Vidyalaya No. 1, Model Cluster",
+      classCode: "NCERT-12A",
+      section: "Section A",
       title: "Why does fringe width remain constant in Young's Double Slit experiment for monochromatic light?",
       content: "I was solving the wave optics assignment from Dr. Varma's class. Could someone clarify why the spacing between consecutive dark fringes is identical to the spacing between bright fringes throughout?",
       subject: "Physics",
@@ -1424,6 +1478,8 @@ Key Limits:
     {
       id: "post-2",
       instituteName: "Kendriya Vidyalaya No. 1, Model Cluster",
+      classCode: "NCERT-11B",
+      section: "Section B",
       title: "How do we distinguish between SN1 and SN2 for secondary alkyl halides in board exams?",
       content: "Secondary (2°) alkyl halides can undergo both SN1 and SN2 reactions. What are the key deciding factors like solvent, temperature, and nucleophile strength that we should look for in test questions?",
       subject: "Chemistry",
@@ -1451,29 +1507,91 @@ Key Limits:
     },
     {
       id: "post-3",
-      instituteName: "Sarvodaya Kanya Vidyalaya No. 2",
-      title: "Tips for choosing u(x) and v(x) in Integration by Parts using ILATE rule?",
+      instituteName: "National Peer Learning Forum",
+      classCode: "",
+      section: "all",
+      title: "Global Question: Tips for choosing u(x) and v(x) in Integration by Parts using ILATE rule?",
       content: "When integrating expressions like x · ln(x) or x · sin(x), why is the priority order strict? Does reversing it break the integral?",
       subject: "Mathematics",
       gradeLevel: "Grade 11-12",
       authorName: "Sunita Rao",
       authorRole: "student",
       authorId: "student-3",
-      tags: ["calculus", "integrals", "ILATE rule"],
+      tags: ["calculus", "integrals", "ILATE rule", "global"],
       upvotes: 5,
-      upvotedBy: ["teacher-3"],
+      upvotedBy: ["teacher-2"],
       createdAt: "3 days ago",
       answers: [
         {
           id: "ans-4",
-          authorName: "Dr. Sunita Sharma",
+          authorName: "Mrs. Sunita Sharma",
           authorRole: "teacher",
-          authorId: "teacher-3",
+          authorId: "teacher-2",
           content: "ILATE stands for Inverse, Log, Algebraic, Trig, Exponential. The function appearing earlier should be chosen as u(x) so that its derivative du/dx simplifies upon differentiation (for example d/dx(ln x) = 1/x simplifies an algebraic power). If you reverse it for x · ln(x), you'd have to integrate ln(x), which complicates the second term instead of simplifying it!",
           isVerified: true,
           upvotes: 7,
           upvotedBy: ["student-3"],
           createdAt: "2 days ago"
+        }
+      ]
+    },
+    {
+      id: "post-4",
+      instituteName: "Kendriya Vidyalaya No. 1, Model Cluster",
+      classCode: "NCERT-10A",
+      section: "Section A",
+      title: "Class 10 Biology: Exact phenotypic vs genotypic ratio in Mendel's Dihybrid Cross?",
+      content: "In cross between round yellow seeds (RRYY) and wrinkled green seeds (rryy), what is the exact phenotypic breakdown in F2 generation?",
+      subject: "Biology",
+      gradeLevel: "Class 10",
+      authorName: "Rohan Das",
+      authorRole: "student",
+      authorId: "student-3",
+      tags: ["genetics", "mendel", "dihybrid cross", "class 10"],
+      upvotes: 8,
+      upvotedBy: ["teacher-2"],
+      createdAt: "2 days ago",
+      answers: [
+        {
+          id: "ans-5",
+          authorName: "Mrs. Sunita Sharma",
+          authorRole: "teacher",
+          authorId: "teacher-2",
+          content: "In F2 generation of Dihybrid Cross: Phenotypic ratio is 9 : 3 : 3 : 1 (9 Round Yellow, 3 Round Green, 3 Wrinkled Yellow, 1 Wrinkled Green). Genotypic ratio is 1:2:2:4:1:2:1:2:1.",
+          isVerified: true,
+          upvotes: 11,
+          upvotedBy: ["student-3"],
+          createdAt: "1 day ago"
+        }
+      ]
+    },
+    {
+      id: "post-5",
+      instituteName: "Open Scholar Community",
+      classCode: "",
+      section: "all",
+      title: "Global Forum: Standard Proof for Parabolic Trajectory in Projectile Motion",
+      content: "Can someone show the step-by-step substitution of time t = x / (u · cos θ) into the vertical displacement equation to prove y = ax - bx^2?",
+      subject: "Physics",
+      gradeLevel: "Grade 11-12",
+      authorName: "Vikram Mehta",
+      authorRole: "student",
+      authorId: "student-4",
+      tags: ["physics", "kinematics", "projectile motion", "derivation"],
+      upvotes: 9,
+      upvotedBy: ["teacher-1"],
+      createdAt: "4 days ago",
+      answers: [
+        {
+          id: "ans-6",
+          authorName: "Dr. Rajesh Varma",
+          authorRole: "teacher",
+          authorId: "teacher-1",
+          content: "Horizontal: x = (u cos θ) · t => t = x / (u cos θ).\nVertical: y = (u sin θ) · t - (1/2) g t^2.\nSubstituting t:\ny = (u sin θ) · (x / (u cos θ)) - (1/2) g (x / (u cos θ))^2\ny = (tan θ) · x - [ g / (2 u^2 cos^2 θ) ] · x^2.\nThis is of the standard quadratic form y = A x - B x^2, which represents a parabola.",
+          isVerified: true,
+          upvotes: 14,
+          upvotedBy: ["student-4", "student-1"],
+          createdAt: "3 days ago"
         }
       ]
     }
@@ -3117,6 +3235,14 @@ app.post("/api/class/:code/resources", async (req, res) => {
   }
 });
 
+app.post("/api/class/:code/resources/:id/verify", async (req, res) => {
+  const code = req.params.code.trim().toUpperCase();
+  const resId = req.params.id;
+  const { teacherName = "Faculty Lead" } = req.body;
+  const updated = await verifyClassroomResource(resId, code, teacherName);
+  res.json({ success: true, message: "Classroom resource verified by teacher!", resource: updated });
+});
+
 app.delete("/api/class/:code/resources/:id", async (req, res) => {
   const code = req.params.code.trim().toUpperCase();
   const resId = req.params.id;
@@ -3221,6 +3347,13 @@ app.post("/api/resources/dumps", async (req, res) => {
     console.error("Error in /api/resources/dumps:", err);
     res.status(500).json({ error: err.message || "Failed to upload resource dump" });
   }
+});
+
+app.post("/api/resources/dumps/:id/verify", async (req, res) => {
+  const dumpId = req.params.id;
+  const { teacherName = "Faculty Lead" } = req.body;
+  const updated = await verifyResourceDump(dumpId, teacherName);
+  res.json({ success: true, message: "Resource successfully verified by teacher!", dump: updated });
 });
 
 app.delete("/api/resources/dumps/:id", async (req, res) => {

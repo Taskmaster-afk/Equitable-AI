@@ -249,6 +249,14 @@ const api = {
     });
     return res.json();
   },
+  async verifyClassroomResource(classCode, id, teacherName) {
+    const res = await fetch(`/api/class/${encodeURIComponent(classCode)}/resources/${encodeURIComponent(id)}/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teacherName })
+    });
+    return res.json();
+  },
   // Library Resource Dumps
   async getResourceDumps(params) {
     const searchParams = new URLSearchParams();
@@ -270,6 +278,14 @@ const api = {
       const err = await res.json();
       throw new Error(err.error || "Failed to upload resource dump");
     }
+    return res.json();
+  },
+  async verifyResourceDump(id, teacherName) {
+    const res = await fetch(`/api/resources/dumps/${encodeURIComponent(id)}/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teacherName })
+    });
     return res.json();
   },
   async deleteResourceDump(id) {
