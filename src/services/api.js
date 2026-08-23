@@ -521,6 +521,74 @@ const api = {
     });
     if (!res.ok) throw new Error("Failed to delete chat session");
     return res.json();
+  },
+  // Direct 1-on-1 Messages (Student <-> Teacher)
+  async getDirectMessages(user1, user2) {
+    const res = await fetch(`/api/messages/direct?user1=${encodeURIComponent(user1)}&user2=${encodeURIComponent(user2)}`, {
+      headers: this.getAuthHeaders()
+    });
+    if (!res.ok) throw new Error("Failed to fetch direct messages");
+    return res.json();
+  },
+  async getDirectMessageConversations(userId, role) {
+    const res = await fetch(`/api/messages/conversations?userId=${encodeURIComponent(userId)}&role=${encodeURIComponent(role || '')}`, {
+      headers: this.getAuthHeaders()
+    });
+    if (!res.ok) throw new Error("Failed to fetch conversations");
+    return res.json();
+  },
+  async sendDirectMessage(payload) {
+    const res = await fetch("/api/messages/direct", {
+      method: "POST",
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to send direct message");
+    }
+    return res.json();
+  },
+  // Mental Health & Wellbeing
+  async getMentalHealthChats(studentId) {
+    const res = await fetch(`/api/counseling/chats?studentId=${encodeURIComponent(studentId)}`, {
+      headers: this.getAuthHeaders()
+    });
+    if (!res.ok) throw new Error("Failed to load counseling chats");
+    return res.json();
+  },
+  async saveMentalHealthChat(payload) {
+    const res = await fetch("/api/counseling/chats", {
+      method: "POST",
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error("Failed to save counseling chat");
+    return res.json();
+  },
+  async talkToAiCounselor(payload) {
+    const res = await fetch("/api/counseling/ai-talk", {
+      method: "POST",
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error("Failed to get counseling response");
+    return res.json();
+  },
+  // Notifications
+  async getUserNotifications(userId) {
+    const res = await fetch(`/api/notifications/${encodeURIComponent(userId)}`, {
+      headers: this.getAuthHeaders()
+    });
+    if (!res.ok) return { notifications: [] };
+    return res.json();
+  },
+  async markNotificationRead(id) {
+    const res = await fetch(`/api/notifications/${encodeURIComponent(id)}/read`, {
+      method: "POST",
+      headers: this.getAuthHeaders()
+    });
+    return res.json();
   }
 };
 export {

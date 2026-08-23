@@ -62,7 +62,16 @@ import {
   getAiChatHistories,
   getAiChatHistoryById,
   saveAiChatHistory,
-  deleteAiChatHistory
+  deleteAiChatHistory,
+  getDirectMessages,
+  getDirectMessageConversations,
+  sendDirectMessage,
+  getMentalHealthChats,
+  getMentalHealthChatById,
+  saveMentalHealthChat,
+  createNotification,
+  getUserNotifications,
+  markNotificationRead
 } from "./src/db/dataService.js";
 import {
   Institute,
@@ -2819,15 +2828,26 @@ app.get("/api/ai/history/:id", async (req, res) => {
 });
 
 app.post("/api/ai/history", async (req, res) => {
-  const { userId, title, messages, language, subject, gradeLevel, id } = req.body;
+  const { userId, title, summary, messages, language, subject, gradeLevel, id } = req.body;
   if (!userId || !messages) {
     return res.status(400).json({ error: "User ID and messages are required." });
   }
   try {
+    let sessionTitle = title;
+    if (!sessionTitle || sessionTitle === "New Doubt Session") {
+      const firstUserMsg = messages.find(m => m.role === "user")?.content || "";
+      if (firstUserMsg) {
+        sessionTitle = firstUserMsg.length > 50 ? `${firstUserMsg.slice(0, 48)}...` : firstUserMsg;
+      } else {
+        sessionTitle = `${subject || "Science"} Doubt Session`;
+      }
+    }
+
     const saved = await saveAiChatHistory({
       id,
       userId,
-      title: title || (messages[0]?.content?.slice(0, 45) || "Doubt Session"),
+      title: sessionTitle,
+      summary: summary || sessionTitle,
       messages,
       language: language || "en",
       subject: subject || "Science",
@@ -2845,6 +2865,139 @@ app.delete("/api/ai/history/:id", async (req, res) => {
     res.json({ success: true, message: "Chat session deleted." });
   } catch (err) {
     res.status(500).json({ error: err.message || "Failed to delete chat session." });
+  }
+});
+
+// ==========================================
+// DIRECT 1-ON-1 MESSAGING (STUDENT <-> TEACHER)
+// ==========================================
+app.get("/api/messages/direct", async (req, res) => {
+  const { user1, user2 } = req.query;
+  if (!user1 || !user2) {
+    return res.status(400).json({ error: "user1 and user2 query parameters are required." });
+  }
+  try {
+    const messages = await getDirectMessages(user1, user2);
+    res.json({ messages });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to load direct messages." });
+  }
+});
+
+app.get("/api/messages/conversations", async (req, res) => {
+  const { userId, role } = req.query;
+  if (!userId) {
+    return res.status(400).json({ error: "userId parameter is required." });
+  }
+  try {
+    const conversations = await getDirectMessageConversations(userId, role);
+    res.json({ conversations });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to load conversations." });
+  }
+});
+
+app.post("/api/messages/direct", async (req, res) => {
+  const { senderId, senderName, senderRole, recipientId, recipientName, recipientRole, classCode, message } = req.body;
+  if (!senderId || !recipientId || !message || !message.trim()) {
+    return res.status(400).json({ error: "Sender, recipient, and message text are required." });
+  }
+  try {
+    const newMsg = await sendDirectMessage({
+      senderId,
+      senderName: senderName || "User",
+      senderRole: senderRole || "student",
+      recipientId,
+      recipientName: recipientName || "Recipient",
+      recipientRole: recipientRole || "teacher",
+      classCode: classCode || "",
+      message: message.trim()
+    });
+    res.status(201).json({ success: true, message: newMsg });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to send direct message." });
+  }
+});
+
+// ==========================================
+// MENTAL HEALTH & WELLBEING SANCTUM
+// ==========================================
+app.get("/api/counseling/chats", async (req, res) => {
+  const studentId = req.query.studentId || req.query.userId;
+  if (!studentId) {
+    return res.status(400).json({ error: "studentId is required." });
+  }
+  try {
+    const chats = await getMentalHealthChats(studentId);
+    res.json({ chats });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to load counseling chats." });
+  }
+});
+
+app.post("/api/counseling/chats", async (req, res) => {
+  const chatData = req.body;
+  try {
+    const saved = await saveMentalHealthChat(chatData);
+    res.json({ success: true, chat: saved });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to save counseling chat." });
+  }
+});
+
+app.post("/api/counseling/ai-talk", async (req, res) => {
+  const { studentName = "Student", message, history = [] } = req.body;
+  if (!message || !message.trim()) {
+    return res.status(400).json({ error: "Message is required." });
+  }
+
+  const ai = getGeminiClient();
+  if (ai) {
+    try {
+      const response = await callGeminiWithFallback(ai, {
+        model: "gemini-3.7-flash",
+        contents: `You are an empathetic, licensed Student Mental Health & Academic Wellbeing Counselor.
+Student Name: ${studentName}
+Student's Message: "${message}"
+
+Your Goal:
+1. Provide a warm, supportive, validating, and calming response.
+2. Offer 1 practical mindfulness/stress-relief tip or breathing exercise (e.g. 4-7-8 breathing, progressive relaxation, or positive reframing).
+3. Encourage taking healthy study breaks and remind them that their worth is not solely defined by exam grades.
+4. Keep the tone warm, soothing, non-clinical, and reassuring.
+
+Respond directly in supportive Markdown.`,
+        config: { temperature: 0.7 }
+      });
+      return res.json({ reply: response.text || "You are doing great. Take a deep breath and take things one step at a time." });
+    } catch (err) {
+      console.warn("AI counselor fallback:", err.message);
+    }
+  }
+
+  return res.json({
+    reply: `I hear you, ${studentName}. It is completely natural to feel overwhelmed at times during rigorous studies.\n\nHere is a quick 1-minute calming exercise:\n- Inhale slowly through your nose for 4 seconds.\n- Hold gently for 4 seconds.\n- Exhale softly through your mouth for 6 seconds.\n\nTake a brief 5-minute break, drink a glass of water, and remember that you can conquer this step-by-step!`
+  });
+});
+
+// ==========================================
+// STUDENT NOTIFICATIONS (CONFIRMATIONS, BADGES)
+// ==========================================
+app.get("/api/notifications/:userId", async (req, res) => {
+  try {
+    const notifs = await getUserNotifications(req.params.userId);
+    res.json({ notifications: notifs, count: notifs.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to fetch notifications." });
+  }
+});
+
+app.post("/api/notifications/:id/read", async (req, res) => {
+  try {
+    await markNotificationRead(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to mark notification as read." });
   }
 });
 

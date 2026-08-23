@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Bell, Sparkles, CheckCircle2, X } from "lucide-react";
 import { Navbar } from "./components/Navbar";
 import { DoubtSolver } from "./components/DoubtSolver";
 import { AdaptivePractice } from "./components/AdaptivePractice";
@@ -8,6 +8,7 @@ import { ScholarshipMatcher } from "./components/ScholarshipMatcher";
 import { OerLibrary } from "./components/OerLibrary";
 import { ClassHub } from "./components/ClassHub";
 import { CommunityForum } from "./components/CommunityForum";
+import { DirectMessages } from "./components/DirectMessages";
 import { LoginPage } from "./components/LoginPage";
 import { ArchitectureTransparencyModal } from "./components/ArchitectureTransparencyModal";
 import { api } from "./services/api";
@@ -27,6 +28,25 @@ export default function App() {
   const [pendingInvites, setPendingInvites] = useState([]);
   const [isAcceptingInvite, setIsAcceptingInvite] = useState(false);
 
+  // Dark Mode State
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem("equitable_dark_mode") === "true";
+  });
+
+  // Notifications State
+  const [notifications, setNotifications] = useState([]);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("equitable_dark_mode", "true");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("equitable_dark_mode", "false");
+    }
+  }, [isDarkMode]);
+
   // Sync activeTab with URL Hash and Browser Back/Forward navigation
   const navigateToTab = (tab, pushHistory = true) => {
     setActiveTab(tab);
@@ -43,7 +63,7 @@ export default function App() {
   useEffect(() => {
     const handleLocationSync = () => {
       const hash = window.location.hash.replace("#", "").trim();
-      const validTabs = ["tutor", "practice", "classhub", "community", "teacher", "scholarships", "oer", "about"];
+      const validTabs = ["tutor", "practice", "classhub", "community", "teacher", "scholarships", "oer", "messages", "about"];
       if (hash && validTabs.includes(hash)) {
         setActiveTab(hash);
       }
@@ -66,11 +86,25 @@ export default function App() {
     if (currentStudent) {
       loadStudentInvites(currentStudent);
       loadStudentClasses(currentStudent);
+      loadNotifications(currentStudent.id);
+    } else if (currentTeacher) {
+      loadNotifications(currentTeacher.id);
     } else {
       setPendingInvites([]);
       setStudentClasses([]);
+      setNotifications([]);
     }
-  }, [currentStudent?.id, currentStudent?.email]);
+  }, [currentStudent?.id, currentTeacher?.id]);
+
+  const loadNotifications = async (userId) => {
+    if (!userId) return;
+    try {
+      const res = await api.getUserNotifications(userId);
+      setNotifications(res?.notifications || []);
+    } catch (err) {
+      console.warn("Could not load notifications:", err);
+    }
+  };
 
   const checkHealth = async () => {
     try {
@@ -281,7 +315,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8F9FA] text-[#1A1A1A] selection:bg-black selection:text-white font-sans">
+    <div className="min-h-screen flex flex-col bg-[#F8F9FA] dark:bg-[#121212] text-[#1A1A1A] dark:text-[#E5E7EB] selection:bg-black selection:text-white font-sans transition-colors">
       {/* Navigation Header */}
       <Navbar
         activeTab={activeTab}
@@ -295,6 +329,10 @@ export default function App() {
         isAiConnected={isAiConnected}
         onLogout={handleLogout}
         onOpenAuditModal={() => setIsAuditModalOpen(true)}
+        isDarkMode={isDarkMode}
+        setIsDarkMode={setIsDarkMode}
+        notifications={notifications}
+        onOpenNotifications={() => setShowNotificationsModal(true)}
       />
 
       {/* Pending Classroom Invitations Banner */}
@@ -382,6 +420,17 @@ export default function App() {
           />
         )}
 
+        {/* Direct Messages & Mental Health Sanctum */}
+        {activeTab === "messages" && (
+          <DirectMessages
+            currentUser={currentUser}
+            currentStudent={currentStudent}
+            currentTeacher={currentTeacher}
+            studentClasses={studentClasses}
+            selectedLanguage={selectedLanguage}
+          />
+        )}
+
         {/* Teacher Dashboard */}
         {activeTab === "teacher" && currentUser.role === "teacher" && (
           <TeacherDashboard
@@ -407,21 +456,64 @@ export default function App() {
         )}
       </main>
 
+      {/* Notifications Modal */}
+      {showNotificationsModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-[#1A1A1A] border-2 border-black dark:border-white max-w-lg w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#333] pb-3">
+              <div className="flex items-center gap-2">
+                <Bell className="w-5 h-5 text-amber-500" />
+                <h3 className="font-bold text-sm text-[#1A1A1A] dark:text-white">Academic Notifications & Verifications</h3>
+              </div>
+              <button
+                onClick={() => setShowNotificationsModal(false)}
+                className="text-xs text-[#6B7280] hover:text-black dark:hover:text-white font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-72 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="text-center py-8 text-xs text-[#6B7280]">
+                  No notifications at this moment.
+                </div>
+              ) : (
+                notifications.map((n) => (
+                  <div
+                    key={n.id}
+                    className="p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 space-y-1 text-xs"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-amber-950 dark:text-amber-200">{n.title}</span>
+                      <span className="text-[10px] text-[#9CA3AF]">
+                        {new Date(n.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="text-[#374151] dark:text-[#DDD] text-[11px] leading-relaxed">{n.message}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Geometric Balance Minimalist Footer */}
-      <footer className="mt-auto border-t border-[#E5E7EB] bg-white py-4 text-xs text-[#6B7280]">
+      <footer className="mt-auto border-t border-[#E5E7EB] dark:border-[#2A2A2A] bg-white dark:bg-[#121212] py-4 text-xs text-[#6B7280] dark:text-[#888]">
         <div className="max-w-7xl mx-auto px-4 sm:px-8 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <span className="font-bold text-[#1A1A1A]">AI for Equitable Education Access</span> &bull; Grounded Knowledge & Multilingual Tutor
+            <span className="font-bold text-[#1A1A1A] dark:text-white">AI for Equitable Education Access</span> &bull; Grounded Knowledge & Multilingual Tutor
           </div>
           <div className="flex items-center gap-3 text-[11px] font-mono">
             <button
               onClick={() => setIsAuditModalOpen(true)}
-              className="text-emerald-700 hover:text-emerald-900 font-semibold underline underline-offset-2"
+              className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 font-semibold underline underline-offset-2"
             >
               Evaluator Technical Briefing & Audit
             </button>
-            <span className="text-[#E5E7EB]">|</span>
-            <span className="text-black font-semibold">Strict Privacy & Ephemeral AI</span>
+            <span className="text-[#E5E7EB] dark:text-[#333]">|</span>
+            <span className="text-black dark:text-white font-semibold">Strict Privacy & Ephemeral AI</span>
           </div>
         </div>
       </footer>

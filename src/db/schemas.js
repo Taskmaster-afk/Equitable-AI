@@ -246,6 +246,7 @@ const AiChatHistorySchema = new mongoose.Schema({
   subject: { type: String, default: "General Science" },
   language: { type: String, default: "en" },
   gradeLevel: { type: String, default: "Class 10" },
+  summary: { type: String, default: "" },
   messages: [{
     id: { type: String },
     role: { type: String, required: true }, // "user" | "model"
@@ -261,6 +262,55 @@ const AiChatHistorySchema = new mongoose.Schema({
   updatedAt: { type: String, default: () => new Date().toISOString() }
 }, { timestamps: true, strict: false });
 
+const DirectMessageSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  senderId: { type: String, required: true, index: true },
+  senderName: { type: String, required: true },
+  senderRole: { type: String, required: true, enum: ["student", "teacher"] },
+  recipientId: { type: String, required: true, index: true },
+  recipientName: { type: String, required: true },
+  recipientRole: { type: String, required: true, enum: ["student", "teacher"] },
+  classCode: { type: String, default: "" },
+  message: { type: String, required: true },
+  isRead: { type: Boolean, default: false },
+  createdAt: { type: String, default: () => new Date().toISOString() }
+}, { timestamps: true, strict: false });
+
+const MentalHealthChatSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  studentId: { type: String, required: true, index: true },
+  studentName: { type: String, required: true },
+  studentEmail: { type: String, default: "" },
+  counselorId: { type: String, default: "counselor-1" },
+  counselorName: { type: String, default: "Dr. Shalini (Clinical Counselor)" },
+  mode: { type: String, default: "human", enum: ["ai", "human"] },
+  topic: { type: String, default: "General Academic Well-being & Stress" },
+  messages: [{
+    id: { type: String, required: true },
+    senderId: { type: String, required: true },
+    senderName: { type: String, required: true },
+    senderRole: { type: String, required: true, enum: ["student", "counselor", "ai"] },
+    text: { type: String, required: true },
+    timestamp: { type: String, default: () => new Date().toISOString() }
+  }],
+  status: { type: String, default: "active", enum: ["active", "resolved"] },
+  createdAt: { type: String, default: () => new Date().toISOString() },
+  updatedAt: { type: String, default: () => new Date().toISOString() }
+}, { timestamps: true, strict: false });
+
+const NotificationSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  userId: { type: String, required: true, index: true },
+  title: { type: String, required: true },
+  message: { type: String, required: true },
+  type: { type: String, default: "verification", enum: ["verification", "message", "announcement", "achievement"] },
+  resourceId: { type: String, default: "" },
+  resourceTitle: { type: String, default: "" },
+  verifiedBy: { type: String, default: "" },
+  isRead: { type: Boolean, default: false },
+  createdAt: { type: String, default: () => new Date().toISOString() }
+}, { timestamps: true, strict: false });
+
 export const Institute = mongoose.models.Institute || mongoose.model("Institute", InstituteSchema);
 export const Teacher = mongoose.models.Teacher || mongoose.model("Teacher", TeacherSchema);
 export const Student = mongoose.models.Student || mongoose.model("Student", StudentSchema);
@@ -271,3 +321,6 @@ export const ClassroomResource = mongoose.models.ClassroomResource || mongoose.m
 export const ResourceDump = mongoose.models.ResourceDump || mongoose.model("ResourceDump", ResourceDumpSchema);
 export const CommunityPost = mongoose.models.CommunityPost || mongoose.model("CommunityPost", CommunityPostSchema);
 export const AiChatHistory = mongoose.models.AiChatHistory || mongoose.model("AiChatHistory", AiChatHistorySchema);
+export const DirectMessage = mongoose.models.DirectMessage || mongoose.model("DirectMessage", DirectMessageSchema);
+export const MentalHealthChat = mongoose.models.MentalHealthChat || mongoose.model("MentalHealthChat", MentalHealthChatSchema);
+export const Notification = mongoose.models.Notification || mongoose.model("Notification", NotificationSchema);

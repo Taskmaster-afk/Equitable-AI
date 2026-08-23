@@ -33,7 +33,7 @@ const SAMPLE_CURRICULUM_CATEGORIES = [
         topicId: "wave-optics"
       },
       {
-        label: "Kinematics: Projectile Motion Range",
+        label: "Kinematics: Projectile Range Derivation",
         question: "Why is the horizontal range of a projectile identical for complementary angles of projection θ and (90° - θ)? Show the complete derivation.",
         topicId: "projectile-motion"
       },
@@ -41,6 +41,11 @@ const SAMPLE_CURRICULUM_CATEGORIES = [
         label: "Current Electricity: Kirchhoff’s Loop Rule",
         question: "How do I apply Kirchhoff’s Second Law (Loop Rule) and what is the proper sign convention for EMF and IR drops in a closed circuit loop?",
         topicId: "current-electricity"
+      },
+      {
+        label: "Electromagnetism: Faraday's & Lenz's Law",
+        question: "State Faraday's laws of electromagnetic induction. Why does Lenz's law satisfy the Principle of Conservation of Energy?",
+        topicId: "electromagnetism"
       }
     ]
   },
@@ -63,6 +68,11 @@ const SAMPLE_CURRICULUM_CATEGORIES = [
         label: "Bonding: VSEPR & Hybridization",
         question: "Why is the bond angle in ammonia (NH3) 107° and water (H2O) 104.5°, even though both central atoms have sp3 hybridization?",
         topicId: "chemical-bonding"
+      },
+      {
+        label: "Coordination Chemistry: Crystal Field Splitting",
+        question: "Explain crystal field splitting in octahedral complexes. What is the difference between high-spin and low-spin configurations?",
+        topicId: "coordination-chemistry"
       }
     ]
   },
@@ -77,7 +87,7 @@ const SAMPLE_CURRICULUM_CATEGORIES = [
         topicId: "calculus-integrals"
       },
       {
-        label: "Matrices: Inverse of a Matrix",
+        label: "Matrices: Inverse Matrix from Adjoint",
         question: "What is the exact condition for a square matrix A to be invertible, and how is the inverse formula A^-1 = (1/|A|) · adj(A) derived from cofactors?",
         topicId: "matrices-determinants"
       },
@@ -85,6 +95,11 @@ const SAMPLE_CURRICULUM_CATEGORIES = [
         label: "Calculus: Derivative from First Principle",
         question: "Find the derivative of f(x) = sin x from First Principles using limits: f'(x) = lim h->0 [f(x+h) - f(x)] / h.",
         topicId: "calculus-derivatives"
+      },
+      {
+        label: "Vectors & 3D: Shortest Distance Between Lines",
+        question: "How do I calculate the shortest distance between two skew lines in vector form r = a1 + λb1 and r = a2 + μb2?",
+        topicId: "vectors-3d"
       }
     ]
   },
@@ -92,7 +107,23 @@ const SAMPLE_CURRICULUM_CATEGORIES = [
     name: "Class 11-12 Biology",
     grade: "Grade 11-12",
     subject: "Biology",
-    doubts: []
+    doubts: [
+      {
+        label: "Genetics: DNA Replication & Semi-Conservative Model",
+        question: "Explain the Meselson-Stahl experiment that proved semi-conservative DNA replication. What enzymes are involved at the replication fork?",
+        topicId: "genetics-dna"
+      },
+      {
+        label: "Biotechnology: Steps in Recombinant DNA Technology",
+        question: "What are the key steps in creating a recombinant DNA molecule using restriction endonucleases and DNA ligase?",
+        topicId: "biotechnology"
+      },
+      {
+        label: "Photosynthesis: Light & Dark Reactions (Calvin Cycle)",
+        question: "Differentiate between the light-dependent reactions and the Calvin C3 cycle in photosynthesis. What is the role of RuBisCO?",
+        topicId: "photosynthesis-calvin"
+      }
+    ]
   },
   {
     name: "Class 9-10 Science & Math",
@@ -105,15 +136,24 @@ const SAMPLE_CURRICULUM_CATEGORIES = [
         topicId: "newton-laws"
       },
       {
-        label: "Math: Linear Equations in 2 Variables",
-        question: "How do I find 3 distinct solutions for the linear equation 2x + 3y = 12 and plot them as a straight line on a graph?",
-        topicId: "linear-equations"
+        label: "Optics: Concave & Convex Mirror Formula",
+        question: "Derive the mirror formula 1/f = 1/v + 1/u for a concave mirror forming a real inverted image. What is the sign convention?",
+        topicId: "optics-mirrors"
       },
       {
-        label: "Biology (Hindi): Photosynthesis & Stomata",
-        question: "पौधों में प्रकाश संश्लेषण (Photosynthesis) की रासायनिक समीकरण क्या है और स्टोमेटा कैसे गैसों का आदान-प्रदान करते हैं?",
-        lang: "hi",
-        topicId: "photosynthesis"
+        label: "Electricity: Ohm's Law & Equivalent Resistance",
+        question: "State Ohm's Law and derive the formula for equivalent resistance when three resistors R1, R2, and R3 are connected in parallel.",
+        topicId: "electricity-ohms-law"
+      },
+      {
+        label: "Math: Quadratic Equation Quadratic Formula",
+        question: "How do I solve 2x^2 - 7x + 3 = 0 using the quadratic formula x = [-b ± √(b^2 - 4ac)] / (2a)? What does the discriminant indicate?",
+        topicId: "quadratic-equations"
+      },
+      {
+        label: "Biology: Human Digestive System & Enzymes",
+        question: "What are the key digestive enzymes in the stomach and small intestine, and how does bile juice aid in fat emulsification?",
+        topicId: "digestive-system"
       }
     ]
   }
@@ -651,6 +691,30 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
               </button>
             </div>
           )}
+
+          {/* Quick Syllabus Recommended Questions Strip */}
+          <div className="px-3 py-2 bg-[#F9FAFB] border-t border-[#E5E7EB] flex items-center gap-2 overflow-x-auto">
+            <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#6B7280] shrink-0">
+              <Sparkles className="w-3 h-3 text-amber-500" />
+              <span>Recommended:</span>
+            </div>
+            <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto py-0.5">
+              {(SAMPLE_CURRICULUM_CATEGORIES[activeCategoryIndex]?.doubts || []).map((s, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setInputText(s.question);
+                    handleSubmit(s.question);
+                  }}
+                  className="text-[11px] bg-white hover:bg-black hover:text-white border border-[#E5E7EB] px-2.5 py-1 shrink-0 font-medium transition-colors shadow-xs"
+                  title={s.question}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Input Bar */}
           <div className="p-3 border-t border-[#E5E7EB] bg-white">

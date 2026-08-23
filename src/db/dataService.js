@@ -9,7 +9,10 @@ import {
   ClassroomResource,
   ResourceDump,
   CommunityPost,
-  AiChatHistory
+  AiChatHistory,
+  DirectMessage,
+  MentalHealthChat,
+  Notification
 } from "./schemas.js";
 
 // In-Memory fallback store
@@ -25,7 +28,10 @@ export const inMemDb = {
   communityPosts: [],
   doubtHistory: [],
   practiceLogs: [],
-  aiChatHistories: new Map()
+  aiChatHistories: new Map(),
+  directMessages: [],
+  mentalHealthChats: new Map(),
+  notifications: []
 };
 
 // Seed MongoDB if empty from in-memory baseline
@@ -479,6 +485,20 @@ export async function verifyClassroomResource(id, classCode, teacherName) {
       { new: true }
     ).lean();
   }
+
+  if (updated && (updated.authorId || updated.sharedBy || updated.uploadedBy)) {
+    const studentUser = updated.authorId || updated.sharedBy || updated.uploadedBy;
+    createNotification({
+      userId: studentUser,
+      title: "Classroom Resource Verified! 🌟",
+      message: `Your study material '${updated.title}' has been reviewed & verified by ${teacherName || "Faculty Lead"} for Class ${code}!`,
+      type: "verification",
+      resourceId: updated.id,
+      resourceTitle: updated.title,
+      verifiedBy: teacherName || "Faculty Lead"
+    }).catch(() => {});
+  }
+
   return updated;
 }
 
@@ -550,6 +570,20 @@ export async function verifyResourceDump(id, teacherName) {
       { new: true }
     ).lean();
   }
+
+  if (updated && (updated.authorId || updated.uploadedBy)) {
+    const studentUser = updated.authorId || updated.uploadedBy;
+    createNotification({
+      userId: studentUser,
+      title: "Study Material Verified! 🎉",
+      message: `Your study resource '${updated.title}' has been endorsed by ${teacherName || "Faculty Lead"}! You've advanced in the Verified Scholar rankings.`,
+      type: "verification",
+      resourceId: updated.id,
+      resourceTitle: updated.title,
+      verifiedBy: teacherName || "Faculty Lead"
+    }).catch(() => {});
+  }
+
   return updated;
 }
 
@@ -995,6 +1029,156 @@ export async function deleteAiChatHistory(id) {
   inMemDb.aiChatHistories.delete(id);
   if (isMongoConnected()) {
     await AiChatHistory.deleteOne({ id });
+  }
+  return true;
+}
+
+// -------------------------------------------------------------
+// DIRECT MESSAGES (STUDENT <-> TEACHER 1-ON-1)
+// -------------------------------------------------------------
+export async function getDirectMessages(user1Id, user2Id) {
+  if (!user1Id || !user2Id) return [];
+  if (isMongoConnected()) {
+    return await DirectMessage.find({
+      $or: [
+        { senderId: user1Id, recipientId: user2Id },
+        { senderId: user2Id, recipientId: user1Id }
+      ]
+    }).sort({ createdAt: 1 }).lean();
+  }
+  return inMemDb.directMessages.filter(
+    (m) =>
+      (m.senderId === user1Id && m.recipientId === user2Id) ||
+      (m.senderId === user2Id && m.recipientId === user1Id)
+  );
+}
+
+export async function getDirectMessageConversations(userId, role) {
+  if (!userId) return [];
+  let all = [];
+  if (isMongoConnected()) {
+    all = await DirectMessage.find({
+      $or: [{ senderId: userId }, { recipientId: userId }]
+    }).sort({ createdAt: -1 }).lean();
+  } else {
+    all = inMemDb.directMessages.filter((m) => m.senderId === userId || m.recipientId === userId);
+  }
+
+  // Deduplicate by other party
+  const map = new Map();
+  for (const msg of all) {
+    const isMeSender = msg.senderId === userId;
+    const otherId = isMeSender ? msg.recipientId : msg.senderId;
+    const otherName = isMeSender ? msg.recipientName : msg.senderName;
+    const otherRole = isMeSender ? msg.recipientRole : msg.senderRole;
+
+    if (!map.has(otherId)) {
+      map.set(otherId, {
+        otherId,
+        otherName,
+        otherRole,
+        lastMessage: msg.message,
+        lastTimestamp: msg.createdAt,
+        unreadCount: !isMeSender && !msg.isRead ? 1 : 0
+      });
+    } else if (!isMeSender && !msg.isRead) {
+      map.get(otherId).unreadCount += 1;
+    }
+  }
+  return Array.from(map.values());
+}
+
+export async function sendDirectMessage(messageData) {
+  const id = `dm-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+  const now = new Date().toISOString();
+  const normalized = {
+    ...messageData,
+    id,
+    isRead: false,
+    createdAt: now
+  };
+
+  inMemDb.directMessages.push(normalized);
+  if (isMongoConnected()) {
+    await DirectMessage.create(normalized);
+  }
+  return normalized;
+}
+
+// -------------------------------------------------------------
+// MENTAL HEALTH & WELLBEING (LIVE COUNSELOR & AI SANCTUM)
+// -------------------------------------------------------------
+export async function getMentalHealthChats(studentId) {
+  if (!studentId) return [];
+  if (isMongoConnected()) {
+    return await MentalHealthChat.find({ studentId }).sort({ updatedAt: -1 }).lean();
+  }
+  const all = Array.from(inMemDb.mentalHealthChats.values()).filter((c) => c.studentId === studentId);
+  return all.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+}
+
+export async function getMentalHealthChatById(id) {
+  if (!id) return null;
+  if (isMongoConnected()) {
+    return await MentalHealthChat.findOne({ id }).lean();
+  }
+  return inMemDb.mentalHealthChats.get(id) || null;
+}
+
+export async function saveMentalHealthChat(chatData) {
+  const id = chatData.id || `mhc-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+  const now = new Date().toISOString();
+  const normalized = {
+    ...chatData,
+    id,
+    updatedAt: now,
+    createdAt: chatData.createdAt || now
+  };
+
+  inMemDb.mentalHealthChats.set(id, normalized);
+  if (isMongoConnected()) {
+    await MentalHealthChat.findOneAndUpdate({ id }, normalized, { upsert: true, new: true });
+  }
+  return normalized;
+}
+
+// -------------------------------------------------------------
+// STUDENT NOTIFICATIONS (VERIFICATION CONFIRMATION, ETC.)
+// -------------------------------------------------------------
+export async function createNotification(notifData) {
+  const id = `notif-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+  const now = new Date().toISOString();
+  const normalized = {
+    ...notifData,
+    id,
+    isRead: false,
+    createdAt: now
+  };
+
+  inMemDb.notifications.unshift(normalized);
+  if (isMongoConnected()) {
+    await Notification.create(normalized);
+  }
+  return normalized;
+}
+
+export async function getUserNotifications(userId) {
+  if (!userId) return [];
+  if (isMongoConnected()) {
+    return await Notification.find({ userId }).sort({ createdAt: -1 }).limit(20).lean();
+  }
+  return inMemDb.notifications.filter((n) => n.userId === userId);
+}
+
+export async function markNotificationRead(id) {
+  for (const n of inMemDb.notifications) {
+    if (n.id === id) {
+      n.isRead = true;
+      break;
+    }
+  }
+  if (isMongoConnected()) {
+    await Notification.findOneAndUpdate({ id }, { $set: { isRead: true } });
   }
   return true;
 }

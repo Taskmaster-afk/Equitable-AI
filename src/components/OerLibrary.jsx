@@ -675,13 +675,19 @@ export const OerLibrary = ({ currentStudent, currentTeacher, onNavigateToTutor, 
                         </button>
                       )}
 
-                      <button
-                        onClick={() => handleDeleteDump(selectedDump.id)}
-                        title="Delete Resource Dump"
-                        className="text-[#9CA3AF] hover:text-rose-600 p-1 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {(isTeacher || (currentUser && (
+                        selectedDump.uploadedBy === currentUser.name ||
+                        selectedDump.authorName === currentUser.name ||
+                        selectedDump.authorId === currentUser.id
+                      ))) && (
+                        <button
+                          onClick={() => handleDeleteDump(selectedDump.id)}
+                          title="Delete My Uploaded Resource Dump"
+                          className="text-[#9CA3AF] hover:text-rose-600 p-1 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
 

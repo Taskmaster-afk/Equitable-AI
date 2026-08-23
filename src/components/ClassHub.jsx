@@ -1360,13 +1360,20 @@ export const ClassHub = ({
                           </button>
                         )}
 
-                        <button
-                          onClick={() => handleDeleteResource(res.id)}
-                          title="Remove Resource"
-                          className="text-[#9CA3AF] hover:text-rose-600 p-1 transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {(isTeacher || (currentUser && (
+                          res.sharedBy === currentUser.name ||
+                          res.authorName === currentUser.name ||
+                          res.authorId === currentUser.id ||
+                          res.uploadedBy === currentUser.name
+                        ))) && (
+                          <button
+                            onClick={() => handleDeleteResource(res.id)}
+                            title="Remove My Uploaded Resource"
+                            className="text-[#9CA3AF] hover:text-rose-600 p-1 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

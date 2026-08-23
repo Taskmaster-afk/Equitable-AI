@@ -8,9 +8,15 @@ import {
   Calendar,
   LogOut,
   MessageSquare,
-  Share2
+  Share2,
+  Moon,
+  Sun,
+  Heart,
+  Bell,
+  Sparkles
 } from "lucide-react";
 import { SUPPORTED_LANGUAGES } from "../data/oerKnowledgeBase";
+import { getTranslation } from "../data/translations";
 
 export const Navbar = ({
   activeTab,
@@ -23,34 +29,61 @@ export const Navbar = ({
   currentClassInfo,
   isAiConnected,
   onLogout,
-  onOpenAuditModal
+  onOpenAuditModal,
+  isDarkMode,
+  setIsDarkMode,
+  notifications = [],
+  onOpenNotifications
 }) => {
   const isTeacher = currentUser?.role === "teacher";
+  const t = (key, fallback) => getTranslation(selectedLanguage, key, fallback);
+  const unreadNotifs = notifications.filter(n => !n.isRead).length;
 
   return (
-    <header id="main-header" className="bg-white border-b border-[#E5E7EB] sticky top-0 z-40">
+    <header id="main-header" className="bg-white dark:bg-[#121212] border-b border-[#E5E7EB] dark:border-[#2A2A2A] sticky top-0 z-40 transition-colors">
       {/* Top Status & Context Strip */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-1.5 border-b border-[#F0F2F5] flex flex-wrap items-center justify-between text-xs text-[#4B5563] gap-2">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-1.5 border-b border-[#F0F2F5] dark:border-[#222] flex flex-wrap items-center justify-between text-xs text-[#4B5563] dark:text-[#9CA3AF] gap-2">
         <div className="flex items-center gap-2 text-[11px]">
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          <span className="font-semibold text-[#1A1A1A]">Open Curriculum Grounded Learning Engine</span>
-          <span className="text-[#D1D5DB]">&bull;</span>
-          <span className="text-[#6B7280] hidden sm:inline text-[11px]">
-            Classroom Shared Knowledge & Multi-Source RAG
-          </span>
+          <span className="font-semibold text-[#1A1A1A] dark:text-[#E5E7EB]">{t("statusStrip")}</span>
         </div>
 
         {/* Global Controls & User Role State */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Dark Mode Toggle */}
+          <button
+            onClick={() => setIsDarkMode && setIsDarkMode(!isDarkMode)}
+            title={isDarkMode ? t("lightMode", "Switch to Light Mode") : t("darkMode", "Switch to Dark Mode")}
+            className="flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 border border-[#E5E7EB] dark:border-[#333] hover:bg-[#F3F4F6] dark:hover:bg-[#222] text-[#4B5563] dark:text-[#E5E7EB] transition-colors"
+          >
+            {isDarkMode ? <Sun className="w-3 h-3 text-amber-400" /> : <Moon className="w-3 h-3 text-indigo-600" />}
+            <span className="hidden sm:inline">{isDarkMode ? t("lightMode") : t("darkMode")}</span>
+          </button>
+
+          {/* Student Notifications Bell */}
+          {notifications && notifications.length > 0 && onOpenNotifications && (
+            <button
+              onClick={onOpenNotifications}
+              title="View verification alerts & notices"
+              className="relative flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 transition-colors"
+            >
+              <Bell className="w-3 h-3 text-amber-600" />
+              <span>{t("notifications")}</span>
+              {unreadNotifs > 0 && (
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+              )}
+            </button>
+          )}
+
           {/* Evaluator & Architecture Briefing Button */}
           {onOpenAuditModal && (
             <button
               onClick={onOpenAuditModal}
               title="System Architecture, Semantic RAG & Security Audit"
-              className="flex items-center gap-1 text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 px-2 py-0.5 hover:bg-emerald-100 transition-colors"
+              className="flex items-center gap-1 text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 px-2 py-0.5 hover:bg-emerald-100 transition-colors"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-              <span>Evaluator Audit</span>
+              <span>{t("evaluatorAudit")}</span>
             </button>
           )}
 
@@ -60,24 +93,24 @@ export const Navbar = ({
               <div className="flex items-center gap-1.5">
                 <span
                   className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 ${
-                    isTeacher ? "bg-black text-white" : "bg-emerald-100 text-emerald-800"
+                    isTeacher ? "bg-black text-white dark:bg-white dark:text-black" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-100"
                   }`}
                 >
                   {isTeacher ? "TEACHER" : "STUDENT"}
                 </span>
-                <span className="font-bold text-[#1A1A1A] text-xs">
+                <span className="font-bold text-[#1A1A1A] dark:text-white text-xs">
                   {currentUser.name}
                 </span>
                 {(currentUser.institute || currentUser.school || currentStudent?.institute || currentTeacher?.school) && (
                   <span
-                    className="hidden md:inline-flex items-center text-[10px] text-[#4B5563] bg-[#F3F4F6] border border-[#E5E7EB] px-1.5 py-0.5 truncate max-w-[170px]"
+                    className="hidden md:inline-flex items-center text-[10px] text-[#4B5563] dark:text-[#9CA3AF] bg-[#F3F4F6] dark:bg-[#222] border border-[#E5E7EB] dark:border-[#333] px-1.5 py-0.5 truncate max-w-[170px]"
                     title={currentUser.institute || currentUser.school || currentStudent?.institute || currentTeacher?.school}
                   >
                     🏫 {currentUser.institute || currentUser.school || currentStudent?.institute || currentTeacher?.school}
                   </span>
                 )}
                 {!isTeacher && currentStudent?.classCode && (
-                  <span className="text-[10px] font-mono font-bold bg-[#F3F4F6] border border-[#E5E7EB] px-1 text-[#4B5563]">
+                  <span className="text-[10px] font-mono font-bold bg-[#F3F4F6] dark:bg-[#222] border border-[#E5E7EB] dark:border-[#333] px-1 text-[#4B5563] dark:text-[#AAA]">
                     Code: {currentStudent.classCode}
                   </span>
                 )}
@@ -87,12 +120,12 @@ export const Navbar = ({
 
           {/* Language Selector */}
           <div className="flex items-center gap-1">
-            <Globe className="w-3 h-3 text-[#6B7280]" />
+            <Globe className="w-3 h-3 text-[#6B7280] dark:text-[#9CA3AF]" />
             <select
               id="lang-select"
               value={selectedLanguage}
               onChange={(e) => setSelectedLanguage(e.target.value)}
-              className="bg-[#F8F9FA] border border-[#E5E7EB] text-[#1A1A1A] px-1.5 py-0.5 font-medium outline-none text-xs cursor-pointer hover:border-[#9CA3AF] transition-colors"
+              className="bg-[#F8F9FA] dark:bg-[#1E1E1E] border border-[#E5E7EB] dark:border-[#333] text-[#1A1A1A] dark:text-[#E5E7EB] px-1.5 py-0.5 font-medium outline-none text-xs cursor-pointer hover:border-[#9CA3AF] transition-colors"
             >
               {SUPPORTED_LANGUAGES.map((l) => (
                 <option key={l.code} value={l.code}>
@@ -104,7 +137,7 @@ export const Navbar = ({
 
           {/* AI Grounding Status Indicator */}
           <div
-            className="flex items-center gap-1 text-[11px] font-mono text-[#6B7280]"
+            className="flex items-center gap-1 text-[11px] font-mono text-[#6B7280] dark:text-[#9CA3AF]"
             title={isAiConnected ? "Gemini 3.7 Online" : "Grounded Offline Database Mode"}
           >
             <div className={`w-1.5 h-1.5 rounded-full ${isAiConnected ? "bg-emerald-500" : "bg-amber-500"}`} />
@@ -115,10 +148,10 @@ export const Navbar = ({
           <button
             onClick={onLogout}
             title="Switch User / Sign Out"
-            className="flex items-center gap-1 text-[11px] text-[#6B7280] hover:text-rose-600 font-semibold px-2 py-0.5 border border-[#E5E7EB] hover:border-rose-200 transition-colors"
+            className="flex items-center gap-1 text-[11px] text-[#6B7280] dark:text-[#9CA3AF] hover:text-rose-600 dark:hover:text-rose-400 font-semibold px-2 py-0.5 border border-[#E5E7EB] dark:border-[#333] hover:border-rose-200 transition-colors"
           >
             <LogOut className="w-3 h-3" />
-            <span className="hidden sm:inline">Sign Out</span>
+            <span className="hidden sm:inline">{t("signOut")}</span>
           </button>
         </div>
       </div>
@@ -130,21 +163,21 @@ export const Navbar = ({
           className="flex items-center gap-2.5 cursor-pointer select-none"
           onClick={() => setActiveTab(isTeacher ? "teacher" : "tutor")}
         >
-          <div className="w-7 h-7 bg-black flex items-center justify-center">
-            <div className="w-3.5 h-3.5 bg-white rotate-45" />
+          <div className="w-7 h-7 bg-black dark:bg-white flex items-center justify-center">
+            <div className="w-3.5 h-3.5 bg-white dark:bg-black rotate-45" />
           </div>
           <div>
-            <span className="font-bold text-base tracking-tight text-[#1A1A1A]">
-              EQUITABLE.AI
+            <span className="font-bold text-base tracking-tight text-[#1A1A1A] dark:text-white">
+              {t("appTitle")}
             </span>
             <span className="hidden md:inline-block ml-2 text-[10px] uppercase tracking-widest text-[#9CA3AF] font-bold">
-              Open Curriculum
+              {t("appSubtitle")}
             </span>
           </div>
         </div>
 
         {/* Organized Navigation Segment Tabs (Role Adaptive) */}
-        <nav className="flex items-center gap-1 sm:gap-2 text-xs font-medium text-[#4B5563] flex-wrap">
+        <nav className="flex items-center gap-1 sm:gap-2 text-xs font-medium text-[#4B5563] dark:text-[#AAA] flex-wrap">
           {/* Teacher View Tabs */}
           {isTeacher ? (
             <>
@@ -153,12 +186,12 @@ export const Navbar = ({
                 onClick={() => setActiveTab("teacher")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors border ${
                   activeTab === "teacher"
-                    ? "bg-black text-white border-black font-semibold"
-                    : "bg-white hover:bg-[#F8F9FA] text-[#4B5563] border-transparent hover:border-[#E5E7EB]"
+                    ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white font-semibold"
+                    : "bg-white dark:bg-[#1A1A1A] hover:bg-[#F8F9FA] dark:hover:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-transparent hover:border-[#E5E7EB] dark:hover:border-[#333]"
                 }`}
               >
                 <Users className="w-3.5 h-3.5" />
-                <span>Class Radar & Roster</span>
+                <span>{t("tabClassRadar")}</span>
               </button>
 
               <button
@@ -166,12 +199,12 @@ export const Navbar = ({
                 onClick={() => setActiveTab("classhub")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors border ${
                   activeTab === "classhub"
-                    ? "bg-black text-white border-black font-semibold"
-                    : "bg-white hover:bg-[#F8F9FA] text-[#4B5563] border-transparent hover:border-[#E5E7EB]"
+                    ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white font-semibold"
+                    : "bg-white dark:bg-[#1A1A1A] hover:bg-[#F8F9FA] dark:hover:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-transparent hover:border-[#E5E7EB] dark:hover:border-[#333]"
                 }`}
               >
                 <Share2 className="w-3.5 h-3.5" />
-                <span>Classroom Resources</span>
+                <span>{t("tabClassroomResources")}</span>
               </button>
 
               <button
@@ -179,12 +212,25 @@ export const Navbar = ({
                 onClick={() => setActiveTab("community")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors border ${
                   activeTab === "community"
-                    ? "bg-black text-white border-black font-semibold"
-                    : "bg-white hover:bg-[#F8F9FA] text-[#4B5563] border-transparent hover:border-[#E5E7EB]"
+                    ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white font-semibold"
+                    : "bg-white dark:bg-[#1A1A1A] hover:bg-[#F8F9FA] dark:hover:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-transparent hover:border-[#E5E7EB] dark:hover:border-[#333]"
                 }`}
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                <span>Community Chat</span>
+                <span>{t("tabCommunityChat")}</span>
+              </button>
+
+              <button
+                id="tab-btn-messages"
+                onClick={() => setActiveTab("messages")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors border ${
+                  activeTab === "messages"
+                    ? "bg-indigo-600 text-white border-indigo-600 font-semibold shadow-xs"
+                    : "bg-white dark:bg-[#1A1A1A] hover:bg-[#F8F9FA] dark:hover:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-transparent hover:border-[#E5E7EB] dark:hover:border-[#333]"
+                }`}
+              >
+                <Heart className="w-3.5 h-3.5 text-rose-400" />
+                <span>{t("tabDirectMessages")}</span>
               </button>
 
               <button
@@ -192,12 +238,12 @@ export const Navbar = ({
                 onClick={() => setActiveTab("tutor")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors border ${
                   activeTab === "tutor"
-                    ? "bg-black text-white border-black font-semibold"
-                    : "bg-white hover:bg-[#F8F9FA] text-[#4B5563] border-transparent hover:border-[#E5E7EB]"
+                    ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white font-semibold"
+                    : "bg-white dark:bg-[#1A1A1A] hover:bg-[#F8F9FA] dark:hover:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-transparent hover:border-[#E5E7EB] dark:hover:border-[#333]"
                 }`}
               >
                 <BookOpen className="w-3.5 h-3.5" />
-                <span>AI Doubt Solver</span>
+                <span>{t("tabAiDoubtSolver")}</span>
               </button>
 
               <button
@@ -205,12 +251,12 @@ export const Navbar = ({
                 onClick={() => setActiveTab("oer")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors border ${
                   activeTab === "oer"
-                    ? "bg-black text-white border-black font-semibold"
-                    : "bg-white hover:bg-[#F8F9FA] text-[#4B5563] border-transparent hover:border-[#E5E7EB]"
+                    ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white font-semibold"
+                    : "bg-white dark:bg-[#1A1A1A] hover:bg-[#F8F9FA] dark:hover:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-transparent hover:border-[#E5E7EB] dark:hover:border-[#333]"
                 }`}
               >
                 <Library className="w-3.5 h-3.5" />
-                <span>Library & Dump</span>
+                <span>{t("tabLibraryDump")}</span>
               </button>
             </>
           ) : (
@@ -221,12 +267,12 @@ export const Navbar = ({
                 onClick={() => setActiveTab("tutor")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors border ${
                   activeTab === "tutor"
-                    ? "bg-black text-white border-black font-semibold"
-                    : "bg-white hover:bg-[#F8F9FA] text-[#4B5563] border-transparent hover:border-[#E5E7EB]"
+                    ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white font-semibold"
+                    : "bg-white dark:bg-[#1A1A1A] hover:bg-[#F8F9FA] dark:hover:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-transparent hover:border-[#E5E7EB] dark:hover:border-[#333]"
                 }`}
               >
                 <BookOpen className="w-3.5 h-3.5" />
-                <span>AI Doubt Solver</span>
+                <span>{t("tabAiDoubtSolver")}</span>
               </button>
 
               <button
@@ -234,12 +280,12 @@ export const Navbar = ({
                 onClick={() => setActiveTab("practice")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors border ${
                   activeTab === "practice"
-                    ? "bg-black text-white border-black font-semibold"
-                    : "bg-white hover:bg-[#F8F9FA] text-[#4B5563] border-transparent hover:border-[#E5E7EB]"
+                    ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white font-semibold"
+                    : "bg-white dark:bg-[#1A1A1A] hover:bg-[#F8F9FA] dark:hover:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-transparent hover:border-[#E5E7EB] dark:hover:border-[#333]"
                 }`}
               >
                 <GraduationCap className="w-3.5 h-3.5" />
-                <span>Adaptive Practice</span>
+                <span>{t("tabAdaptivePractice")}</span>
               </button>
 
               <button
@@ -247,12 +293,12 @@ export const Navbar = ({
                 onClick={() => setActiveTab("classhub")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors border ${
                   activeTab === "classhub"
-                    ? "bg-black text-white border-black font-semibold"
-                    : "bg-white hover:bg-[#F8F9FA] text-[#4B5563] border-transparent hover:border-[#E5E7EB]"
+                    ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white font-semibold"
+                    : "bg-white dark:bg-[#1A1A1A] hover:bg-[#F8F9FA] dark:hover:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-transparent hover:border-[#E5E7EB] dark:hover:border-[#333]"
                 }`}
               >
                 <Share2 className="w-3.5 h-3.5" />
-                <span>Classroom & Notes</span>
+                <span>{t("tabClassroomResources")}</span>
               </button>
 
               <button
@@ -260,12 +306,25 @@ export const Navbar = ({
                 onClick={() => setActiveTab("community")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors border ${
                   activeTab === "community"
-                    ? "bg-black text-white border-black font-semibold"
-                    : "bg-white hover:bg-[#F8F9FA] text-[#4B5563] border-transparent hover:border-[#E5E7EB]"
+                    ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white font-semibold"
+                    : "bg-white dark:bg-[#1A1A1A] hover:bg-[#F8F9FA] dark:hover:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-transparent hover:border-[#E5E7EB] dark:hover:border-[#333]"
                 }`}
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                <span>Community Chat</span>
+                <span>{t("tabCommunityChat")}</span>
+              </button>
+
+              <button
+                id="tab-btn-messages"
+                onClick={() => setActiveTab("messages")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors border ${
+                  activeTab === "messages"
+                    ? "bg-indigo-600 text-white border-indigo-600 font-semibold shadow-xs"
+                    : "bg-white dark:bg-[#1A1A1A] hover:bg-[#F8F9FA] dark:hover:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-transparent hover:border-[#E5E7EB] dark:hover:border-[#333]"
+                }`}
+              >
+                <Heart className="w-3.5 h-3.5 text-rose-400" />
+                <span>{t("tabDirectMessages")}</span>
               </button>
 
               <button
@@ -273,12 +332,12 @@ export const Navbar = ({
                 onClick={() => setActiveTab("oer")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors border ${
                   activeTab === "oer"
-                    ? "bg-black text-white border-black font-semibold"
-                    : "bg-white hover:bg-[#F8F9FA] text-[#4B5563] border-transparent hover:border-[#E5E7EB]"
+                    ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white font-semibold"
+                    : "bg-white dark:bg-[#1A1A1A] hover:bg-[#F8F9FA] dark:hover:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-transparent hover:border-[#E5E7EB] dark:hover:border-[#333]"
                 }`}
               >
                 <Library className="w-3.5 h-3.5" />
-                <span>Library & Dump</span>
+                <span>{t("tabLibraryDump")}</span>
               </button>
 
               <button
@@ -286,12 +345,12 @@ export const Navbar = ({
                 onClick={() => setActiveTab("scholarships")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors border ${
                   activeTab === "scholarships"
-                    ? "bg-black text-white border-black font-semibold"
-                    : "bg-white hover:bg-[#F8F9FA] text-[#4B5563] border-transparent hover:border-[#E5E7EB]"
+                    ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white font-semibold"
+                    : "bg-white dark:bg-[#1A1A1A] hover:bg-[#F8F9FA] dark:hover:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-transparent hover:border-[#E5E7EB] dark:hover:border-[#333]"
                 }`}
               >
                 <Award className="w-3.5 h-3.5" />
-                <span>Aid Matcher</span>
+                <span>{t("tabScholarships")}</span>
               </button>
             </>
           )}
@@ -300,3 +359,4 @@ export const Navbar = ({
     </header>
   );
 };
+

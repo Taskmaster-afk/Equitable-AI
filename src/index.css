@@ -108,3 +108,79 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
+/* Animations and Smooth Transitions */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s infinite;
+}
+
+/* Dark Mode Overrides */
+html.dark {
+  color-scheme: dark;
+  background-color: #121212;
+  color: #e5e7eb;
+}
+
+html.dark body {
+  background-color: #121212;
+  color: #e5e7eb;
+}
+
+html.dark .clean-card {
+  background-color: #1a1a1a;
+  border-color: #2a2a2a;
+  color: #e5e7eb;
+}
+
+html.dark .clean-input {
+  background-color: #1e1e1e;
+  border-color: #333333;
+  color: #ffffff;
+}
+
+html.dark .clean-input:focus {
+  border-color: #ffffff;
+}
+
+html.dark .clean-button-secondary {
+  background-color: #1e1e1e;
+  border-color: #333333;
+  color: #e5e7eb;
+}
+
+html.dark .clean-button-secondary:hover:not(:disabled) {
+  background-color: #2a2a2a;
+  border-color: #444444;
+  color: #ffffff;
+}
+
+html.dark .badge-citation {
+  background-color: #222222;
+  border-color: #333333;
+  color: #cccccc;
+}
+
+
