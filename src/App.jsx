@@ -1,4 +1,16 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { ArrowRight, Bell, Sparkles, CheckCircle2, X } from "lucide-react";
+import { Navbar } from "./components/Navbar";
+import { DoubtSolver } from "./components/DoubtSolver";
+import { AdaptivePractice } from "./components/AdaptivePractice";
+import { TeacherDashboard } from "./components/TeacherDashboard";
+import { ScholarshipMatcher } from "./components/ScholarshipMatcher";
+import { OerLibrary } from "./components/OerLibrary";
+import { ClassHub } from "./components/ClassHub";
+import { CommunityForum } from "./components/CommunityForum";
+import { DirectMessages } from "./components/DirectMessages";
+import { LoginPage } from "./components/LoginPage";
+import { api } from "./services/api";
 
 class WorkspaceErrorBoundary extends React.Component {
   constructor(props) {
@@ -40,19 +52,6 @@ class WorkspaceErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
-import { useState, useEffect } from "react";
-import { ArrowRight, Bell, Sparkles, CheckCircle2, X } from "lucide-react";
-import { Navbar } from "./components/Navbar";
-import { DoubtSolver } from "./components/DoubtSolver";
-import { AdaptivePractice } from "./components/AdaptivePractice";
-import { TeacherDashboard } from "./components/TeacherDashboard";
-import { ScholarshipMatcher } from "./components/ScholarshipMatcher";
-import { OerLibrary } from "./components/OerLibrary";
-import { ClassHub } from "./components/ClassHub";
-import { CommunityForum } from "./components/CommunityForum";
-import { DirectMessages } from "./components/DirectMessages";
-import { LoginPage } from "./components/LoginPage";
-import { api } from "./services/api";
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);

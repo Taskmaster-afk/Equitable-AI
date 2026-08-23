@@ -27,6 +27,7 @@ import {
   Download
 } from "lucide-react";
 import { api } from "../services/api";
+import { BookPedia } from "./BookPedia";
 import { SUPPORTED_LANGUAGES } from "../data/oerKnowledgeBase";
 
 const SAMPLE_CURRICULUM_CATEGORIES = [
@@ -377,9 +378,9 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
   const activeCitations = latestAssistantMessage?.citations || [];
 
   return (
-    <div id="doubt-solver-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5">
+    <div id="doubt-solver-container" className="max-w-screen-2xl mx-auto px-4 sm:px-8 py-5 flex flex-col lg:flex-row gap-5">
       {/* Full Width Socratic Step Solver Workspace */}
-      <div className="w-full flex flex-col h-[700px] bg-white dark:bg-[#1A1A1A] border border-[#E5E7EB] dark:border-[#2A2A2A] shadow-xs">
+      <div className="flex-1 flex flex-col h-[700px] bg-white dark:bg-[#1A1A1A] border border-[#E5E7EB] dark:border-[#2A2A2A] shadow-xs">
         {/* Streamlined Workspace Controls Bar */}
         <div className="px-4 py-2.5 border-b border-[#E5E7EB] dark:border-[#2A2A2A] bg-[#F8F9FA] dark:bg-[#222] flex flex-wrap items-center justify-between gap-2.5 text-xs">
           <div className="flex items-center gap-2">
@@ -776,6 +777,9 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
           </div>
         </div>
       )}
+      <div className="flex-1 w-full lg:w-1/2">
+        <BookPedia currentStudent={currentStudent} />
+      </div>
     </div>
   );
 };

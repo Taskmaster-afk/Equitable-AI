@@ -4947,7 +4947,82 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
-  app.listen(PORT, "0.0.0.0", () => {
+  
+// ==========================================
+// BOOK-PEDIA AI AGENT ENDPOINT
+// ==========================================
+app.post("/api/bookpedia/ask", async (req, res) => {
+  try {
+    const { question, studentId } = req.body;
+    
+    // 1. Collect all user-uploaded resources from Library (Classroom Resources) and Dump (Dump Resources)
+    let allResources = [];
+    
+    // Collect from classroomResources
+    for (const [classCode, resources] of db.classroomResources.entries()) {
+      resources.forEach(r => {
+        allResources.push({
+          id: r.id,
+          title: r.title,
+          source: `Classroom ${classCode}`,
+          content: r.extractedContent || r.content || r.description || "No text content available.",
+          link: r.link || `#classhub`
+        });
+      });
+    }
+    
+    // Collect from dumpResources
+    for (const r of db.dumpResources) {
+      allResources.push({
+        id: r.id,
+        title: r.title,
+        source: "Community OER Dump",
+        content: r.extractedContent || r.description || "No text content available.",
+        link: r.link || `#oer`
+      });
+    }
+
+    if (allResources.length === 0) {
+      return res.json({ answer: "I could not find any uploaded resources in the library or dump to answer your doubt. Please upload some resources first." });
+    }
+
+    // Prepare context (limit to avoid token overflow, but we'll include as much as possible)
+    // In a real production app, we would use vector embeddings + RAG here.
+    // For this prototype, we'll stringify the top relevant or all of them.
+    const contextString = allResources.map(r => 
+      `Source: ${r.title} (${r.source})\nLink: ${r.link}\nContent: ${r.content.substring(0, 500)}...`
+    ).join("\n\n");
+
+    const prompt = `
+You are Book-Pedia, an AI agent that strictly answers student doubts based ONLY on the provided resources uploaded by users.
+
+User's Doubt: "${question}"
+
+Available Resources:
+${contextString}
+
+Instructions:
+1. Analyze the doubt and the available resources.
+2. If the answer is found in the resources, explain the doubt clearly based ON THE RESOURCES. Do not just cite the source, explain the concept thoroughly.
+3. You MUST include a citation and the link to the respective resource at the end of your explanation.
+4. If the answer is NOT found in the resources, you MUST reply ONLY with: "Not found in the uploaded resources. Please upload relevant books or notes to the library." Do not attempt to answer from your general knowledge.
+`;
+
+    const ai = getGeminiClient();
+    const result = await callGeminiWithFallback(ai, {
+      model: "gemini-3.7-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.2 }
+    });
+
+    res.json({ answer: result.text });
+  } catch (err) {
+    console.error("BookPedia Error:", err);
+    res.status(500).json({ error: "Failed to process doubt with Book-Pedia." });
+  }
+});
+
+app.listen(PORT, "0.0.0.0", () => {
     console.log(`AI for Equitable Education Access server running on http://localhost:${PORT}`);
   });
 }

@@ -673,7 +673,7 @@ export const ClassHub = ({
       r.chapter?.toLowerCase().includes(term) ||
       r.content?.toLowerCase().includes(term) ||
       (r.extractedContent && r.extractedContent.toLowerCase().includes(term)) ||
-      r.keyConcepts?.some(k => k.toLowerCase().includes(term))
+      (r.keyConcepts || []).some(k => k.toLowerCase().includes(term))
     );
     return matchesSubject && matchesMediaType && matchesSearch;
   });
@@ -1505,7 +1505,7 @@ export const ClassHub = ({
                       {concepts.length > 0 && (
                         <div className="flex items-center gap-1 flex-wrap pt-1">
                           <Tag className="w-3 h-3 text-[#9CA3AF]" />
-                          {concepts.map((k, idx) => (
+                          {(concepts || []).map((k, idx) => (
                             <span key={idx} className="bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg text-[10px] px-1.5 py-0.2 text-slate-600 dark:text-zinc-300">
                               {k}
                             </span>
@@ -1689,7 +1689,7 @@ export const ClassHub = ({
 
                 <div className="flex items-center gap-1.5 flex-wrap pt-1">
                   <span className="text-[10px] font-bold text-[#9CA3AF] uppercase">Topics:</span>
-                  {unit.keyTopics.map((topic, tIdx) => (
+                  {(unit.keyTopics || unit.chapters || []).map((topic, tIdx) => (
                     <span key={tIdx} className="bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xs text-[10px] px-2 py-0.5 text-slate-700 dark:text-zinc-300">
                       {topic}
                     </span>
