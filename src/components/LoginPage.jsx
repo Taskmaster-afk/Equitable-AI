@@ -19,13 +19,22 @@ import {
 } from "lucide-react";
 import { api } from "../services/api";
 import { SUPPORTED_LANGUAGES } from "../data/oerKnowledgeBase";
+import { getTranslation } from "../data/translations";
 import {
   ACADEMIC_TIERS,
   INSTITUTION_CATEGORIES,
   DEFAULT_CUSTOM_CURRICULUM
 } from "../data/curriculumStandards";
 
-export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
+export const LoginPage = ({
+  onLoginSuccess,
+  onOpenAuditModal,
+  isDarkMode,
+  setIsDarkMode,
+  selectedLanguage = "en",
+  setSelectedLanguage
+}) => {
+  const t = (key, fallback) => getTranslation(selectedLanguage, key, fallback);
   const [selectedRole, setSelectedRole] = useState("student"); // "student" | "teacher"
   const [studentMode, setStudentMode] = useState("login"); // "login" | "register"
   const [teacherMode, setTeacherMode] = useState("login"); // "login" | "register"
@@ -370,37 +379,67 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] flex flex-col justify-center items-center py-8 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-5xl bg-white border border-[#E5E7EB] shadow-sm my-auto">
+    <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0D0D0D] flex flex-col justify-center items-center py-8 px-4 sm:px-6 lg:px-8 transition-colors">
+      <div className="w-full max-w-5xl bg-white dark:bg-[#181818] border border-[#E5E7EB] dark:border-[#2A2A2A] shadow-md my-auto">
         {/* Top Header */}
-        <div className="border-b border-[#E5E7EB] p-5 sm:p-6 bg-[#FAFAFA] flex flex-wrap items-center justify-between gap-4">
+        <div className="border-b border-[#E5E7EB] dark:border-[#2A2A2A] p-5 sm:p-6 bg-[#FAFAFA] dark:bg-[#141414] flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-black flex items-center justify-center shadow-xs">
-              <div className="w-4 h-4 bg-white rotate-45" />
+            <div className="w-10 h-10 bg-black dark:bg-white flex items-center justify-center shadow-xs">
+              <div className="w-4 h-4 bg-white dark:bg-black rotate-45" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-[#1A1A1A]">
-                AI for Equitable Education Access
+              <h1 className="text-xl font-bold tracking-tight text-[#1A1A1A] dark:text-white">
+                {t("appTitle", "AI for Equitable Education Access")}
               </h1>
-              <p className="text-xs text-[#6B7280]">
-                National Open Curriculum Portal &bull; Multi-Role Verification & Academic Desk
+              <p className="text-xs text-[#6B7280] dark:text-[#AAA]">
+                {t("statusStrip", "National Open Curriculum Portal • Multi-Role Verification & Academic Desk")}
               </p>
             </div>
           </div>
 
-          {/* Role Selector & About Us Button */}
+          {/* Controls: Language, Dark Mode, Role Selector */}
           <div className="flex items-center gap-2.5 flex-wrap">
+            {/* Language Selector */}
+            {setSelectedLanguage && (
+              <div className="flex items-center gap-1 bg-white dark:bg-[#202020] border border-[#E5E7EB] dark:border-[#333] px-2 py-1">
+                <Globe className="w-3.5 h-3.5 text-[#6B7280] dark:text-[#AAA]" />
+                <select
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value)}
+                  className="bg-transparent text-xs font-semibold text-[#1A1A1A] dark:text-white outline-none cursor-pointer"
+                >
+                  {SUPPORTED_LANGUAGES.map((l) => (
+                    <option key={l.code} value={l.code} className="bg-white dark:bg-[#202020] text-black dark:text-white">
+                      {l.name} ({l.nativeName})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Dark Mode Toggle */}
+            {setIsDarkMode && (
+              <button
+                type="button"
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 bg-white dark:bg-[#202020] border border-[#E5E7EB] dark:border-[#333] text-[#4B5563] dark:text-white hover:bg-[#F3F4F6] dark:hover:bg-[#282828] transition-colors"
+              >
+                {isDarkMode ? "☀️ Light" : "🌙 Dark"}
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setShowAboutModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-black text-black hover:bg-black hover:text-white transition-all shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-white dark:bg-[#202020] border border-black dark:border-white text-black dark:text-white hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all shadow-xs"
               title="Learn about AI for Equitable Education Access"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               <span>About Us</span>
             </button>
 
-            <div className="inline-flex border border-[#E5E7EB] bg-white p-1">
+            <div className="inline-flex border border-[#E5E7EB] dark:border-[#333] bg-white dark:bg-[#202020] p-1">
               <button
                 id="btn-role-student"
                 onClick={() => {
@@ -410,8 +449,8 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                 }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${
                   selectedRole === "student"
-                    ? "bg-black text-white"
-                    : "text-[#4B5563] hover:text-black hover:bg-[#F3F4F6]"
+                    ? "bg-black text-white dark:bg-white dark:text-black"
+                    : "text-[#4B5563] dark:text-[#AAA] hover:text-black dark:hover:text-white hover:bg-[#F3F4F6] dark:hover:bg-[#282828]"
                 }`}
               >
                 <GraduationCap className="w-3.5 h-3.5" />
@@ -426,8 +465,8 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                 }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${
                   selectedRole === "teacher"
-                    ? "bg-black text-white"
-                    : "text-[#4B5563] hover:text-black hover:bg-[#F3F4F6]"
+                    ? "bg-black text-white dark:bg-white dark:text-black"
+                    : "text-[#4B5563] dark:text-[#AAA] hover:text-black dark:hover:text-white hover:bg-[#F3F4F6] dark:hover:bg-[#282828]"
                 }`}
               >
                 <Users className="w-3.5 h-3.5" />
@@ -607,47 +646,67 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
               ) : (
                 /* Student Registration (No mandatory subject or class in starting) */
                 <form onSubmit={handleStudentRegister} className="space-y-6">
-                  {/* Step 1: Institute Affiliation */}
-                  <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-4 sm:p-5 space-y-3">
+                  {/* Step 1: School / Institute Affiliation (Searchable & Manual Custom Add) */}
+                  <div className="bg-[#F8F9FA] dark:bg-[#1E1E1E] border border-[#E5E7EB] dark:border-[#333] p-4 sm:p-5 space-y-3">
                     <div className="flex items-center justify-between gap-2">
-                      <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
-                        <Building className="w-3.5 h-3.5 text-black" />
-                        <span>1. Select Your School or Registered Institute *</span>
+                      <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] dark:text-white flex items-center gap-1.5">
+                        <Building className="w-3.5 h-3.5 text-black dark:text-white" />
+                        <span>1. Your School / Educational Institute *</span>
                       </label>
-                      <span className="text-[10px] font-mono text-[#6B7280] bg-white border border-[#E5E7EB] px-1.5 py-0.5">
-                        {institutes.length} Institutes Available
+                      <span className="text-[10px] font-mono text-[#6B7280] dark:text-[#AAA] bg-white dark:bg-[#141414] border border-[#E5E7EB] dark:border-[#333] px-1.5 py-0.5">
+                        {institutes.length} in Registry
                       </span>
                     </div>
 
-                    <p className="text-[11px] text-[#6B7280]">
-                      Choose your school / educational institution from the verified registry below.
+                    <p className="text-[11px] text-[#6B7280] dark:text-[#AAA]">
+                      Type your school name below. If it appears in our registry, select it — otherwise type your school name manually to add it.
                     </p>
 
-                    <div>
-                      <select
+                    <div className="space-y-2">
+                      <input
+                        type="text"
                         id="reg-student-institute"
                         value={regStudentInstitute}
                         onChange={(e) => setRegStudentInstitute(e.target.value)}
+                        placeholder="Type or search your school name (e.g. Kendriya Vidyalaya, DAV Public School, St. Xavier's...)"
                         required
-                        className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black hover:border-[#9CA3AF] transition-colors"
-                      >
-                        {institutes.map((inst) => (
-                          <option key={inst.id} value={inst.name}>
-                            {inst.name} — ({inst.type || "School"} &bull; {inst.location || "India"})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                        className="w-full bg-white dark:bg-[#141414] border border-[#E5E7EB] dark:border-[#333] px-3 py-2 text-xs font-bold text-[#1A1A1A] dark:text-white outline-none focus:border-black dark:focus:border-white transition-colors"
+                      />
 
-                    {regStudentInstitute && (
-                      <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                        <div className="text-[11px]">
-                          <span className="font-bold">Affiliated with Registered Institute:</span>{" "}
-                          <span className="font-semibold">{regStudentInstitute}</span>
+                      {/* Matching suggestions dropdown */}
+                      {regStudentInstitute && institutes.filter(i => i.name.toLowerCase().includes(regStudentInstitute.toLowerCase())).length > 0 && (
+                        <div className="max-h-36 overflow-y-auto bg-white dark:bg-[#1A1A1A] border border-[#E5E7EB] dark:border-[#333] divide-y divide-[#F0F2F5] dark:divide-[#2A2A2A]">
+                          {institutes
+                            .filter(i => i.name.toLowerCase().includes(regStudentInstitute.toLowerCase()))
+                            .slice(0, 5)
+                            .map(inst => (
+                              <div
+                                key={inst.id}
+                                onClick={() => setRegStudentInstitute(inst.name)}
+                                className="p-2 text-xs cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-950/40 flex items-center justify-between text-[#1A1A1A] dark:text-white"
+                              >
+                                <span className="font-semibold">{inst.name}</span>
+                                <span className="text-[10px] text-neutral-400 font-mono">{inst.type || "School"}</span>
+                              </div>
+                            ))}
                         </div>
-                      </div>
-                    )}
+                      )}
+
+                      {regStudentInstitute && (
+                        <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-200 flex items-start gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                          <div className="text-[11px]">
+                            <span className="font-bold">Affiliated School:</span>{" "}
+                            <span className="font-semibold">{regStudentInstitute}</span>
+                            {institutes.some(i => i.name.toLowerCase() === regStudentInstitute.toLowerCase()) ? (
+                              <span className="ml-1 text-emerald-600 dark:text-emerald-400 font-bold">(Verified in Registry)</span>
+                            ) : (
+                              <span className="ml-1 text-indigo-600 dark:text-indigo-400 font-bold">(Custom School Added)</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Step 2: Optional Classroom Code */}

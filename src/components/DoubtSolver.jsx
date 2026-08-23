@@ -378,101 +378,70 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
 
   return (
     <div id="doubt-solver-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5">
-      {/* Main 2-Column Clean Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Chat / Doubt Workspace (8 Columns) */}
-        <div className="lg:col-span-8 flex flex-col h-[660px] bg-white border border-[#E5E7EB]">
-          {/* Streamlined Workspace Controls Bar */}
-          <div className="px-4 py-2.5 border-b border-[#E5E7EB] bg-[#F8F9FA] flex flex-wrap items-center justify-between gap-2.5 text-xs">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-bold">
-                  Class:
-                </span>
-                <select
-                  id="grade-select"
-                  value={gradeLevel}
-                  onChange={(e) => setGradeLevel(e.target.value)}
-                  className="bg-white border border-[#E5E7EB] px-2 py-1 text-[#1A1A1A] font-medium outline-none text-xs hover:border-[#9CA3AF]"
-                >
-                  <option value="Grade 11-12">Class 11 & 12 (Higher Secondary)</option>
-                  <option value="Grade 9-10">Class 9 & 10 (Secondary)</option>
-                  <option value="Grade 6-8">Class 6 to 8 (Middle)</option>
-                </select>
-              </div>
+      {/* Full Width AI Doubt Solver Workspace */}
+      <div className="w-full flex flex-col h-[700px] bg-white dark:bg-[#1A1A1A] border border-[#E5E7EB] dark:border-[#2A2A2A] shadow-xs">
+        {/* Streamlined Workspace Controls Bar */}
+        <div className="px-4 py-2.5 border-b border-[#E5E7EB] dark:border-[#2A2A2A] bg-[#F8F9FA] dark:bg-[#222] flex flex-wrap items-center justify-between gap-2.5 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-xs text-[#1A1A1A] dark:text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              <span>Interactive AI Curriculum Doubt Engine</span>
+            </span>
+          </div>
 
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-bold">
-                  Format:
-                </span>
-                <select
-                  id="style-select"
-                  value={explanationStyle}
-                  onChange={(e) => setExplanationStyle(e.target.value)}
-                  className="bg-white border border-[#E5E7EB] px-2 py-1 text-[#1A1A1A] font-medium outline-none text-xs hover:border-[#9CA3AF]"
-                >
-                  <option value="step-by-step">Step-by-Step Derivation</option>
-                  <option value="simple-analogy">Intuitive Real-World Analogy</option>
-                  <option value="prerequisite-basics">Foundational Basics First</option>
-                </select>
-              </div>
-            </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setShowHistoryDrawer(!showHistoryDrawer)}
+              className="clean-button-secondary px-2.5 py-1 text-xs flex items-center gap-1.5 font-bold"
+              title="View past AI doubt solving sessions"
+            >
+              <History className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span>History ({chatSessions.length})</span>
+            </button>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={() => setShowHistoryDrawer(!showHistoryDrawer)}
-                className="clean-button-secondary px-2.5 py-1 text-xs flex items-center gap-1.5 font-bold"
-                title="View past AI doubt solving sessions"
-              >
-                <History className="w-3.5 h-3.5 text-indigo-600" />
-                <span>History ({chatSessions.length})</span>
-              </button>
+            <button
+              type="button"
+              onClick={handleStartNewChat}
+              className="clean-button-primary px-2.5 py-1 text-xs flex items-center gap-1 bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-800 font-bold"
+              title="Start a new doubt solving session"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ New Doubt</span>
+            </button>
 
-              <button
-                type="button"
-                onClick={handleStartNewChat}
-                className="clean-button-primary px-2.5 py-1 text-xs flex items-center gap-1 bg-black text-white hover:bg-neutral-800 font-bold"
-                title="Start a new doubt solving session"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ New Doubt</span>
-              </button>
-
-              <div className="hidden sm:flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 font-semibold">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>Knowledge Grounded</span>
-              </div>
+            <div className="hidden sm:flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 font-semibold">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>Knowledge Grounded</span>
             </div>
           </div>
+        </div>
 
           {/* History Drawer Overlay / Popover */}
           {showHistoryDrawer && (
-            <div className="bg-white border-b-2 border-black p-4 space-y-3 shadow-md animate-in slide-in-from-top duration-150 max-h-60 overflow-y-auto">
-              <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-2">
+            <div className="bg-white dark:bg-[#1E1E1E] border-b-2 border-black dark:border-white p-4 space-y-3 shadow-md animate-in slide-in-from-top duration-150 max-h-60 overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#333] pb-2">
                 <div className="flex items-center gap-2">
-                  <History className="w-4 h-4 text-indigo-600" />
-                  <span className="font-bold text-xs text-[#1A1A1A]">
+                  <History className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <span className="font-bold text-xs text-[#1A1A1A] dark:text-white">
                     Past AI Doubt Sessions ({chatSessions.length})
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowHistoryDrawer(false)}
-                  className="text-xs text-[#6B7280] hover:text-black font-bold"
+                  className="text-xs text-[#6B7280] dark:text-[#AAA] hover:text-black dark:hover:text-white"
                 >
-                  ✕ Close
+                  Close
                 </button>
               </div>
 
-              {isLoadingHistory ? (
-                <div className="text-xs text-[#6B7280] py-3 text-center">Loading past doubt history...</div>
-              ) : chatSessions.length === 0 ? (
-                <div className="text-xs text-[#6B7280] py-3 text-center">
-                  No saved past doubt sessions found. Ask your first question to auto-save!
+              {chatSessions.length === 0 ? (
+                <div className="text-center py-4 text-xs text-[#6B7280] dark:text-[#888]">
+                  No previous sessions saved yet. Ask a question below!
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                   {chatSessions.map((sess) => {
                     const isSelected = sess.id === currentSessionId;
                     return (
@@ -481,15 +450,15 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                         onClick={() => handleSelectSession(sess)}
                         className={`p-2.5 border text-left cursor-pointer transition-all flex items-start justify-between gap-2 ${
                           isSelected
-                            ? "bg-indigo-50 border-indigo-500 shadow-xs"
-                            : "bg-[#F9FAFB] border-[#E5E7EB] hover:border-black"
+                            ? "bg-indigo-50 dark:bg-indigo-950/40 border-indigo-500 shadow-xs"
+                            : "bg-[#F9FAFB] dark:bg-[#222] border-[#E5E7EB] dark:border-[#333] hover:border-black dark:hover:border-white"
                         }`}
                       >
                         <div className="space-y-1 min-w-0">
-                          <div className="font-bold text-xs text-[#1A1A1A] truncate">
+                          <div className="font-bold text-xs text-[#1A1A1A] dark:text-white truncate">
                             {sess.title || "Doubt Session"}
                           </div>
-                          <div className="text-[10px] text-[#6B7280] flex items-center gap-2">
+                          <div className="text-[10px] text-[#6B7280] dark:text-[#888] flex items-center gap-2">
                             <span>{sess.gradeLevel || "Grade 11-12"}</span>
                             <span>&bull;</span>
                             <span className="flex items-center gap-0.5">
@@ -518,14 +487,14 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
           )}
 
           {/* Messages Scroll Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#FAFAFA]">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#FAFAFA] dark:bg-[#141414]">
             {messages.map((msg) => (
               <div
                 key={msg.id}
                 className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
               >
                 <div className="flex items-center gap-1.5 mb-1 text-[10px] uppercase tracking-wider text-[#9CA3AF] font-bold">
-                  <span className="text-[#4B5563]">
+                  <span className="text-[#4B5563] dark:text-[#AAA]">
                     {msg.role === "user" ? currentStudent?.name || "You" : "AI Tutor"}
                   </span>
                   <span>&bull;</span>
@@ -535,13 +504,13 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                 <div
                   className={`max-w-[92%] p-4 text-sm ${
                     msg.role === "user"
-                      ? "bg-[#1A1A1A] text-white border border-black"
-                      : "bg-white border border-[#E5E7EB] text-[#1A1A1A]"
+                      ? "bg-[#1A1A1A] dark:bg-[#252525] text-white border border-black dark:border-[#444]"
+                      : "bg-white dark:bg-[#1E1E1E] border border-[#E5E7EB] dark:border-[#333] text-[#1A1A1A] dark:text-[#E5E7EB]"
                   }`}
                 >
                   {/* Attached Image preview */}
                   {msg.imageAttachment && (
-                    <div className="mb-3 border border-[#E5E7EB] bg-neutral-900 p-1">
+                    <div className="mb-3 border border-[#E5E7EB] dark:border-[#333] bg-neutral-900 p-1">
                       <img
                         src={msg.imageAttachment}
                         alt="Uploaded student work"
@@ -558,13 +527,13 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
 
                   {/* Inline Verified Citation Badge */}
                   {msg.citations && msg.citations.length > 0 && (
-                    <div className="mt-3.5 pt-3 border-t border-[#E5E7EB] bg-[#F8F9FA] -mx-4 -mb-4 p-3.5">
+                    <div className="mt-3.5 pt-3 border-t border-[#E5E7EB] dark:border-[#333] bg-[#F8F9FA] dark:bg-[#181818] -mx-4 -mb-4 p-3.5">
                       <div className="flex items-center justify-between mb-2.5">
-                        <span className="text-[11px] font-bold text-[#1A1A1A] flex items-center gap-1.5 uppercase tracking-wider">
-                          <BookOpen className="w-3.5 h-3.5 text-black" />
+                        <span className="text-[11px] font-bold text-[#1A1A1A] dark:text-white flex items-center gap-1.5 uppercase tracking-wider">
+                          <BookOpen className="w-3.5 h-3.5 text-black dark:text-white" />
                           Source Books & Classroom Citations ({msg.citations.length})
                         </span>
-                        <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 font-bold uppercase tracking-wider font-mono flex items-center gap-1">
+                        <span className="text-[10px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 font-bold uppercase tracking-wider font-mono flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" />
                           Curriculum Grounded
                         </span>
@@ -574,34 +543,34 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                         {(msg.citations || []).map((cite) => (
                           <div
                             key={cite.id}
-                            className="bg-white border border-[#E5E7EB] p-2.5 text-xs shadow-xs"
+                            className="bg-white dark:bg-[#202020] border border-[#E5E7EB] dark:border-[#333] p-2.5 text-xs shadow-xs"
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <Book className="w-3.5 h-3.5 text-black shrink-0" />
-                                <span className="font-bold text-[#1A1A1A]">{cite.sourceName}</span>
+                                <Book className="w-3.5 h-3.5 text-black dark:text-white shrink-0" />
+                                <span className="font-bold text-[#1A1A1A] dark:text-white">{cite.sourceName}</span>
                               </div>
                               <span className={`px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider shrink-0 ${
                                 cite.docType === 'classroom_resource' 
                                   ? 'bg-blue-900 text-white' 
                                   : cite.docType === 'resource_dump'
                                   ? 'bg-amber-900 text-white'
-                                  : 'bg-black text-white'
+                                  : 'bg-black text-white dark:bg-white dark:text-black'
                               }`}>
                                 {cite.publisher}
                               </span>
                             </div>
 
-                            <p className="text-[#4B5563] text-[11px] mt-1 font-medium">
-                              {cite.chapter} &bull; <span className="text-[#6B7280]">{cite.section}</span>
+                            <p className="text-[#4B5563] dark:text-[#AAA] text-[11px] mt-1 font-medium">
+                              {cite.chapter} &bull; <span className="text-[#6B7280] dark:text-[#888]">{cite.section}</span>
                               {cite.author && (
-                                <span className="ml-1.5 text-neutral-500 font-normal">
-                                  (Author: <span className="text-neutral-800 font-medium">{cite.author}</span>)
+                                <span className="ml-1.5 text-neutral-500 dark:text-neutral-400 font-normal">
+                                  (Author: <span className="text-neutral-800 dark:text-neutral-200 font-medium">{cite.author}</span>)
                                 </span>
                               )}
                             </p>
 
-                            <p className="mt-1.5 text-[#374151] italic font-mono text-[11px] bg-[#F8F9FA] p-2 border border-[#E5E7EB] leading-relaxed">
+                            <p className="mt-1.5 text-[#374151] dark:text-[#DDD] italic font-mono text-[11px] bg-[#F8F9FA] dark:bg-[#141414] p-2 border border-[#E5E7EB] dark:border-[#333] leading-relaxed">
                               "{cite.excerptSnippet}"
                             </p>
 
@@ -642,7 +611,7 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
 
                   {/* Suggested Follow-Up Prompts */}
                   {msg.suggestedFollowUps && msg.suggestedFollowUps.length > 0 && (
-                    <div className="mt-3 pt-2.5 border-t border-[#E5E7EB]">
+                    <div className="mt-3 pt-2.5 border-t border-[#E5E7EB] dark:border-[#333]">
                       <p className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-bold mb-1.5 flex items-center gap-1">
                         <HelpCircle className="w-3 h-3 text-[#9CA3AF]" />
                         Deepen Understanding:
@@ -652,7 +621,7 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                           <button
                             key={i}
                             onClick={() => handleSubmit(f)}
-                            className="text-xs bg-white hover:bg-[#F3F4F6] text-[#1A1A1A] border border-[#E5E7EB] px-2 py-1 text-left transition-colors flex items-center gap-1 font-medium"
+                            className="text-xs bg-white dark:bg-[#252525] hover:bg-[#F3F4F6] dark:hover:bg-[#333] text-[#1A1A1A] dark:text-[#E5E7EB] border border-[#E5E7EB] dark:border-[#333] px-2 py-1 text-left transition-colors flex items-center gap-1 font-medium"
                           >
                             <span>{f}</span>
                             <ChevronRight className="w-3 h-3 shrink-0 text-[#9CA3AF]" />
@@ -667,8 +636,8 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
 
             {isLoading && (
               <div className="flex items-start gap-2">
-                <div className="p-3 flex items-center gap-2.5 text-xs text-[#4B5563] bg-white border border-[#E5E7EB]">
-                  <RefreshCw className="w-4 h-4 text-black animate-spin" />
+                <div className="p-3 flex items-center gap-2.5 text-xs text-[#4B5563] dark:text-[#CCC] bg-white dark:bg-[#1E1E1E] border border-[#E5E7EB] dark:border-[#333]">
+                  <RefreshCw className="w-4 h-4 text-black dark:text-white animate-spin" />
                   <span>Retrieving curriculum & classroom passages and computing step-by-step solution...</span>
                 </div>
               </div>
@@ -679,17 +648,17 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
 
           {/* Image preview before send */}
           {imagePreview && (
-            <div className="px-4 py-2 bg-[#F3F4F6] border-t border-[#E5E7EB] flex items-center justify-between">
+            <div className="px-4 py-2 bg-[#F3F4F6] dark:bg-[#1E1E1E] border-t border-[#E5E7EB] dark:border-[#333] flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <img src={imagePreview} alt="Upload preview" className="w-10 h-10 object-cover border border-[#E5E7EB]" />
+                <img src={imagePreview} alt="Upload preview" className="w-10 h-10 object-cover border border-[#E5E7EB] dark:border-[#333]" />
                 <div className="text-xs">
-                  <p className="font-bold text-[#1A1A1A]">Problem Photo Attached</p>
-                  <p className="text-[#6B7280] text-[11px]">Will be analyzed with step-by-step curriculum verification</p>
+                  <p className="font-bold text-[#1A1A1A] dark:text-white">Problem Photo Attached</p>
+                  <p className="text-[#6B7280] dark:text-[#AAA] text-[11px]">Will be analyzed with step-by-step curriculum verification</p>
                 </div>
               </div>
               <button
                 onClick={() => setImagePreview(null)}
-                className="text-xs text-rose-600 hover:text-rose-800 font-bold uppercase tracking-wider"
+                className="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-800 font-bold uppercase tracking-wider"
               >
                 Remove
               </button>
@@ -697,8 +666,8 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
           )}
 
           {/* Quick Syllabus Recommended Questions Strip */}
-          <div className="px-3 py-2 bg-[#F9FAFB] border-t border-[#E5E7EB] flex items-center gap-2 overflow-x-auto">
-            <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#6B7280] shrink-0">
+          <div className="px-3 py-2 bg-[#F9FAFB] dark:bg-[#1A1A1A] border-t border-[#E5E7EB] dark:border-[#2A2A2A] flex items-center gap-2 overflow-x-auto">
+            <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#6B7280] dark:text-[#AAA] shrink-0">
               <Sparkles className="w-3 h-3 text-amber-500" />
               <span>Recommended:</span>
             </div>
@@ -711,7 +680,7 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                     setInputText(s.question);
                     handleSubmit(s.question);
                   }}
-                  className="text-[11px] bg-white hover:bg-black hover:text-white border border-[#E5E7EB] px-2.5 py-1 shrink-0 font-medium transition-colors shadow-xs"
+                  className="text-[11px] bg-white dark:bg-[#252525] hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black text-[#1A1A1A] dark:text-[#E5E7EB] border border-[#E5E7EB] dark:border-[#333] px-2.5 py-1 shrink-0 font-medium transition-colors shadow-xs"
                   title={s.question}
                 >
                   {s.label}
@@ -721,7 +690,7 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
           </div>
 
           {/* Input Bar */}
-          <div className="p-3 border-t border-[#E5E7EB] bg-white">
+          <div className="p-3 border-t border-[#E5E7EB] dark:border-[#2A2A2A] bg-white dark:bg-[#1E1E1E]">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -742,7 +711,7 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                 id="btn-upload-problem"
                 onClick={() => fileInputRef.current?.click()}
                 title="Upload photo of handwritten work or textbook problem"
-                className="p-2 border border-[#E5E7EB] hover:bg-[#F8F9FA] text-[#4B5563] transition-colors"
+                className="p-2 border border-[#E5E7EB] dark:border-[#333] hover:bg-[#F8F9FA] dark:hover:bg-[#252525] text-[#4B5563] dark:text-[#AAA] transition-colors"
               >
                 <ImageIcon className="w-4 h-4" />
               </button>
@@ -753,7 +722,7 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder={`Ask any Class 6-12 doubt in ${SUPPORTED_LANGUAGES.find((l) => l.code === selectedLanguage)?.name || "English"}...`}
-                className="flex-1 clean-input py-2 text-sm"
+                className="flex-1 bg-[#F9FAFB] dark:bg-[#121212] border border-[#E5E7EB] dark:border-[#333] text-[#1A1A1A] dark:text-white px-3 py-2 text-sm outline-none focus:border-black dark:focus:border-white"
                 disabled={isLoading}
               />
 
@@ -761,7 +730,7 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                 type="submit"
                 id="btn-submit-doubt"
                 disabled={(!inputText.trim() && !imagePreview) || isLoading}
-                className="clean-button-primary py-2 px-4 text-xs font-semibold shrink-0"
+                className="clean-button-primary py-2 px-4 text-xs font-semibold shrink-0 bg-black dark:bg-white text-white dark:text-black"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Ask Doubt</span>
@@ -770,183 +739,24 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
           </div>
         </div>
 
-        {/* Sidebar: Clean Organized Reference & Adaptive Hub (4 Columns) */}
-        <div className="lg:col-span-4 space-y-4">
-          {/* Sidebar Tab Navigation */}
-          <div className="bg-white border border-[#E5E7EB] p-1 flex gap-1">
-            <button
-              onClick={() => setSidebarTab("citations")}
-              className={`flex-1 py-1.5 text-center text-xs font-semibold transition-colors ${
-                sidebarTab === "citations" ? "bg-black text-white" : "text-[#6B7280] hover:text-black"
-              }`}
-            >
-              Citations ({activeCitations.length})
-            </button>
-            <button
-              onClick={() => setSidebarTab("practice")}
-              className={`flex-1 py-1.5 text-center text-xs font-semibold transition-colors ${
-                sidebarTab === "practice" ? "bg-black text-white" : "text-[#6B7280] hover:text-black"
-              }`}
-            >
-              Next Practice
-            </button>
-            <button
-              onClick={() => setSidebarTab("syllabus")}
-              className={`flex-1 py-1.5 text-center text-xs font-semibold transition-colors ${
-                sidebarTab === "syllabus" ? "bg-black text-white" : "text-[#6B7280] hover:text-black"
-              }`}
-            >
-              Curriculum Index
-            </button>
-          </div>
-
-          {/* Tab Content 1: Active Citations */}
-          {sidebarTab === "citations" && (
-            <div className="bg-white border border-[#E5E7EB] p-4 space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-[#E5E7EB]">
-                <span className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">
-                  Active Reference Proof
-                </span>
-                <span className="text-[10px] font-mono bg-emerald-50 text-emerald-700 px-1.5 py-0.5 font-bold">
-                  Grounding Verified
-                </span>
-              </div>
-
-              {activeCitations && activeCitations.length > 0 ? (
-                <div className="space-y-3">
-                  {(activeCitations || []).map((c) => (
-                    <div key={c.id} className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] space-y-2 text-xs">
-                      <div className="flex items-start justify-between gap-1.5">
-                        <div className="flex items-center gap-1.5 font-bold text-[#1A1A1A]">
-                          <Book className="w-3.5 h-3.5 text-black shrink-0" />
-                          <span>{c.sourceName}</span>
-                        </div>
-                        <span className="bg-black text-white text-[9px] px-1.5 py-0.5 font-bold uppercase tracking-wider shrink-0">
-                          {c.publisher}
-                        </span>
-                      </div>
-                      <p className="text-[#4B5563] text-[11px] font-medium">{c.chapter} &bull; <span className="text-[#6B7280]">{c.section}</span></p>
-                      {c.author && (
-                        <p className="text-[11px] text-neutral-600">
-                          Author: <span className="font-semibold text-neutral-900">{c.author}</span>
-                        </p>
-                      )}
-                      <div className="p-2 bg-white border border-[#E5E7EB] text-[11px] font-mono text-[#374151] leading-relaxed">
-                        "{c.excerptSnippet}"
-                      </div>
-                      <p className="text-[10px] text-[#9CA3AF] font-mono">
-                        Official Ref: <span className="font-bold text-black">{c.pageOrRef}</span>
-                      </p>
-                      
-                      <div className="pt-2 border-t border-[#E5E7EB] flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedCitationModal(c)}
-                          className="flex-1 clean-button-secondary py-1 text-[11px] justify-center"
-                        >
-                          <Eye className="w-3 h-3" />
-                          <span>View Full Notes</span>
-                        </button>
-                        <a
-                          href={c.bookUrl || c.accessLink || "#/oer"}
-                          target={c.bookUrl && c.bookUrl.startsWith("http") ? "_blank" : "_self"}
-                          rel="noreferrer"
-                          className="flex-1 clean-button-primary py-1 text-[11px] justify-center"
-                        >
-                          <BookOpen className="w-3 h-3" />
-                          <span>Open Book</span>
-                          <ExternalLink className="w-2.5 h-2.5 ml-0.5 text-neutral-300" />
-                        </a>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-xs text-[#6B7280] space-y-2">
-                  <BookOpen className="w-6 h-6 mx-auto text-[#9CA3AF]" />
-                  <p>Ask any doubt to view the exact textbook & classroom page references and derivations.</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Tab Content 2: Connect to Practice */}
-          {sidebarTab === "practice" && (
-            <div className="bg-white border border-[#E5E7EB] p-4 space-y-3">
-              <span className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider block pb-2 border-b border-[#E5E7EB]">
-                Adaptive Mastery Loop
-              </span>
-              <p className="text-xs text-[#4B5563] leading-relaxed">
-                Reinforce what you just learned with our adaptive ladder. If you get a question wrong, the system automatically steps down to prerequisite concepts from earlier chapters.
-              </p>
-              <button
-                onClick={() => onNavigateToPractice && onNavigateToPractice()}
-                className="w-full clean-button-primary py-2.5 text-xs justify-between"
-              >
-                <span>Launch Adaptive Practice</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
-
-          {/* Tab Content 3: Syllabus Covered */}
-          {sidebarTab === "syllabus" && (
-            <div className="bg-white border border-[#E5E7EB] p-4 space-y-3">
-              <span className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider block pb-2 border-b border-[#E5E7EB]">
-                Indexed Curriculum Subjects
-              </span>
-              <div className="space-y-2 text-xs">
-                <div className="p-2 border border-[#E5E7EB] bg-[#F8F9FA]">
-                  <p className="font-bold text-[#1A1A1A]">Mathematics (Classes 11 & 12)</p>
-                  <p className="text-[#6B7280] text-[11px]">Integrals, Matrices, Vectors, 3D Geometry, Derivatives, Trigonometry</p>
-                </div>
-                <div className="p-2 border border-[#E5E7EB] bg-[#F8F9FA]">
-                  <p className="font-bold text-[#1A1A1A]">Physics (Classes 11 & 12)</p>
-                  <p className="text-[#6B7280] text-[11px]">Electrostatics, Current Electricity, Wave Optics, Projectile Motion, Thermodynamics</p>
-                </div>
-                <div className="p-2 border border-[#E5E7EB] bg-[#F8F9FA]">
-                  <p className="font-bold text-[#1A1A1A]">Chemistry (Classes 11 & 12)</p>
-                  <p className="text-[#6B7280] text-[11px]">Electrochemistry, SN1/SN2 Haloalkanes, VSEPR Bonding, Mole Concept & Stoichiometry</p>
-                </div>
-                <div className="p-2 border border-[#E5E7EB] bg-[#F8F9FA]">
-                  <p className="font-bold text-[#1A1A1A]">Biology (Classes 11 & 12)</p>
-                  <p className="text-[#6B7280] text-[11px]">Molecular Genetics, Biotechnology & PCR, Cell Biology, Photosynthesis C3 Cycle</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Grounding Guarantee Box */}
-          <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-3 text-xs text-[#4B5563] space-y-1">
-            <div className="flex items-center gap-1.5 font-bold text-[#1A1A1A]">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Zero Hallucination Directive</span>
-            </div>
-            <p className="text-[11px] leading-relaxed text-[#6B7280]">
-              Every step is strictly checked against official curriculum frameworks and classroom resources. If a concept is outside the curriculum, the tutor explicitly indicates the boundary.
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Source Book & Resource Modal */}
       {selectedCitationModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-black max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white dark:bg-[#1E1E1E] border-2 border-black dark:border-white max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
-            <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between bg-neutral-50">
+            <div className="p-4 border-b border-[#E5E7EB] dark:border-[#333] flex items-center justify-between bg-neutral-50 dark:bg-[#141414]">
               <div className="flex items-center gap-2">
-                <Book className="w-4 h-4 text-black" />
+                <Book className="w-4 h-4 text-black dark:text-white" />
                 <div>
-                  <h3 className="text-sm font-bold text-black">{selectedCitationModal.sourceName}</h3>
-                  <p className="text-[11px] text-neutral-500 font-mono">
+                  <h3 className="text-sm font-bold text-black dark:text-white">{selectedCitationModal.sourceName}</h3>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono">
                     {selectedCitationModal.chapter} &bull; {selectedCitationModal.section}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedCitationModal(null)}
-                className="p-1 hover:bg-neutral-200 text-neutral-600 hover:text-black transition-colors"
+                className="p-1 hover:bg-neutral-200 dark:hover:bg-[#252525] text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -955,35 +765,35 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
             {/* Modal Body */}
             <div className="p-5 overflow-y-auto space-y-4 text-xs">
               {/* Metadata Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-[#F8F9FA] p-3 border border-[#E5E7EB]">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-[#F8F9FA] dark:bg-[#252525] p-3 border border-[#E5E7EB] dark:border-[#333]">
                 <div>
-                  <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider block">Author / Origin</span>
-                  <span className="font-semibold text-neutral-900">{selectedCitationModal.author || selectedCitationModal.publisher}</span>
+                  <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase font-bold tracking-wider block">Author / Origin</span>
+                  <span className="font-semibold text-neutral-900 dark:text-white">{selectedCitationModal.author || selectedCitationModal.publisher}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider block">Publisher / Scope</span>
-                  <span className="font-semibold text-neutral-900">{selectedCitationModal.publisher}</span>
+                  <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase font-bold tracking-wider block">Publisher / Scope</span>
+                  <span className="font-semibold text-neutral-900 dark:text-white">{selectedCitationModal.publisher}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider block">Reference / Page</span>
-                  <span className="font-semibold text-neutral-900">{selectedCitationModal.pageOrRef}</span>
+                  <span className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase font-bold tracking-wider block">Reference / Page</span>
+                  <span className="font-semibold text-neutral-900 dark:text-white">{selectedCitationModal.pageOrRef}</span>
                 </div>
               </div>
 
               {/* Full Text / Passage */}
               <div>
-                <h4 className="text-xs font-bold text-neutral-800 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                  <FileText className="w-3.5 h-3.5 text-black" />
+                <h4 className="text-xs font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <FileText className="w-3.5 h-3.5 text-black dark:text-white" />
                   Source Chapter & Notes Content:
                 </h4>
-                <div className="bg-neutral-50 border border-[#E5E7EB] p-4 text-xs font-sans whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto text-neutral-800">
+                <div className="bg-neutral-50 dark:bg-[#141414] border border-[#E5E7EB] dark:border-[#333] p-4 text-xs font-sans whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto text-neutral-800 dark:text-neutral-200">
                   {selectedCitationModal.fullContent || selectedCitationModal.excerptSnippet}
                 </div>
               </div>
 
               {/* Multimodal Preview if any */}
               {selectedCitationModal.mediaData && selectedCitationModal.mediaType === "image" && (
-                <div className="border border-[#E5E7EB] p-2 bg-neutral-900 text-center rounded">
+                <div className="border border-[#E5E7EB] dark:border-[#333] p-2 bg-neutral-900 text-center rounded">
                   <img
                     src={selectedCitationModal.mediaData}
                     alt={selectedCitationModal.sourceName}
@@ -994,12 +804,12 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
               )}
 
               {selectedCitationModal.mediaData && selectedCitationModal.mediaType === "file" && (
-                <div className="border border-[#E5E7EB] p-3 bg-neutral-50 rounded flex items-center justify-between">
+                <div className="border border-[#E5E7EB] dark:border-[#333] p-3 bg-neutral-50 dark:bg-[#252525] rounded flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Book className="w-5 h-5 text-amber-600" />
                     <div>
-                      <div className="text-xs font-bold text-neutral-900">{selectedCitationModal.sourceName}</div>
-                      <div className="text-[10px] text-neutral-500">Uploaded Classroom & Library Study PDF Document</div>
+                      <div className="text-xs font-bold text-neutral-900 dark:text-white">{selectedCitationModal.sourceName}</div>
+                      <div className="text-[10px] text-neutral-500 dark:text-neutral-400">Uploaded Classroom & Library Study PDF Document</div>
                     </div>
                   </div>
                   <a
@@ -1013,7 +823,7 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
               )}
 
               {selectedCitationModal.mediaData && selectedCitationModal.mediaType === "video" && (
-                <div className="border border-[#E5E7EB] bg-black rounded overflow-hidden">
+                <div className="border border-[#E5E7EB] dark:border-[#333] bg-black rounded overflow-hidden">
                   <video controls src={selectedCitationModal.mediaData} className="w-full max-h-56">
                     Your browser does not support video playback.
                   </video>
@@ -1022,9 +832,9 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-[#E5E7EB] bg-neutral-50 flex items-center justify-between gap-3">
-              <span className="text-[11px] text-neutral-500 font-mono">
-                License: <span className="text-neutral-800 font-medium">{selectedCitationModal.license || "Open Educational Resource"}</span>
+            <div className="p-4 border-t border-[#E5E7EB] dark:border-[#333] bg-neutral-50 dark:bg-[#141414] flex items-center justify-between gap-3">
+              <span className="text-[11px] text-neutral-500 dark:text-neutral-400 font-mono">
+                License: <span className="text-neutral-800 dark:text-neutral-200 font-medium">{selectedCitationModal.license || "Open Educational Resource"}</span>
               </span>
 
               <div className="flex items-center gap-2">
@@ -1039,7 +849,7 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
                   href={selectedCitationModal.bookUrl || selectedCitationModal.accessLink || "#/oer"}
                   target={selectedCitationModal.bookUrl && selectedCitationModal.bookUrl.startsWith("http") ? "_blank" : "_self"}
                   rel="noreferrer"
-                  className="clean-button-primary py-1.5 px-4 text-xs"
+                  className="clean-button-primary py-1.5 px-4 text-xs bg-black dark:bg-white text-white dark:text-black font-bold"
                 >
                   <BookOpen className="w-3.5 h-3.5" />
                   <span>Open Full Book Online</span>

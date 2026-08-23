@@ -2075,16 +2075,16 @@ export const ClassHub = ({
 
       {/* Edit Student School Modal */}
       {showEditSchoolModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-          <div className="bg-white border-2 border-black max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#1E1E1E] border-2 border-black dark:border-white max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#333] pb-3">
               <div className="flex items-center gap-2">
-                <Building className="w-5 h-5 text-black" />
-                <h3 className="font-bold text-sm text-[#1A1A1A]">Update Your School</h3>
+                <Building className="w-5 h-5 text-black dark:text-white" />
+                <h3 className="font-bold text-sm text-[#1A1A1A] dark:text-white">Update Your School</h3>
               </div>
               <button
                 onClick={() => setShowEditSchoolModal(false)}
-                className="text-[#6B7280] hover:text-black font-bold text-xs"
+                className="text-[#6B7280] dark:text-[#AAA] hover:text-black dark:hover:text-white font-bold text-xs"
               >
                 ✕
               </button>
@@ -2092,18 +2092,18 @@ export const ClassHub = ({
 
             <form onSubmit={handleUpdateSchool} className="space-y-3.5 text-xs">
               <div className="space-y-1">
-                <label className="font-bold text-[#374151]">School / Institution Name *</label>
+                <label className="font-bold text-[#374151] dark:text-[#E5E7EB]">School / Institution Name *</label>
                 <input
                   type="text"
                   required
                   autoFocus
-                  placeholder="e.g. Kendriya Vidyalaya No. 1, Delhi Public School"
+                  placeholder="e.g. Kendriya Vidyalaya No. 1, Delhi Public School..."
                   value={studentSchoolInput}
                   onChange={(e) => setStudentSchoolInput(e.target.value)}
-                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black font-medium"
+                  className="w-full bg-[#F9FAFB] dark:bg-[#141414] border border-[#E5E7EB] dark:border-[#333] px-3 py-2 text-xs text-[#1A1A1A] dark:text-white outline-none focus:border-black dark:focus:border-white font-medium"
                 />
-                <p className="text-[10px] text-[#6B7280]">
-                  This updates your school across your dashboard and verified student records.
+                <p className="text-[10px] text-[#6B7280] dark:text-[#AAA]">
+                  Type any school name — if found in registry it links automatically, otherwise it adds as your custom school.
                 </p>
               </div>
 
@@ -2118,7 +2118,7 @@ export const ClassHub = ({
                 <button
                   type="submit"
                   disabled={isUpdatingSchool || !studentSchoolInput.trim()}
-                  className="flex-1 clean-button-primary py-2 text-xs font-bold bg-black hover:bg-neutral-800 text-white"
+                  className="flex-1 clean-button-primary py-2 text-xs font-bold bg-black dark:bg-white hover:bg-neutral-800 text-white dark:text-black"
                 >
                   {isUpdatingSchool ? "Saving..." : "Save School"}
                 </button>

@@ -4398,10 +4398,21 @@ Provide a step-by-step grounded explanation in ${langName} citing the exact sour
 
 app.post("/api/practice/generate", async (req, res) => {
   try {
-    const { studentId = "student-1", topicId, requestedDifficulty, classCode } = req.body;
+    const { studentId = "student-1", topicId, requestedDifficulty, classCode, customTopic, customSubject } = req.body;
     const student = db.students.get(studentId);
     const effectiveClassCode = classCode || student?.classCode;
-    let targetTopic = student?.masteryList.find((t) => t.topicId === topicId);
+    let targetTopic = student?.masteryList?.find((t) => t.topicId === topicId);
+    if (!targetTopic && (customTopic || topicId)) {
+      const topicTitle = customTopic || topicId;
+      targetTopic = {
+        topicId: topicId || `custom-${Date.now()}`,
+        topicName: topicTitle,
+        subject: customSubject || "General Science & Mathematics",
+        masteryPercentage: 60,
+        attemptsCount: 1,
+        recentStreak: 0
+      };
+    }
     if (!targetTopic && student?.masteryList && student.masteryList.length > 0) {
       const sorted = [...student.masteryList].sort((a, b) => a.masteryPercentage - b.masteryPercentage);
       targetTopic = sorted[0];

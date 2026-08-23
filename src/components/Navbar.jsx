@@ -266,8 +266,21 @@ export const Navbar = ({
               </button>
             </>
           ) : (
-            /* Student View Tabs */
+            /* Student View Tabs (Classroom First) */
             <>
+              <button
+                id="tab-btn-classhub"
+                onClick={() => setActiveTab("classhub")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors border ${
+                  activeTab === "classhub"
+                    ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white font-semibold"
+                    : "bg-white dark:bg-[#1A1A1A] hover:bg-[#F8F9FA] dark:hover:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-transparent hover:border-[#E5E7EB] dark:hover:border-[#333]"
+                }`}
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>{t("tabClassroomResources")}</span>
+              </button>
+
               <button
                 id="tab-btn-tutor"
                 onClick={() => setActiveTab("tutor")}
@@ -292,19 +305,6 @@ export const Navbar = ({
               >
                 <GraduationCap className="w-3.5 h-3.5" />
                 <span>{t("tabAdaptivePractice")}</span>
-              </button>
-
-              <button
-                id="tab-btn-classhub"
-                onClick={() => setActiveTab("classhub")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors border ${
-                  activeTab === "classhub"
-                    ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white font-semibold"
-                    : "bg-white dark:bg-[#1A1A1A] hover:bg-[#F8F9FA] dark:hover:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-transparent hover:border-[#E5E7EB] dark:hover:border-[#333]"
-                }`}
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                <span>{t("tabClassroomResources")}</span>
               </button>
 
               <button

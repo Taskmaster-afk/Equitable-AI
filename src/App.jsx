@@ -282,24 +282,28 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <div className="min-h-screen flex flex-col bg-[#F8F9FA] text-[#1A1A1A] font-sans selection:bg-black selection:text-white">
+      <div className="min-h-screen flex flex-col bg-[#F8F9FA] dark:bg-[#0D0D0D] text-[#1A1A1A] dark:text-[#E5E7EB] font-sans selection:bg-black selection:text-white transition-colors duration-200">
         <LoginPage
           onLoginSuccess={handleLoginSuccess}
           onOpenAuditModal={() => setIsAuditModalOpen(true)}
+          isDarkMode={isDarkMode}
+          setIsDarkMode={setIsDarkMode}
+          selectedLanguage={selectedLanguage}
+          setSelectedLanguage={setSelectedLanguage}
         />
-        <footer className="mt-auto border-t border-[#E5E7EB] bg-white py-4 text-xs text-[#6B7280]">
+        <footer className="mt-auto border-t border-[#E5E7EB] dark:border-[#2A2A2A] bg-white dark:bg-[#161616] py-4 text-xs text-[#6B7280] dark:text-[#AAA]">
           <div className="max-w-7xl mx-auto px-4 sm:px-8 flex flex-wrap items-center justify-between gap-2">
             <div>
-              <span className="font-bold text-[#1A1A1A]">AI for Equitable Education Access</span> &bull; Open Curriculum Grounded Knowledge & Multi-Role Isolated Portal
+              <span className="font-bold text-[#1A1A1A] dark:text-white">AI for Equitable Education Access</span> &bull; Open Curriculum Grounded Knowledge & Multi-Role Isolated Portal
             </div>
             <div className="flex items-center gap-3 text-[11px] font-mono">
               <button
                 onClick={() => setIsAuditModalOpen(true)}
-                className="text-emerald-700 hover:text-emerald-900 font-semibold underline underline-offset-2"
+                className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 font-semibold underline underline-offset-2"
               >
                 Evaluator Technical Briefing & Audit
               </button>
-              <span className="text-[#D1D5DB]">&bull;</span>
+              <span className="text-[#D1D5DB] dark:text-[#444]">&bull;</span>
               <span>National Open Curriculum Core</span>
             </div>
           </div>
