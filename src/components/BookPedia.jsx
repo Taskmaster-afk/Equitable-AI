@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Send, Book, Sparkles, AlertCircle } from "lucide-react";
+import { api } from "../services/api";
 
 export const BookPedia = ({ currentStudent }) => {
   const [question, setQuestion] = useState("");
@@ -17,21 +18,16 @@ export const BookPedia = ({ currentStudent }) => {
     setIsLoading(true);
 
     try {
-      const res = await fetch("/api/bookpedia/ask", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: userQ, studentId: currentStudent?.id }),
-      });
-      const data = await res.json();
+      const data = await api.askBookPedia(userQ, currentStudent?.id);
       
-      if (res.ok && data.answer) {
+      if (data && data.answer) {
         setHistory([...newHistory, { role: "agent", text: data.answer }]);
       } else {
-        setHistory([...newHistory, { role: "agent", text: "Error: Could not connect to Book-Pedia." }]);
+        setHistory([...newHistory, { role: "agent", text: data?.error || "Error: Could not connect to Book-Pedia." }]);
       }
     } catch (err) {
       console.error(err);
-      setHistory([...newHistory, { role: "agent", text: "Error: " + err.message }]);
+      setHistory([...newHistory, { role: "agent", text: "Error: " + (err.message || "Failed to query Book-Pedia.") }]);
     } finally {
       setIsLoading(false);
     }

@@ -2251,18 +2251,6 @@ function generateClassMasteryList(studentClass, gradeLevel) {
   }
 }
 
-// Health Check Endpoint
-app.get("/api/health", (req, res) => {
-  const hasGeminiKey = !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY);
-  res.json({
-    status: "ok",
-    aiEnabled: hasGeminiKey,
-    database: getMongoStatus(),
-    oerDocsCount: OER_CORPUS.length,
-    timestamp: new Date().toISOString()
-  });
-});
-
 app.post("/api/auth/login", async (req, res) => {
   const { role, password } = req.body;
   const identifier = req.body.identifier || req.body.email;
@@ -4929,6 +4917,109 @@ app.post("/api/scholarships/match", (req, res) => {
   });
   res.json({ matches: results });
 });
+
+// ==========================================
+// BOOK-PEDIA AI AGENT ENDPOINT
+// ==========================================
+app.post("/api/bookpedia/ask", async (req, res) => {
+  try {
+    const { question } = req.body;
+    if (!question || !String(question).trim()) {
+      return res.status(400).json({ error: "Please provide a question for Book-Pedia." });
+    }
+
+    // 1. Retrieve all curriculum documents, classroom resources, and library dumps
+    const { docs = [] } = await retrieveRelevantOerDocs(question);
+    const classResources = (await getAllClassroomResources()) || [];
+    const dumps = (await getResourceDumps()) || [];
+    
+    let allResources = [];
+
+    // Collect from classroom resources
+    classResources.forEach(r => {
+      allResources.push({
+        id: r.id,
+        title: r.title || "Classroom Notes",
+        source: `Classroom ${r.classCode || "Resource"}`,
+        content: r.aiExtractedContent || r.content || r.summary || "Study notes available.",
+        link: `#/classhub?classCode=${r.classCode || ""}&resourceId=${r.id}`
+      });
+    });
+
+    // Collect from dumps
+    dumps.forEach(r => {
+      allResources.push({
+        id: r.id,
+        title: r.title || "Community OER Material",
+        source: `Community OER Dump (${r.instituteName || "Library"})`,
+        content: r.aiExtractedContent || r.content || r.summary || "Community resource content.",
+        link: `#/oer?dumpId=${r.id}`
+      });
+    });
+
+    // Collect from standard open curriculum textbooks
+    docs.forEach(d => {
+      allResources.push({
+        id: d.id,
+        title: d.title,
+        source: `${d.publisher || "National Open Curriculum"} (${d.chapter || "Textbook"})`,
+        content: d.content || d.aiExtractedContent || d.summary || "",
+        link: d.accessLink || `#/oer?docId=${d.id}`
+      });
+    });
+
+    if (allResources.length === 0) {
+      return res.json({ answer: "I could not find any uploaded resources in the library or dump to answer your doubt. Please upload relevant resources to the classroom or library first." });
+    }
+
+    const contextString = allResources.slice(0, 10).map(r => 
+      `Source: ${r.title} (${r.source})\nLink: ${r.link}\nContent: ${(r.content || "").substring(0, 700)}...`
+    ).join("\n\n");
+
+    const prompt = `You are Book-Pedia, an expert AI agent that strictly answers student doubts based on the provided educational resources, open textbooks, and uploaded library materials.
+
+User's Doubt: "${question}"
+
+Available Educational Resources:
+${contextString}
+
+Instructions:
+1. Analyze the doubt and the available resources above.
+2. If the answer is found in or supported by the resources, explain the doubt clearly and thoroughly based ON THE RESOURCES. Use clear step-by-step reasoning.
+3. You MUST include a citation and the link to the respective resource at the end of your explanation.
+4. If the answer is NOT found in the resources, reply with: "Not found in the uploaded resources. Please upload relevant books or notes to the library or check the OER curriculum section."`;
+
+    const ai = getGeminiClient();
+    let answerText = "";
+    if (ai) {
+      const result = await callGeminiWithFallback(ai, {
+        model: "gemini-3.7-flash",
+        contents: prompt,
+        config: { temperature: 0.2 }
+      });
+      answerText = result?.text || "";
+    }
+
+    if (!answerText) {
+      // Fallback matching
+      const qLower = question.toLowerCase();
+      const matched = allResources.find(r => (r.title + " " + r.content).toLowerCase().includes(qLower.slice(0, 8))) || allResources[0];
+      answerText = `**Answer based on ${matched.title}** (${matched.source}):\n\n${(matched.content || '').slice(0, 350)}...\n\n🔗 Reference Link: [${matched.title}](${matched.link})`;
+    }
+
+    res.json({ answer: answerText });
+  } catch (err) {
+    console.error("BookPedia Error:", err);
+    res.status(500).json({ error: "Failed to process doubt with Book-Pedia: " + (err.message || "Unknown error") });
+  }
+});
+
+// Also add convenience route aliases
+app.post("/api/classes/join", (req, res, next) => {
+  req.url = "/api/student/join-class";
+  app._router.handle(req, res, next);
+});
+
 async function startServer() {
   console.log("🔄 Initializing Equitable-AI services & connecting database...");
   await connectDB();
@@ -4947,82 +5038,8 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
-  
-// ==========================================
-// BOOK-PEDIA AI AGENT ENDPOINT
-// ==========================================
-app.post("/api/bookpedia/ask", async (req, res) => {
-  try {
-    const { question, studentId } = req.body;
-    
-    // 1. Collect all user-uploaded resources from Library (Classroom Resources) and Dump (Dump Resources)
-    let allResources = [];
-    
-    // Collect from classroomResources
-    for (const [classCode, resources] of db.classroomResources.entries()) {
-      resources.forEach(r => {
-        allResources.push({
-          id: r.id,
-          title: r.title,
-          source: `Classroom ${classCode}`,
-          content: r.extractedContent || r.content || r.description || "No text content available.",
-          link: r.link || `#classhub`
-        });
-      });
-    }
-    
-    // Collect from dumpResources
-    for (const r of db.dumpResources) {
-      allResources.push({
-        id: r.id,
-        title: r.title,
-        source: "Community OER Dump",
-        content: r.extractedContent || r.description || "No text content available.",
-        link: r.link || `#oer`
-      });
-    }
 
-    if (allResources.length === 0) {
-      return res.json({ answer: "I could not find any uploaded resources in the library or dump to answer your doubt. Please upload some resources first." });
-    }
-
-    // Prepare context (limit to avoid token overflow, but we'll include as much as possible)
-    // In a real production app, we would use vector embeddings + RAG here.
-    // For this prototype, we'll stringify the top relevant or all of them.
-    const contextString = allResources.map(r => 
-      `Source: ${r.title} (${r.source})\nLink: ${r.link}\nContent: ${r.content.substring(0, 500)}...`
-    ).join("\n\n");
-
-    const prompt = `
-You are Book-Pedia, an AI agent that strictly answers student doubts based ONLY on the provided resources uploaded by users.
-
-User's Doubt: "${question}"
-
-Available Resources:
-${contextString}
-
-Instructions:
-1. Analyze the doubt and the available resources.
-2. If the answer is found in the resources, explain the doubt clearly based ON THE RESOURCES. Do not just cite the source, explain the concept thoroughly.
-3. You MUST include a citation and the link to the respective resource at the end of your explanation.
-4. If the answer is NOT found in the resources, you MUST reply ONLY with: "Not found in the uploaded resources. Please upload relevant books or notes to the library." Do not attempt to answer from your general knowledge.
-`;
-
-    const ai = getGeminiClient();
-    const result = await callGeminiWithFallback(ai, {
-      model: "gemini-3.7-flash",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2 }
-    });
-
-    res.json({ answer: result.text });
-  } catch (err) {
-    console.error("BookPedia Error:", err);
-    res.status(500).json({ error: "Failed to process doubt with Book-Pedia." });
-  }
-});
-
-app.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, "0.0.0.0", () => {
     console.log(`AI for Equitable Education Access server running on http://localhost:${PORT}`);
   });
 }
