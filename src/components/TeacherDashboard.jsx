@@ -252,7 +252,7 @@ export const TeacherDashboard = ({
             </span>
             <span className="text-[#E5E7EB]">&bull;</span>
             <span className="text-xs font-semibold text-[#1A1A1A]">
-              {currentTeacher?.name || "Dr. Rajesh Varma"}
+              {currentTeacher?.name || "Dr. Rajesh Varma"} ({currentTeacher?.department || "Senior Science HOD"})
             </span>
             <span className="text-[#E5E7EB]">&bull;</span>
             <span className="text-xs text-[#4B5563] font-medium">
@@ -769,24 +769,6 @@ export const TeacherDashboard = ({
       {/* View 5: Class Timetables & Details */}
       {activeViewTab === "classes" && (
         <div className="space-y-4">
-          {/* Faculty Department & Academic Leadership Card */}
-          <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2.5">
-              <Building className="w-5 h-5 text-black shrink-0" />
-              <div>
-                <span className="text-[10px] uppercase font-bold text-[#9CA3AF] block">Faculty Department & Subject Leadership</span>
-                <h3 className="font-bold text-sm text-[#1A1A1A]">
-                  {currentTeacher?.department || "Senior Science & Mathematics Department"}
-                </h3>
-              </div>
-            </div>
-            <div className="text-xs text-[#4B5563]">
-              <span>Institution: <strong>{currentTeacher?.school || currentTeacher?.institute || "Kendriya Vidyalaya No. 1"}</strong></span>
-              <span className="mx-2 text-[#D1D5DB]">&bull;</span>
-              <span>Faculty Lead: <strong>{currentTeacher?.name || "Teacher"}</strong></span>
-            </div>
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {teacherClasses.map((c) => (
               <div key={c.classCode} className="bg-white border border-[#E5E7EB] p-4 space-y-3">
@@ -803,30 +785,10 @@ export const TeacherDashboard = ({
                   </span>
                 </div>
 
-                <div className="pt-2 border-t border-[#F0F2F5] text-xs text-[#4B5563] space-y-2">
-                  <div><strong>Curriculum:</strong> {c.curriculum || "NCERT National Curriculum"}</div>
-                  <div>
-                    <strong className="block mb-1">Subjects (3rd Row / Curriculum Track):</strong>
-                    <div className="flex flex-wrap gap-1">
-                      {(c.subjects && c.subjects.length > 0 ? c.subjects : [
-                        "Physics",
-                        "Chemistry",
-                        "Mathematics",
-                        "Biology",
-                        "Computer Science & AI",
-                        "English & Communication",
-                        "Social Science",
-                        "Environmental Studies"
-                      ]).map((sub) => (
-                        <span key={sub} className="bg-[#F3F4F6] border border-[#E5E7EB] text-[#1A1A1A] px-2 py-0.5 text-[11px] font-semibold">
-                          {sub}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="pt-1 text-[11px] text-[#6B7280]">
-                    <strong>Active Sections:</strong> Section A, Section B, Section C, Section D
-                  </div>
+                <div className="pt-2 border-t border-[#F0F2F5] text-xs text-[#4B5563] space-y-1">
+                  <div><strong>Curriculum:</strong> {c.curriculum}</div>
+                  <div><strong>Subjects:</strong> {c.subjects?.join(", ")}</div>
+                  <div><strong>Sections:</strong> Section A, Section B, Section C, Section D</div>
                 </div>
 
                 <button
@@ -1109,42 +1071,16 @@ export const TeacherDashboard = ({
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-[#374151]">Academic Stream & Curriculum Track</label>
+                <label className="font-bold text-[#374151]">Academic Stream</label>
                 <select
                   value={newStream}
                   onChange={(e) => setNewStream(e.target.value)}
                   className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
                 >
-                  <option value="Science & Mathematics (Physics, Chemistry, Math, Biology)">Science & Mathematics (Physics, Chemistry, Math, Biology)</option>
-                  <option value="Physics, Chemistry & Computer Science">Physics, Chemistry & Computer Science</option>
-                  <option value="General Science, EVS & Social Studies">General Science, EVS & Social Studies</option>
-                  <option value="Mathematics, Statistics & Informatics">Mathematics, Statistics & Informatics</option>
-                  <option value="Languages, English & Environmental Science">Languages, English & Environmental Science</option>
+                  <option value="Science & Mathematics">Science & Mathematics</option>
+                  <option value="Physics & Chemistry">Physics & Chemistry</option>
+                  <option value="General Science">General Secondary Science</option>
                 </select>
-              </div>
-
-              {/* 3rd Row: Additional Subjects Grid */}
-              <div className="space-y-1">
-                <label className="font-bold text-[#374151]">Enrolled Subjects (3rd Row / Core Curriculum)</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1">
-                  {[
-                    "Physics",
-                    "Chemistry",
-                    "Mathematics",
-                    "Biology",
-                    "Computer Science",
-                    "English",
-                    "Social Science",
-                    "Environmental Studies"
-                  ].map((sub) => (
-                    <span
-                      key={sub}
-                      className="bg-[#F8F9FA] border border-[#E5E7EB] px-2 py-1 text-[11px] font-semibold text-[#1A1A1A] text-center"
-                    >
-                      {sub}
-                    </span>
-                  ))}
-                </div>
               </div>
 
               <p className="text-[11px] text-[#6B7280] leading-relaxed pt-1">
@@ -1172,5 +1108,3 @@ export const TeacherDashboard = ({
       )}
     </div>;
 };
-
-export default TeacherDashboard;

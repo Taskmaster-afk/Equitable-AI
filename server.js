@@ -69,7 +69,7 @@ import {
 dotenv.config();
 const app = express();
 
-const PORT = 3e3;
+const PORT = 3000;
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
@@ -221,11 +221,9 @@ function expandQueryConcepts(query) {
   return Array.from(concepts);
 }
 const GEMINI_MODELS = [
-  "gemini-3.6-flash",
-  "gemini-1.5-flash",
-  "gemini-2.0-flash",
-  "gemini-1.5-pro",
-  "gemini-3.7-flash"
+  "gemini-3.7-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-flash-latest"
 ];
 
 function isGreetingOrCasualMessage(text) {
@@ -258,21 +256,35 @@ function getGeminiClient(customKey = null) {
 async function callGeminiWithFallback(ai, requestConfig) {
   if (!ai) return null;
   let lastError = null;
-  const initialModel = requestConfig.model || "gemini-3.6-flash";
+  const initialModel = requestConfig.model || "gemini-3.7-flash";
   const modelsToTry = [initialModel, ...GEMINI_MODELS.filter(m => m !== initialModel)];
 
   for (const model of modelsToTry) {
-    try {
-      const response = await ai.models.generateContent({
-        ...requestConfig,
-        model
-      });
-      if (response && response.text) {
-        return response;
+    // Attempt with current candidate model (with brief retry on transient 503)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const response = await ai.models.generateContent({
+          ...requestConfig,
+          model
+        });
+        if (response && response.text) {
+          return response;
+        }
+      } catch (err) {
+        lastError = err;
+        const is503 = err.status === "UNAVAILABLE" || (err.message && err.message.includes("503"));
+        const is429 = err.status === "RESOURCE_EXHAUSTED" || (err.message && err.message.includes("429"));
+        
+        if (is503 && attempt === 0) {
+          // Quick 600ms backoff before retrying or falling over to next model
+          await new Promise(r => setTimeout(r, 600));
+          continue;
+        }
+        
+        // Log minimal note and advance to next model in the candidate list
+        console.info(`[Gemini AI] Model ${model} unavailable (${is503 ? "503 high demand" : is429 ? "429 rate limit" : err.status || "notice"}). Advancing to candidate...`);
+        break; // Break inner loop to try next model in modelsToTry
       }
-    } catch (err) {
-      lastError = err;
-      console.warn(`[Gemini AI] Model ${model} encountered notice: ${err.message}. Trying next candidate model...`);
     }
   }
   throw lastError;
@@ -331,7 +343,7 @@ Also provide a concise list of 4-6 key concepts covered.`;
         }
 
         const response = await callGeminiWithFallback(ai, {
-          model: "gemini-2.5-flash",
+          model: "gemini-3.7-flash",
           contents: {
             parts: [
               {
@@ -1987,7 +1999,19 @@ function generateClassMasteryList(studentClass, gradeLevel) {
     ];
   }
 }
-app.post("/api/auth/login", (req, res) => {
+
+// Health Check Endpoint
+app.get("/api/health", (req, res) => {
+  const hasGeminiKey = !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY);
+  res.json({
+    status: "ok",
+    aiEnabled: hasGeminiKey,
+    database: getMongoStatus(),
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.post("/api/auth/login", async (req, res) => {
   const { role, identifier, password } = req.body;
   if (!identifier || !String(identifier).trim()) {
     return res.status(400).json({ error: "Please provide your email or username/ID." });
@@ -1999,20 +2023,21 @@ app.post("/api/auth/login", (req, res) => {
   const cleanId = String(identifier).trim().toLowerCase();
 
   if (role === "teacher") {
-    const teachersList = Array.from(db.teachers.values());
+    const teachersList = await getTeachers();
     const teacher = teachersList.find(
       (t) =>
         t.id.toLowerCase() === cleanId ||
-        t.email.toLowerCase() === cleanId ||
-        t.name.toLowerCase() === cleanId
+        (t.email && t.email.toLowerCase() === cleanId) ||
+        (t.name && t.name.toLowerCase() === cleanId)
     );
     if (!teacher) {
       return res.status(401).json({ error: "Invalid credentials. No teacher account found with that email or ID." });
     }
-    const isValid = verifyPassword(password, teacher.password);
+    const isValid = verifyPassword(password, teacher.password || teacher.passwordHash);
     if (!isValid) {
       return res.status(401).json({ error: "Incorrect password for this teacher account." });
     }
+    const teacherClasses = await getClassesByTeacher(teacher.id);
     const authUser = {
       id: teacher.id,
       name: teacher.name,
@@ -2027,24 +2052,24 @@ app.post("/api/auth/login", (req, res) => {
       user: authUser,
       token,
       teacherProfile: teacher,
-      classes: Array.from(db.classes.values()).filter((c) => c.teacherId === teacher.id)
+      classes: teacherClasses
     });
   } else {
-    const studentsList = Array.from(db.students.values());
+    const studentsList = await getStudents();
     const student = studentsList.find(
       (s) =>
         s.id.toLowerCase() === cleanId ||
-        s.email.toLowerCase() === cleanId ||
-        s.name.toLowerCase() === cleanId
+        (s.email && s.email.toLowerCase() === cleanId) ||
+        (s.name && s.name.toLowerCase() === cleanId)
     );
     if (!student) {
       return res.status(401).json({ error: "Invalid credentials. No student account found with that email or ID." });
     }
-    const isValid = verifyPassword(password, student.password);
+    const isValid = verifyPassword(password, student.password || student.passwordHash);
     if (!isValid) {
       return res.status(401).json({ error: "Incorrect password for this student account." });
     }
-    const classInfo = db.classes.get(student.classCode);
+    const classInfo = (await getClassByCode(student.classCode)) || db.classes.get(student.classCode);
     const enrichedStudent = {
       ...student,
       classInfo,
@@ -2072,7 +2097,7 @@ app.post("/api/auth/login", (req, res) => {
 });
 
 // Session Verification Endpoint
-app.get("/api/auth/verify", (req, res) => {
+app.get("/api/auth/verify", async (req, res) => {
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.slice(7) : req.query.token;
 
@@ -2086,10 +2111,11 @@ app.get("/api/auth/verify", (req, res) => {
   }
 
   if (payload.role === "teacher") {
-    const teacher = db.teachers.get(payload.userId);
+    const teacher = (await getTeacherById(payload.userId)) || db.teachers.get(payload.userId);
     if (!teacher) {
       return res.status(404).json({ valid: false, error: "Teacher account no longer found" });
     }
+    const teacherClasses = await getClassesByTeacher(teacher.id);
     const authUser = {
       id: teacher.id,
       name: teacher.name,
@@ -2104,14 +2130,14 @@ app.get("/api/auth/verify", (req, res) => {
       user: authUser,
       teacherProfile: teacher,
       token,
-      classes: Array.from(db.classes.values()).filter((c) => c.teacherId === teacher.id)
+      classes: teacherClasses
     });
   } else {
-    const student = db.students.get(payload.userId);
+    const student = (await getStudentById(payload.userId)) || db.students.get(payload.userId);
     if (!student) {
       return res.status(404).json({ valid: false, error: "Student account no longer found" });
     }
-    const classInfo = db.classes.get(student.classCode);
+    const classInfo = (await getClassByCode(student.classCode)) || db.classes.get(student.classCode);
     const enrichedStudent = {
       ...student,
       classInfo,
@@ -2146,7 +2172,7 @@ app.get("/api/system/audit", (req, res) => {
       primaryModel: "gemini-3.7-flash (Multimodal OCR, Transcription & Pedagogical Reasoning)",
       aiStatus: !!process.env.GEMINI_API_KEY ? "Online (Gemini 3.7 Flash)" : "Offline Grounded Database Fallback",
       sessionSecurity: "PBKDF2-SHA512 Salted Password Hashing & HMAC-SHA256 Signed Bearer Tokens",
-      studentPrivacyTier: "FERPA / COPPA Compliant Zero-PII Export, Ephemeral AI Inference (Zero Foundation Model Training)",
+      studentPrivacyTier: "Designed with FERPA/COPPA principles in mind (not formally certified)",
       retrievalStrategy: "Hybrid Semantic Concept Ontology (100+ Synonyms & N-grams) + BM25 Frequency Weighting + Context Reranking",
       knowledgeCorpus: {
         corpusType: "Curated Open Educational Benchmark Corpus (OpenStax / CC BY-NC-SA 4.0 standards) + Dynamic Multimodal User Uploads",
@@ -2566,19 +2592,19 @@ app.post("/api/teacher/create-class", async (req, res) => {
   }
   res.json({ success: true, classInfo: newClass });
 });
-app.get("/api/student/me", (req, res) => {
+app.get("/api/student/me", async (req, res) => {
   const studentId = req.query.id || "student-1";
-  const student = db.students.get(studentId);
+  const student = (await getStudentById(studentId)) || db.students.get(studentId);
   if (!student) {
     return res.status(404).json({ error: "Student not found" });
   }
-  const classInfo = db.classes.get(student.classCode);
+  const classInfo = (await getClassByCode(student.classCode)) || db.classes.get(student.classCode);
   res.json({
     student: { ...student, classInfo },
     classInfo
   });
 });
-app.get("/api/students", (req, res) => {
+app.get("/api/students", async (req, res) => {
   const { classCode } = req.query;
   let teacherId = req.query.teacherId;
   const authHeader = req.headers.authorization;
@@ -2598,8 +2624,10 @@ app.get("/api/students", (req, res) => {
     });
   }
 
-  const teacherClasses = Array.from(db.classes.values()).filter((c) => c.teacherId === teacherId);
+  const teacherClasses = await getClassesByTeacher(teacherId);
   const teacherClassCodes = new Set(teacherClasses.map((c) => c.classCode.toUpperCase()));
+
+  const allStudents = await getStudents();
 
   if (classCode) {
     const cleanClassCode = String(classCode).trim().toUpperCase();
@@ -2609,19 +2637,19 @@ app.get("/api/students", (req, res) => {
         students: []
       });
     }
-    const students = Array.from(db.students.values()).filter((s) => s.classCode && s.classCode.toUpperCase() === cleanClassCode);
+    const students = allStudents.filter((s) => s.classCode && s.classCode.toUpperCase() === cleanClassCode);
     return res.json({ students });
   }
 
   // Return only students in classrooms assigned to this teacher
-  const students = Array.from(db.students.values()).filter(
+  const students = allStudents.filter(
     (s) => s.classCode && teacherClassCodes.has(s.classCode.toUpperCase())
   );
 
   res.json({ students });
 });
-app.get("/api/students/:id", (req, res) => {
-  const student = db.students.get(req.params.id);
+app.get("/api/students/:id", async (req, res) => {
+  const student = (await getStudentById(req.params.id)) || db.students.get(req.params.id);
   if (!student) {
     return res.status(404).json({ error: "Student not found" });
   }
@@ -2632,7 +2660,7 @@ app.get("/api/students/:id", (req, res) => {
     const token = authHeader.slice(7);
     const payload = verifySessionToken(token);
     if (payload && payload.role === "teacher") {
-      const teacherClasses = Array.from(db.classes.values()).filter((c) => c.teacherId === payload.userId);
+      const teacherClasses = await getClassesByTeacher(payload.userId);
       const teacherClassCodes = new Set(teacherClasses.map((c) => c.classCode.toUpperCase()));
       if (!teacherClassCodes.has(String(student.classCode).toUpperCase())) {
         return res.status(403).json({ error: "Access denied. Student is not enrolled in your classes." });
@@ -2640,15 +2668,16 @@ app.get("/api/students/:id", (req, res) => {
     }
   }
 
-  const classInfo = db.classes.get(student.classCode);
+  const classInfo = (await getClassByCode(student.classCode)) || db.classes.get(student.classCode);
   res.json({ student: { ...student, classInfo } });
 });
-app.put("/api/students/:id", (req, res) => {
-  const student = db.students.get(req.params.id);
+app.put("/api/students/:id", async (req, res) => {
+  const student = (await getStudentById(req.params.id)) || db.students.get(req.params.id);
   if (!student) {
     return res.status(404).json({ error: "Student not found" });
   }
   const updated = { ...student, ...req.body };
+  await updateStudent(req.params.id, updated);
   db.students.set(req.params.id, updated);
   res.json({ student: updated });
 });
@@ -2705,26 +2734,36 @@ app.post("/api/teacher/invite-student", async (req, res) => {
 });
 
 app.get("/api/teacher/invites", async (req, res) => {
-  const teacherId = req.query.teacherId || "teacher-1";
-  const invites = await getTeacherClassInvites(teacherId);
-  res.json({ invites });
+  try {
+    const teacherId = req.query.teacherId || "teacher-1";
+    const invites = await getTeacherClassInvites(teacherId);
+    res.json({ invites: invites || [] });
+  } catch (err) {
+    console.error("Error in /api/teacher/invites:", err);
+    res.json({ invites: [] });
+  }
 });
 
 app.get("/api/student/invites", async (req, res) => {
-  const email = (req.query.email || "").toLowerCase().trim();
-  const studentId = req.query.studentId;
-  let targetEmail = email;
-  if (!targetEmail && studentId) {
-    const student = (await getStudentById(studentId)) || db.students.get(studentId);
-    if (student) targetEmail = (student.email || "").toLowerCase().trim();
-  }
+  try {
+    const email = (req.query.email || "").toLowerCase().trim();
+    const studentId = req.query.studentId;
+    let targetEmail = email;
+    if (!targetEmail && studentId) {
+      const student = (await getStudentById(studentId)) || db.students.get(studentId);
+      if (student) targetEmail = (student.email || "").toLowerCase().trim();
+    }
 
-  if (!targetEmail) {
-    return res.json({ invites: [] });
-  }
+    if (!targetEmail) {
+      return res.json({ invites: [] });
+    }
 
-  const invites = await getStudentPendingInvites(targetEmail);
-  res.json({ invites });
+    const invites = await getStudentPendingInvites(targetEmail);
+    res.json({ invites: invites || [] });
+  } catch (err) {
+    console.error("Error in /api/student/invites:", err);
+    res.json({ invites: [] });
+  }
 });
 
 app.post("/api/student/accept-invite", async (req, res) => {
@@ -3619,7 +3658,7 @@ Work through the equation step-by-step to arrive at the final simplified value. 
       try {
         if (isGreeting) {
           const response = await callGeminiWithFallback(ai, {
-            model: "gemini-3.6-flash",
+            model: "gemini-3.7-flash",
             contents: `The student sent the greeting: "${question}".
 Previous conversation: ${JSON.stringify(previousContext.slice(-3))}
 
@@ -3673,7 +3712,7 @@ Provide a step-by-step grounded explanation in ${langName} citing the exact sour
             };
           }
           const response = await callGeminiWithFallback(ai, {
-            model: "gemini-3.6-flash",
+            model: "gemini-3.7-flash",
             contents: contentsPayload,
             config: {
               systemInstruction,
@@ -3687,7 +3726,7 @@ Provide a step-by-step grounded explanation in ${langName} citing the exact sour
           try {
             const followUpPrompt = `Based on the explanation given above for topic "${question}", provide exactly 3 helpful, one-sentence follow-up questions a student might naturally ask to clarify confusion. Return ONLY a JSON array of strings.`;
             const followUpRes = await callGeminiWithFallback(ai, {
-              model: "gemini-3.6-flash",
+              model: "gemini-3.7-flash",
               contents: followUpPrompt,
               config: {
                 responseMimeType: "application/json",
@@ -3820,7 +3859,7 @@ ${groundingContent}
 
 Generate a clear, pedagogical question strictly testing concepts from the provided classroom resource/curriculum notes, with 4 options, the exact 0-based index of the correct option, a step-by-step worked explanation, and a helpful hint.`;
         const response = await callGeminiWithFallback(ai, {
-          model: "gemini-2.5-flash",
+          model: "gemini-3.7-flash",
           contents: prompt,
           config: {
             responseMimeType: "application/json",
@@ -3924,7 +3963,7 @@ app.post("/api/practice/submit", async (req, res) => {
     updatedProfile: student
   });
 });
-app.get("/api/teacher/insights", (req, res) => {
+app.get("/api/teacher/insights", async (req, res) => {
   const { classCode } = req.query;
   let teacherId = req.query.teacherId;
 
@@ -3940,13 +3979,12 @@ app.get("/api/teacher/insights", (req, res) => {
   // Get all classes that belong to this teacher
   let teacherClasses = [];
   if (teacherId) {
-    teacherClasses = Array.from(db.classes.values()).filter(
-      (c) => c.teacherId === teacherId
-    );
+    teacherClasses = await getClassesByTeacher(teacherId);
   }
 
   const teacherClassCodes = new Set(teacherClasses.map((c) => c.classCode.toUpperCase()));
 
+  const allStudents = await getStudents();
   let students = [];
   if (classCode && classCode !== "all") {
     const cleanClassCode = String(classCode).trim().toUpperCase();
@@ -3966,13 +4004,13 @@ app.get("/api/teacher/insights", (req, res) => {
       });
     }
 
-    students = Array.from(db.students.values()).filter(
+    students = allStudents.filter(
       (s) => s.classCode && s.classCode.toUpperCase() === cleanClassCode
     );
   } else {
     // When "all" classes are selected, only include students from classes taught by this teacher
     if (teacherId) {
-      students = Array.from(db.students.values()).filter(
+      students = allStudents.filter(
         (s) => s.classCode && teacherClassCodes.has(s.classCode.toUpperCase())
       );
     } else {
@@ -4090,7 +4128,7 @@ Structure the response with:
 4. 2-Minute Formative Check Question with Diagnostic Distractors.
 Keep it direct, actionable, practical, and highly pedagogical.`;
       const response = await callGeminiWithFallback(ai, {
-        model: "gemini-2.5-flash",
+        model: "gemini-3.7-flash",
         contents: prompt
       });
       lessonPlan = response?.text || "15-Minute Remediation Plan ready for classroom delivery.";
