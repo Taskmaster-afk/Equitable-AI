@@ -2622,6 +2622,8 @@ app.post("/api/teacher/create-class", async (req, res) => {
     await updateTeacher(teacherId, teacher);
   }
   res.json({ success: true, classInfo: newClass });
+});
+
 // Direct student classroom join with code (supports multiple classrooms)
 app.post("/api/student/join-class", async (req, res) => {
   const { studentId, classCode } = req.body;
