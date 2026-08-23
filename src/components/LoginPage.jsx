@@ -11,27 +11,15 @@ import {
   Lock,
   Eye,
   EyeOff,
-  Check,
-  X,
   Building,
   PlusCircle,
   Sparkles,
-  BookOpen,
-  HelpCircle,
   Globe,
-  Layers,
-  Sliders,
-  Edit3,
-  Search,
-  Award,
-  FileText,
   ShieldCheck
 } from "lucide-react";
 import { api } from "../services/api";
 import { SUPPORTED_LANGUAGES } from "../data/oerKnowledgeBase";
 import {
-  WORLDWIDE_CURRICULUMS,
-  CURRICULUM_CATEGORIES,
   ACADEMIC_TIERS,
   INSTITUTION_CATEGORIES,
   DEFAULT_CUSTOM_CURRICULUM
@@ -56,9 +44,8 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
   const [regPassword, setRegPassword] = useState("");
   const [regConfirmPassword, setRegConfirmPassword] = useState("");
   const [showRegPassword, setShowRegPassword] = useState(false);
-  const [regStudentClass, setRegStudentClass] = useState("Class 10");
-  const [regClassCode, setRegClassCode] = useState("KV-10A");
   const [regStudentInstitute, setRegStudentInstitute] = useState("Kendriya Vidyalaya No. 1");
+  const [regClassCode, setRegClassCode] = useState("");
   const [regLanguage, setRegLanguage] = useState("en");
   const [regCategory, setRegCategory] = useState("General");
   const [regGender, setRegGender] = useState("Male");
@@ -88,17 +75,11 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
   const [teacherNewInstituteType, setTeacherNewInstituteType] = useState("Kendriya Vidyalaya / Central School (K-12)");
   const [teacherInstituteTier, setTeacherInstituteTier] = useState("Secondary Standard");
   const [teacherNewInstituteLocation, setTeacherNewInstituteLocation] = useState("National / Regional Campus");
-  
+
   // Curriculum Selection State
   const [teacherCurriculum, setTeacherCurriculum] = useState("CBSE / NCERT National Curriculum (Class 1-12)");
   const [isCustomCurriculum, setIsCustomCurriculum] = useState(false);
-  const [curriculumSearchQuery, setCurriculumSearchQuery] = useState("");
-  const [selectedCurriculumCategory, setSelectedCurriculumCategory] = useState("All");
   const [customCurriculumData, setCustomCurriculumData] = useState({ ...DEFAULT_CUSTOM_CURRICULUM });
-
-  // Initial Class Setup State
-  const [teacherInitialGrade, setTeacherInitialGrade] = useState("Class 10");
-  const [teacherInitialStream, setTeacherInitialStream] = useState("General Science & Mathematics");
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
@@ -106,7 +87,6 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
 
   useEffect(() => {
     loadInitialData();
-    verifyClassCode("NCERT-12A");
   }, []);
 
   const loadInitialData = async () => {
@@ -134,113 +114,25 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
   };
 
   const verifyClassCode = async (codeToVerify) => {
-    if (!codeToVerify.trim()) {
+    if (!codeToVerify || !codeToVerify.trim()) {
       setVerifiedClass(null);
-      setClassCodeError("Please enter a class code provided by your teacher.");
+      setClassCodeError(null);
       return;
     }
     setIsVerifyingCode(true);
     setClassCodeError(null);
     try {
-      const res = await api.lookupClassCode(codeToVerify);
+      const res = await api.lookupClassCode(codeToVerify.trim());
       setVerifiedClass(res.classInfo);
     } catch (err) {
       setVerifiedClass(null);
       setClassCodeError(
-        err.message || `Class code "${codeToVerify}" not found. Try NCERT-12A, NCERT-11B, or NCERT-10A.`
+        err.message || `Class code "${codeToVerify}" not found. Try NCERT-12A or leave empty to join later.`
       );
     } finally {
       setIsVerifyingCode(false);
     }
   };
-
-  const checkClassMatch = () => {
-    if (!verifiedClass) {
-      return { matches: false, message: "Class code has not been verified yet." };
-    }
-
-    const sCls = (regStudentClass || "").trim().toLowerCase();
-    const tCls = (verifiedClass.targetClass || verifiedClass.className || "").trim().toLowerCase();
-    const cCode = (verifiedClass.classCode || "").trim().toLowerCase();
-
-    // Exact string match
-    if (sCls === tCls) {
-      return {
-        matches: true,
-        message: `Class match verified: Your selected academic level "${regStudentClass}" matches Class Code "${verifiedClass.classCode}" (${verifiedClass.className}).`
-      };
-    }
-
-    const isStudentUniv = /undergraduate|postgraduate|doctoral|polytech|degree|college|freshman|sophomore|junior|senior|ug/i.test(regStudentClass);
-    const isTargetUniv = /undergraduate|postgraduate|doctoral|polytech|degree|college|univ|freshman|sophomore|junior|senior|cs-101|med-mbbs/i.test(tCls) || /univ|ug|pg|med|eng|cs/i.test(cCode);
-
-    // Cross-tier check
-    if (isStudentUniv && !isTargetUniv && /class\s*(12|11|10|9|8|7|6)/i.test(tCls)) {
-      return {
-        matches: false,
-        message: `Academic Tier Mismatch: You selected "${regStudentClass}" (Higher Education), but class code "${verifiedClass.classCode}" is for "${verifiedClass.targetClass || verifiedClass.className}" (Secondary / School). Students are strictly restricted to classes matching their academic tier.`
-      };
-    }
-    if (!isStudentUniv && isTargetUniv && /class\s*(12|11|10|9|8|7|6)/i.test(regStudentClass)) {
-      return {
-        matches: false,
-        message: `Academic Tier Mismatch: You selected "${regStudentClass}" (School level), but class code "${verifiedClass.classCode}" is for "${verifiedClass.targetClass || verifiedClass.className}" (Higher Education / University).`
-      };
-    }
-
-    // University Year comparison
-    if (isStudentUniv && isTargetUniv) {
-      const sYearMatch = regStudentClass.match(/year\s*([1-4])|sem\w*\s*([1-8])|ug\s*([1-4])/i);
-      const tYearMatch = (verifiedClass.targetClass + " " + verifiedClass.className + " " + verifiedClass.classCode).match(/year\s*([1-4])|sem\w*\s*([1-8])|ug\s*([1-4])|ug([1-4])/i);
-      const sYear = sYearMatch ? (sYearMatch[1] || sYearMatch[3] || Math.ceil(parseInt(sYearMatch[2]) / 2)) : "";
-      const tYear = tYearMatch ? (tYearMatch[1] || tYearMatch[3] || tYearMatch[4] || Math.ceil(parseInt(tYearMatch[2]) / 2)) : "";
-      if (sYear && tYear && String(sYear) !== String(tYear)) {
-        return {
-          matches: false,
-          message: `University Year Mismatch: You selected Undergraduate Year ${sYear}, but class code "${verifiedClass.classCode}" is for Year ${tYear} (${verifiedClass.className}).`
-        };
-      }
-      return {
-        matches: true,
-        message: `University Class Verified: Enrolled in "${verifiedClass.className}" under ${verifiedClass.curriculum || "Higher Education Framework"}.`
-      };
-    }
-
-    // School digits comparison
-    const studentDigits = regStudentClass.match(/\b(12|11|10|9|8|7|6)\b/i)?.[1] || "";
-    const targetDigits =
-      (verifiedClass.targetClass || "").match(/\b(12|11|10|9|8|7|6)\b/i)?.[1] ||
-      verifiedClass.classCode.match(/(12|11|10|9|8|7|6)/i)?.[1] ||
-      verifiedClass.className.match(/\bclass\s*(12|11|10|9|8|7|6)\b/i)?.[1] ||
-      "";
-
-    if (studentDigits && targetDigits) {
-      if (studentDigits === targetDigits) {
-        return {
-          matches: true,
-          message: `Class match verified: Your selected Class ${studentDigits} matches Class Code "${verifiedClass.classCode}" (${verifiedClass.className}).`
-        };
-      } else {
-        return {
-          matches: false,
-          message: `Class Mismatch: You selected Class ${studentDigits}, but class code "${verifiedClass.classCode}" is for Class ${targetDigits} (${verifiedClass.className}). You are NOT allowed to join this class. Please select your matching class or ask your teacher for your class code.`
-        };
-      }
-    }
-
-    if (
-      verifiedClass.targetClass &&
-      regStudentClass.trim().toLowerCase() !== verifiedClass.targetClass.trim().toLowerCase()
-    ) {
-      return {
-        matches: false,
-        message: `Class Mismatch: You selected "${regStudentClass}", but class code "${verifiedClass.classCode}" is for "${verifiedClass.targetClass}".`
-      };
-    }
-    return { matches: true, message: `Class matches code ${verifiedClass.classCode}.` };
-  };
-
-  const classMatchStatus = verifiedClass ? checkClassMatch() : null;
 
   // Student Sign In
   const handleStudentLogin = async (e) => {
@@ -271,18 +163,18 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
     }
   };
 
-  // Student Registration (With strict institute dropdown menu)
+  // Student Registration (No mandatory subject or class in starting)
   const handleStudentRegister = async (e) => {
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    if (!regName.trim() || !regEmail.trim() || !regClassCode.trim()) {
-      setErrorMessage("Please fill in your name, email, and class code.");
+    if (!regName.trim() || !regEmail.trim()) {
+      setErrorMessage("Please fill in your full name and email address.");
       return;
     }
     if (!regStudentInstitute || !regStudentInstitute.trim()) {
-      setErrorMessage("Please select your institute from the dropdown menu of available institutes.");
+      setErrorMessage("Please select your institute from the dropdown menu.");
       return;
     }
     if (!regPassword || regPassword.length < 6) {
@@ -293,37 +185,28 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
       setErrorMessage("Password and Confirm Password do not match. Please re-enter.");
       return;
     }
-    if (!verifiedClass) {
-      setErrorMessage("Please enter and verify a valid teacher class code.");
-      return;
-    }
-    const matchCheck = checkClassMatch();
-    if (!matchCheck.matches) {
-      setErrorMessage(matchCheck.message);
-      return;
-    }
 
     setIsLoading(true);
     try {
       const res = await api.registerStudent({
-        name: regName,
-        email: regEmail,
+        name: regName.trim(),
+        email: regEmail.trim(),
         password: regPassword,
-        studentClass: regStudentClass,
-        classCode: regClassCode,
+        studentClass: regClassCode && verifiedClass ? (verifiedClass.targetClass || verifiedClass.className) : "General",
+        classCode: regClassCode ? regClassCode.trim() : "",
         instituteName: regStudentInstitute,
         primaryLanguage: regLanguage,
         category: regCategory,
         gender: regGender,
         familyIncomeBracket: regIncome,
-        academicScorePercent: Number(regScore),
+        academicScorePercent: Number(regScore) || 75,
         firstGenerationLearner: regFirstGen,
         stateOrRegion: regState
       });
       if (res.token) api.setToken(res.token);
       onLoginSuccess(res.user, res.student, void 0, res.classInfo);
     } catch (err) {
-      setErrorMessage(err.message || "Registration failed. Check your class code and credentials.");
+      setErrorMessage(err.message || "Registration failed. Please check your inputs.");
     } finally {
       setIsLoading(false);
     }
@@ -358,7 +241,7 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
     }
   };
 
-  // Teacher / Faculty & Institute Registration (Universal support for Universities, Colleges & Schools)
+  // Teacher Registration (No pre-filled subjects/classes forced; teacher manages classes in their dashboard)
   const handleTeacherRegister = async (e) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -386,7 +269,7 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
 
     if (teacherInstituteChoice === "new") {
       if (!teacherNewInstituteName.trim()) {
-        setErrorMessage("Please enter the name of the new institution or university.");
+        setErrorMessage("Please enter the name of the new institution or school.");
         return;
       }
       finalInstituteName = teacherNewInstituteName.trim();
@@ -411,22 +294,19 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
     setIsLoading(true);
     try {
       const res = await api.registerTeacher({
-        name: teacherRegName,
-        email: teacherRegEmail,
+        name: teacherRegName.trim(),
+        email: teacherRegEmail.trim(),
         password: teacherRegPassword,
-        department: teacherRegDepartment,
+        department: teacherRegDepartment.trim(),
         instituteName: finalInstituteName,
         isNewInstitute,
         instituteType: teacherNewInstituteType,
         tier: teacherInstituteTier,
         instituteLocation: teacherNewInstituteLocation,
         curriculum: finalCurriculumName,
-        customCurriculum: isCustomCurriculum ? customCurriculumData : null,
-        initialClassGrade: teacherInitialGrade,
-        initialStream: teacherInitialStream
+        customCurriculum: isCustomCurriculum ? customCurriculumData : null
       });
 
-      // Refresh institutes list so student registration instantly sees any newly created institute
       await refreshInstitutesList();
       if (res.token) api.setToken(res.token);
       onLoginSuccess(res.user, void 0, res.teacherProfile, void 0);
@@ -437,19 +317,13 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
     }
   };
 
-  const quickSetClassAndCode = (cls, code) => {
-    setRegStudentClass(cls);
-    setRegClassCode(code);
-    verifyClassCode(code);
-  };
-
   return (
-    <div className="min-h-[85vh] flex items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-4xl bg-white border border-[#E5E7EB] shadow-sm">
-        {/* Top Minimalist Header */}
+    <div className="min-h-screen bg-[#F8F9FA] flex flex-col justify-center items-center py-8 px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-5xl bg-white border border-[#E5E7EB] shadow-sm my-auto">
+        {/* Top Header */}
         <div className="border-b border-[#E5E7EB] p-5 sm:p-6 bg-[#FAFAFA] flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-black flex items-center justify-center">
+            <div className="w-10 h-10 bg-black flex items-center justify-center shadow-xs">
               <div className="w-4 h-4 bg-white rotate-45" />
             </div>
             <div>
@@ -457,18 +331,18 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                 AI for Equitable Education Access
               </h1>
               <p className="text-xs text-[#6B7280]">
-                National Open Curriculum Portal &bull; Multi-Role Verification & Institute Registry
+                National Open Curriculum Portal &bull; Multi-Role Verification & Academic Desk
               </p>
             </div>
           </div>
 
-          {/* Role Selector & Technical Briefing */}
+          {/* Role Selector & Briefing Button */}
           <div className="flex items-center gap-2">
             {onOpenAuditModal && (
               <button
                 type="button"
                 onClick={onOpenAuditModal}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 transition-colors"
                 title="View Architectural Provenance, Semantic RAG & Security Transparency Audit"
               >
                 <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
@@ -562,13 +436,13 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                   }`}
                 >
                   <KeyRound className="w-3.5 h-3.5 text-black" />
-                  <span>Register Profile & Enter Class Code</span>
+                  <span>Register New Student Profile</span>
                 </button>
               </div>
 
               {studentMode === "login" ? (
-                /* Student Existing Sign In (Manual Credentials Entry) */
-                <form onSubmit={handleStudentLogin} className="max-w-md space-y-4">
+                /* Student Existing Sign In */
+                <form onSubmit={handleStudentLogin} className="max-w-xl space-y-4">
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-[#374151]">
                       Student Email Address or ID *
@@ -581,7 +455,7 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                       type="text"
                       value={studentLoginIdentifier}
                       onChange={(e) => setStudentLoginIdentifier(e.target.value)}
-                      placeholder="e.g. aarav.sharma@student.edu.in or student-1"
+                      placeholder="e.g. aarav.sharma@student.edu.in"
                       required
                       className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs font-medium text-[#1A1A1A] outline-none hover:border-[#9CA3AF] focus:border-black transition-colors"
                     />
@@ -614,11 +488,12 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                     </div>
                   </div>
 
+                  {/* Demo Profile Shortcuts */}
                   <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] text-[11px] text-[#6B7280] space-y-2">
                     <div className="flex items-center justify-between font-bold text-[#1A1A1A]">
                       <span className="flex items-center gap-1.5">
                         <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Select Demo Student Profile:</span>
+                        <span>Quick Demo Student Profiles:</span>
                       </span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
@@ -630,8 +505,8 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                         }}
                         className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
                       >
-                        <div className="font-bold text-black text-[11px]">Aarav Sharma (Class 12)</div>
-                        <div className="text-[10px] text-[#6B7280]">KV No. 1 &bull; Class: NCERT-12A</div>
+                        <div className="font-bold text-black text-[11px]">Aarav Sharma (Senior Secondary)</div>
+                        <div className="text-[10px] text-[#6B7280]">Kendriya Vidyalaya No. 1</div>
                       </button>
                       <button
                         type="button"
@@ -641,30 +516,8 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                         }}
                         className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
                       >
-                        <div className="font-bold text-black text-[11px]">Rohan Das (Class 10)</div>
-                        <div className="text-[10px] text-[#6B7280]">KV No. 1 &bull; Class: NCERT-10A</div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setStudentLoginIdentifier("kabir.mehta@student.iitd.ac.in");
-                          setStudentLoginPassword("password123");
-                        }}
-                        className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
-                      >
-                        <div className="font-bold text-black text-[11px]">Kabir Mehta (UG Year 1)</div>
-                        <div className="text-[10px] text-[#6B7280]">IIT Delhi &bull; Class: UNIV-UG1</div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setStudentLoginIdentifier("diya.s@student.aiims.edu");
-                          setStudentLoginPassword("password123");
-                        }}
-                        className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
-                      >
-                        <div className="font-bold text-black text-[11px]">Diya Sengupta (MBBS Year 1)</div>
-                        <div className="text-[10px] text-[#6B7280]">AIIMS &bull; Class: MED-MBBS1</div>
+                        <div className="font-bold text-black text-[11px]">Rohan Das (Secondary Standard)</div>
+                        <div className="text-[10px] text-[#6B7280]">Kendriya Vidyalaya No. 1</div>
                       </button>
                     </div>
                   </div>
@@ -672,10 +525,10 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                   <div className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] text-xs text-[#4B5563] space-y-1.5">
                     <div className="flex items-center gap-1.5 font-bold text-[#1A1A1A]">
                       <ShieldAlert className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Strict Student Privacy Isolation Enforced</span>
+                      <span>Student Equal Access & Privacy Isolation</span>
                     </div>
                     <p className="text-[11px] text-[#6B7280] leading-relaxed">
-                      Your doubt history, adaptive practice ladders, and syllabus progress remain private to you and your assigned class teacher.
+                      Your doubt logs, multimodal ladder history, and study progress remain private to you and your assigned teachers.
                     </p>
                   </div>
 
@@ -690,22 +543,22 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                   </button>
                 </form>
               ) : (
-                /* Student Registration with Institute Selection Dropdown */
+                /* Student Registration (No mandatory subject or class in starting) */
                 <form onSubmit={handleStudentRegister} className="space-y-6">
-                  {/* Step 1: Institute Affiliation (Strict Dropdown Menu of available institutes) */}
+                  {/* Step 1: Institute Affiliation */}
                   <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-4 sm:p-5 space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
                         <Building className="w-3.5 h-3.5 text-black" />
-                        <span>1. Select Your Registered Institute *</span>
+                        <span>1. Select Your School or Registered Institute *</span>
                       </label>
                       <span className="text-[10px] font-mono text-[#6B7280] bg-white border border-[#E5E7EB] px-1.5 py-0.5">
-                        {institutes.length} Institutes Registered
+                        {institutes.length} Institutes Available
                       </span>
                     </div>
 
                     <p className="text-[11px] text-[#6B7280]">
-                      Choose your school / educational institute from the registered list below. Students can only enroll in existing institutes verified in the database.
+                      Choose your school / educational institution from the verified registry below.
                     </p>
 
                     <div>
@@ -724,7 +577,6 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                       </select>
                     </div>
 
-                    {/* Institute Selected Verification Badge */}
                     {regStudentInstitute && (
                       <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
@@ -734,141 +586,46 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                         </div>
                       </div>
                     )}
-
-                    {/* Helpful guidance note for unlisted institutes */}
-                    <div className="p-2.5 bg-white border border-[#E5E7EB] text-[11px] text-[#6B7280] flex items-start gap-2">
-                      <HelpCircle className="w-3.5 h-3.5 text-[#9CA3AF] shrink-0 mt-0.5" />
-                      <p>
-                        <strong>Cannot find your school or institute?</strong> In accordance with role permissions, only verified teachers can register new institutes. Please request your teacher to sign up your institute on the Teacher Portal.
-                      </p>
-                    </div>
                   </div>
 
-                  {/* Step 2: Class Selection & Class Code Reader with strict match validation */}
-                  <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-4 sm:p-5 space-y-4">
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
-                          <School className="w-3.5 h-3.5 text-black" />
-                          <span>2. Select Your Class & Teacher's Class Code *</span>
-                        </label>
-                      </div>
-                      <p className="text-[11px] text-[#6B7280] mb-3">
-                        Your selected class <strong>must match</strong> the class code issued by your teacher. If they mismatch, enrollment will be blocked.
-                      </p>
-
-                      {/* Quick preset links for demo convenience */}
-                      <div className="flex flex-wrap items-center gap-1.5 mb-3 text-[11px] text-[#6B7280]">
-                        <span className="font-medium">Quick Test Scenarios:</span>
-                        <button
-                          type="button"
-                          onClick={() => quickSetClassAndCode("Undergraduate Year 1", "UNIV-UG1")}
-                          className="px-2 py-0.5 bg-purple-50 border border-purple-200 font-mono text-[10px] text-purple-800 hover:border-purple-400 transition-colors font-bold"
-                        >
-                          Match: University UG-1 &rarr; UNIV-UG1
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => quickSetClassAndCode("Undergraduate Year 1", "MED-MBBS1")}
-                          className="px-2 py-0.5 bg-blue-50 border border-blue-200 font-mono text-[10px] text-blue-800 hover:border-blue-400 transition-colors font-bold"
-                        >
-                          Match: Medical MBBS-1 &rarr; MED-MBBS1
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => quickSetClassAndCode("Class 12", "NCERT-12A")}
-                          className="px-2 py-0.5 bg-white border border-[#E5E7EB] font-mono text-[10px] text-black hover:border-black transition-colors"
-                        >
-                          Match: Class 12 &rarr; NCERT-12A
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => quickSetClassAndCode("Class 11", "NCERT-11B")}
-                          className="px-2 py-0.5 bg-white border border-[#E5E7EB] font-mono text-[10px] text-black hover:border-black transition-colors"
-                        >
-                          Match: Class 11 &rarr; NCERT-11B
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRegStudentClass("Class 10");
-                            setRegClassCode("UNIV-UG1");
-                            verifyClassCode("UNIV-UG1");
-                          }}
-                          className="px-2 py-0.5 bg-rose-50 border border-rose-200 font-mono text-[10px] text-rose-700 hover:border-rose-400 transition-colors"
-                        >
-                          Test Tier Mismatch: Class 10 with UNIV-UG1
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {/* Student Class Select */}
-                        <div>
-                          <label className="text-[11px] font-bold text-[#374151] block mb-1">
-                            Your Enrolled Academic Level / Class *
-                          </label>
-                          <select
-                            id="reg-student-class"
-                            value={regStudentClass}
-                            onChange={(e) => setRegStudentClass(e.target.value)}
-                            className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
-                          >
-                            <optgroup label="Senior Secondary (Class 11-12)">
-                              <option value="Class 12">Class 12 (Senior Secondary)</option>
-                              <option value="Class 11">Class 11 (Senior Secondary)</option>
-                            </optgroup>
-                            <optgroup label="Secondary High School (Class 9-10)">
-                              <option value="Class 10">Class 10 (Secondary High School)</option>
-                              <option value="Class 9">Class 9 (Secondary High School)</option>
-                            </optgroup>
-                            <optgroup label="Middle School (Class 6-8)">
-                              <option value="Class 8">Class 8 (Middle School)</option>
-                              <option value="Class 7">Class 7 (Middle School)</option>
-                              <option value="Class 6">Class 6 (Middle School)</option>
-                            </optgroup>
-                            <optgroup label="Primary School (Class 1-5)">
-                              <option value="Class 5">Class 5 (Primary School)</option>
-                              <option value="Class 4">Class 4 (Primary School)</option>
-                              <option value="Class 3">Class 3 (Primary School)</option>
-                              <option value="Class 2">Class 2 (Primary School)</option>
-                              <option value="Class 1">Class 1 (Primary School)</option>
-                            </optgroup>
-                          </select>
-                        </div>
-
-                        {/* Class Code Input */}
-                        <div>
-                          <label className="text-[11px] font-bold text-[#374151] block mb-1">
-                            Teacher's / Professor's Class Code *
-                          </label>
-                          <div className="flex gap-1.5">
-                            <input
-                              id="reg-class-code-input"
-                              type="text"
-                              value={regClassCode}
-                              onChange={(e) => {
-                                const val = e.target.value.toUpperCase();
-                                setRegClassCode(val);
-                              }}
-                              onBlur={() => verifyClassCode(regClassCode)}
-                              placeholder="e.g. UNIV-UG1 or NCERT-12A"
-                              className="flex-1 uppercase font-mono font-bold bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
-                            />
-                            <button
-                              id="btn-verify-class-code"
-                              type="button"
-                              onClick={() => verifyClassCode(regClassCode)}
-                              disabled={isVerifyingCode}
-                              className="clean-button-primary px-3 py-2 text-xs font-semibold shrink-0"
-                            >
-                              {isVerifyingCode ? "Reading..." : "Verify Code"}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                  {/* Step 2: Optional Classroom Code */}
+                  <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-4 sm:p-5 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
+                        <School className="w-3.5 h-3.5 text-black" />
+                        <span>2. Classroom / Teacher Code (Optional)</span>
+                      </label>
+                      <span className="text-[10px] text-[#6B7280] font-medium">Optional</span>
                     </div>
 
-                    {/* Class Code Lookup Error */}
+                    <p className="text-[11px] text-[#6B7280]">
+                      If your teacher provided you a class code (e.g. <strong>NCERT-12A</strong>), you can enter it now to join immediately. If you don't have a code yet, you can skip this step and join or accept invites later from your dashboard.
+                    </p>
+
+                    <div className="flex gap-2">
+                      <input
+                        id="reg-class-code-input"
+                        type="text"
+                        value={regClassCode}
+                        onChange={(e) => {
+                          const val = e.target.value.toUpperCase();
+                          setRegClassCode(val);
+                        }}
+                        onBlur={() => verifyClassCode(regClassCode)}
+                        placeholder="e.g. NCERT-12A (Optional - can be joined later)"
+                        className="flex-1 uppercase font-mono font-bold bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                      />
+                      <button
+                        id="btn-verify-class-code"
+                        type="button"
+                        onClick={() => verifyClassCode(regClassCode)}
+                        disabled={isVerifyingCode || !regClassCode.trim()}
+                        className="clean-button-secondary px-3 py-2 text-xs font-semibold shrink-0"
+                      >
+                        {isVerifyingCode ? "Checking..." : "Verify Code"}
+                      </button>
+                    </div>
+
                     {classCodeError && (
                       <div className="p-2.5 bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-1.5 font-medium">
                         <AlertCircle className="w-4 h-4 shrink-0" />
@@ -876,164 +633,24 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                       </div>
                     )}
 
-                    {/* Live Class Matching Indicator */}
                     {verifiedClass && (
-                      <div className="space-y-2">
-                        {classMatchStatus?.matches ? (
-                          <div
-                            id="class-match-success"
-                            className="p-3 bg-emerald-50 border border-emerald-300 text-xs text-emerald-900 flex items-start gap-2"
-                          >
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                            <div>
-                              <div className="font-bold">✓ Class Match Verified & Authorized</div>
-                              <p className="text-[11px] text-emerald-800 mt-0.5">
-                                Your selected <strong>{regStudentClass}</strong> matches class code{" "}
-                                <strong>{verifiedClass.classCode}</strong> ({verifiedClass.className}). Dashboard content will be strictly scoped to your {regStudentClass} curriculum.
-                              </p>
-                            </div>
-                          </div>
-                        ) : (
-                          <div
-                            id="class-match-mismatch"
-                            className="p-3 bg-rose-50 border-2 border-rose-500 text-xs text-rose-900 flex items-start gap-2 animate-pulse"
-                          >
-                            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                            <div>
-                              <div className="font-bold text-rose-800">
-                                ❌ Class Mismatch &bull; Enrollment Restricted
-                              </div>
-                              <p className="text-[11px] text-rose-800 mt-0.5 leading-relaxed">
-                                {classMatchStatus?.message}
-                              </p>
-                              <p className="text-[10px] text-rose-700 font-semibold mt-1">
-                                Action Required: Change your selected class to match this class code, or enter your correct class teacher's code.
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Class Details Card */}
-                        <div className="p-3 bg-white border border-[#E5E7EB] text-xs space-y-2">
-                          <div className="flex items-center justify-between border-b border-[#F0F2F5] pb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="bg-black text-white text-[10px] font-mono font-bold px-1.5 py-0.5">
-                                {verifiedClass.classCode}
-                              </span>
-                              <span className="font-bold text-xs text-[#1A1A1A]">
-                                {verifiedClass.className}
-                              </span>
-                            </div>
-                            <span className="text-[11px] text-[#6B7280]">
-                              Target: {verifiedClass.targetClass || verifiedClass.gradeLevel}
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                            <div>
-                              <span className="text-[#9CA3AF] block text-[10px] uppercase font-bold">Teacher</span>
-                              <span className="font-semibold text-[#1A1A1A]">{verifiedClass.teacherName}</span>
-                            </div>
-                            <div>
-                              <span className="text-[#9CA3AF] block text-[10px] uppercase font-bold">School</span>
-                              <span className="font-semibold text-[#1A1A1A] truncate block">{verifiedClass.school}</span>
-                            </div>
-                            <div>
-                              <span className="text-[#9CA3AF] block text-[10px] uppercase font-bold">Curriculum</span>
-                              <span className="font-semibold text-[#1A1A1A]">{verifiedClass.curriculum}</span>
-                            </div>
-                            <div>
-                              <span className="text-[#9CA3AF] block text-[10px] uppercase font-bold">Subjects</span>
-                              <span className="font-semibold text-[#1A1A1A]">{verifiedClass.subjects?.join(", ")}</span>
-                            </div>
-                          </div>
+                      <div className="p-3 bg-emerald-50 border border-emerald-300 text-xs text-emerald-900 flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-bold">✓ Class Code Linked: {verifiedClass.className}</div>
+                          <p className="text-[11px] text-emerald-800 mt-0.5">
+                            Teacher: <strong>{verifiedClass.teacherName}</strong> &bull; School: <strong>{verifiedClass.school}</strong>
+                          </p>
                         </div>
                       </div>
                     )}
                   </div>
 
-                  {/* Step 3: Account Security / Create Password */}
-                  <div className="bg-white border border-[#E5E7EB] p-4 sm:p-5 space-y-3">
-                    <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-black" />
-                      <span>3. Create Password for Your Student Profile *</span>
-                    </label>
-                    <p className="text-[11px] text-[#6B7280]">
-                      Set a confidential password to protect your doubt solving history and academic profile.
-                    </p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {/* Password Field */}
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Create Password *</label>
-                        <div className="relative">
-                          <input
-                            id="reg-password-input"
-                            type={showRegPassword ? "text" : "password"}
-                            required
-                            minLength={6}
-                            value={regPassword}
-                            onChange={(e) => setRegPassword(e.target.value)}
-                            placeholder="Minimum 6 characters"
-                            className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] pr-9 outline-none focus:border-black"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowRegPassword(!showRegPassword)}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-black"
-                          >
-                            {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                          </button>
-                        </div>
-                        {regPassword && (
-                          <div className="flex items-center gap-1 text-[10px] mt-0.5">
-                            {regPassword.length >= 6 ? (
-                              <span className="text-emerald-600 flex items-center gap-0.5">
-                                <Check className="w-3 h-3" /> Minimum 6 characters met
-                              </span>
-                            ) : (
-                              <span className="text-amber-600 flex items-center gap-0.5">
-                                <AlertCircle className="w-3 h-3" /> Needs {6 - regPassword.length} more characters
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Confirm Password Field */}
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Confirm Password *</label>
-                        <input
-                          id="reg-confirm-password-input"
-                          type={showRegPassword ? "text" : "password"}
-                          required
-                          value={regConfirmPassword}
-                          onChange={(e) => setRegConfirmPassword(e.target.value)}
-                          placeholder="Re-enter password"
-                          className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
-                        />
-                        {regConfirmPassword && (
-                          <div className="flex items-center gap-1 text-[10px] mt-0.5">
-                            {regPassword === regConfirmPassword ? (
-                              <span className="text-emerald-600 flex items-center gap-0.5">
-                                <Check className="w-3 h-3" /> Passwords match
-                              </span>
-                            ) : (
-                              <span className="text-rose-600 flex items-center gap-0.5">
-                                <X className="w-3 h-3" /> Passwords do not match
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Step 4: Personal & Equal Access Details */}
+                  {/* Step 3: Account Credentials */}
                   <div className="bg-white border border-[#E5E7EB] p-4 sm:p-5 space-y-4">
                     <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
                       <GraduationCap className="w-3.5 h-3.5 text-black" />
-                      <span>4. Personal & Equal Access Details</span>
+                      <span>3. Student Profile & Credentials *</span>
                     </label>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1063,6 +680,54 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                         />
                       </div>
 
+                      {/* Password Field */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-[#374151]">Create Password *</label>
+                        <div className="relative">
+                          <input
+                            id="reg-password-input"
+                            type={showRegPassword ? "text" : "password"}
+                            required
+                            minLength={6}
+                            value={regPassword}
+                            onChange={(e) => setRegPassword(e.target.value)}
+                            placeholder="Minimum 6 characters"
+                            className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] pr-9 outline-none focus:border-black"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowRegPassword(!showRegPassword)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-black"
+                          >
+                            {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Confirm Password Field */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-[#374151]">Confirm Password *</label>
+                        <input
+                          id="reg-confirm-password-input"
+                          type={showRegPassword ? "text" : "password"}
+                          required
+                          value={regConfirmPassword}
+                          onChange={(e) => setRegConfirmPassword(e.target.value)}
+                          placeholder="Re-enter password"
+                          className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 4: Equal Access & Language Preferences */}
+                  <div className="bg-white border border-[#E5E7EB] p-4 sm:p-5 space-y-4">
+                    <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
+                      <Globe className="w-3.5 h-3.5 text-black" />
+                      <span>4. Learning Preferences & Equal Access Details</span>
+                    </label>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <label className="text-xs font-bold text-[#374151]">Primary Tutoring Language</label>
                         <select
@@ -1079,7 +744,7 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Social Category (For Aid Matcher)</label>
+                        <label className="text-xs font-bold text-[#374151]">Social Category (Aid Matcher)</label>
                         <select
                           value={regCategory}
                           onChange={(e) => setRegCategory(e.target.value)}
@@ -1109,7 +774,7 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Recent Board/Exam Score (%)</label>
+                        <label className="text-xs font-bold text-[#374151]">Recent Exam / Board Score (%)</label>
                         <input
                           type="number"
                           min="30"
@@ -1141,26 +806,24 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                     type="submit"
                     disabled={
                       isLoading ||
-                      !verifiedClass ||
-                      !classMatchStatus?.matches ||
+                      !regName.trim() ||
+                      !regEmail.trim() ||
                       regPassword.length < 6 ||
                       regPassword !== regConfirmPassword ||
                       !regStudentInstitute
                     }
-                    className="w-full bg-black text-white hover:bg-[#222] py-3 px-4 text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-black text-white hover:bg-[#222] py-3 px-4 text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
                   >
                     <span>
                       {!regStudentInstitute
                         ? "Please Select Your Institute"
-                        : !verifiedClass
-                        ? "Please Verify Teacher Class Code First"
-                        : !classMatchStatus?.matches
-                        ? "Cannot Join: Class Mismatch with Code"
+                        : !regName.trim()
+                        ? "Enter Your Full Name"
                         : regPassword.length < 6
                         ? "Please Set a Password (min 6 chars)"
                         : regPassword !== regConfirmPassword
                         ? "Passwords Do Not Match"
-                        : `Complete Registration & Access ${regStudentClass} Dashboard`}
+                        : "Complete Registration & Access Student Desk"}
                     </span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
@@ -1168,7 +831,7 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
               )}
             </div>
           ) : (
-            /* TEACHER PORTAL (Sign In & Sign Up with Institute Creation Capability) */
+            /* TEACHER PORTAL */
             <div>
               {/* Teacher Mode Switcher */}
               <div className="flex border-b border-[#E5E7EB] mb-6">
@@ -1204,8 +867,8 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
               </div>
 
               {teacherMode === "login" ? (
-                /* Teacher Existing Sign In (Manual Credentials Entry) */
-                <form onSubmit={handleTeacherLogin} className="max-w-md space-y-4">
+                /* Teacher Existing Sign In */
+                <form onSubmit={handleTeacherLogin} className="max-w-xl space-y-4">
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-[#374151]">
                       Teacher Email Address or Staff ID *
@@ -1218,7 +881,7 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                       type="text"
                       value={teacherLoginIdentifier}
                       onChange={(e) => setTeacherLoginIdentifier(e.target.value)}
-                      placeholder="e.g. rajesh.varma@school.edu.in or teacher-1"
+                      placeholder="e.g. rajesh.varma@school.edu.in"
                       required
                       className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs font-medium text-[#1A1A1A] outline-none hover:border-[#9CA3AF] focus:border-black transition-colors"
                     />
@@ -1251,11 +914,12 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                     </div>
                   </div>
 
+                  {/* Demo Teacher Profiles */}
                   <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] text-[11px] text-[#6B7280] space-y-2">
                     <div className="flex items-center justify-between font-bold text-[#1A1A1A]">
                       <span className="flex items-center gap-1.5">
                         <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Select Demo Teacher Profile (Test Classroom Isolation):</span>
+                        <span>Quick Demo Teacher Profiles:</span>
                       </span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
@@ -1267,8 +931,8 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                         }}
                         className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
                       >
-                        <div className="font-bold text-black text-[11px]">Dr. Rajesh Varma (High School)</div>
-                        <div className="text-[10px] text-[#6B7280]">KV No. 1 &bull; Classes: NCERT-12A, 11B</div>
+                        <div className="font-bold text-black text-[11px]">Dr. Rajesh Varma</div>
+                        <div className="text-[10px] text-[#6B7280]">Kendriya Vidyalaya No. 1</div>
                       </button>
                       <button
                         type="button"
@@ -1278,30 +942,8 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                         }}
                         className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
                       >
-                        <div className="font-bold text-black text-[11px]">Mrs. Sunita Sharma (Middle School)</div>
-                        <div className="text-[10px] text-[#6B7280]">KV No. 1 &bull; Classes: NCERT-10A, 9A</div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTeacherLoginIdentifier("arvind.kumar@cse.iitd.ac.in");
-                          setTeacherLoginPassword("teacher123");
-                        }}
-                        className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
-                      >
-                        <div className="font-bold text-black text-[11px]">Prof. Arvind Kumar (Higher Ed)</div>
-                        <div className="text-[10px] text-[#6B7280]">IIT Delhi &bull; Class: UNIV-UG1</div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTeacherLoginIdentifier("ananya.ray@aiims.edu");
-                          setTeacherLoginPassword("teacher123");
-                        }}
-                        className="text-left p-2 bg-white border border-[#E5E7EB] hover:border-black transition-colors"
-                      >
-                        <div className="font-bold text-black text-[11px]">Dr. Ananya Ray (Medical Faculty)</div>
-                        <div className="text-[10px] text-[#6B7280]">AIIMS &bull; Class: MED-MBBS1</div>
+                        <div className="font-bold text-black text-[11px]">Mrs. Sunita Sharma</div>
+                        <div className="text-[10px] text-[#6B7280]">Kendriya Vidyalaya No. 1</div>
                       </button>
                     </div>
                   </div>
@@ -1309,14 +951,13 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                   <div className="p-3.5 bg-[#F8F9FA] border border-[#E5E7EB] text-xs text-[#4B5563] space-y-2">
                     <div className="flex items-center gap-1.5 font-bold text-[#1A1A1A]">
                       <Users className="w-3.5 h-3.5 text-black" />
-                      <span>Teacher Monitoring Capabilities</span>
+                      <span>Teacher Dashboard Capabilities</span>
                     </div>
                     <ul className="text-[11px] text-[#6B7280] space-y-1 list-disc pl-4">
-                      <li>Monitor every student registered for your class codes in real time.</li>
-                      <li>Review diagnostic flags and topic heatmaps across enrolled batches.</li>
-                      <li>Generate AI-crafted NCERT remediation lesson plans for struggling concepts.</li>
-                      <li>Register and add new educational institutes to the platform.</li>
-                      <li>Create and distribute new batch class codes.</li>
+                      <li>Create and manage custom classes & custom subjects dynamically inside your dashboard.</li>
+                      <li>Send invite links to students and categorize them across sections.</li>
+                      <li>Broadcast circulars and official classroom announcements.</li>
+                      <li>Review diagnostic flags and topic heatmaps across enrolled students.</li>
                     </ul>
                   </div>
 
@@ -1324,23 +965,23 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                     id="btn-teacher-login-submit"
                     type="submit"
                     disabled={isLoading}
-                    className="w-full bg-black text-white hover:bg-[#222] py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                    className="w-full bg-black text-white hover:bg-[#222] py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 shadow-xs"
                   >
-                    <span>Enter Teacher Classroom Radar</span>
+                    <span>Enter Teacher Academic Desk</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </form>
               ) : (
-                /* TEACHER SIGN UP (With Institute Creation Capability) */
+                /* TEACHER SIGN UP (No mandatory class/subject selection at start; managed in dashboard) */
                 <form onSubmit={handleTeacherRegister} className="space-y-6">
-                  {/* Step 1: Teacher Identity & Account Credentials */}
+                  {/* Step 1: Teacher Credentials & Department */}
                   <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-4 sm:p-5 space-y-4">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
                         <Users className="w-3.5 h-3.5 text-black" />
                         <span>1. Teacher Credentials & Department *</span>
                       </label>
-                      <span className="text-[10px] text-[#6B7280] font-medium">Step 1 of 3</span>
+                      <span className="text-[10px] text-[#6B7280] font-medium">Step 1 of 2</span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1352,7 +993,7 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                           required
                           value={teacherRegName}
                           onChange={(e) => setTeacherRegName(e.target.value)}
-                          placeholder="e.g. Dr. Rajesh Varma or Ms. Priya Sen"
+                          placeholder="e.g. Dr. Rajesh Varma"
                           className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
                         />
                       </div>
@@ -1407,48 +1048,31 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                       </div>
 
                       <div className="sm:col-span-2 space-y-1">
-                        <label className="text-xs font-bold text-[#374151]">Department / Subject Faculty Lead</label>
-                        <select
-                          id="teacher-reg-department"
+                        <label className="text-xs font-bold text-[#374151]">Department / Academic Designation</label>
+                        <input
+                          type="text"
                           value={teacherRegDepartment}
                           onChange={(e) => setTeacherRegDepartment(e.target.value)}
+                          placeholder="e.g. Senior Science & Mathematics Faculty"
                           className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
-                        >
-                          <optgroup label="Higher Education & Universities">
-                            <option value="Computer Science & AI Faculty Lead">Computer Science & AI Faculty Lead</option>
-                            <option value="Medicine & Clinical Sciences Chair">Medicine & Clinical Sciences Chair</option>
-                            <option value="Electrical & Electronics Engineering">Electrical & Electronics Engineering</option>
-                            <option value="Mechanical & Aerospace Engineering">Mechanical & Aerospace Engineering</option>
-                            <option value="Department of Mathematics & Computing">Department of Mathematics & Computing</option>
-                            <option value="School of Physical & Chemical Sciences">School of Physical & Chemical Sciences</option>
-                            <option value="Economics, Management & Data Analytics">Economics, Management & Data Analytics</option>
-                          </optgroup>
-                          <optgroup label="Secondary & Higher Secondary Schools">
-                            <option value="Senior Physics & Science Lead">Senior Physics & Science Lead</option>
-                            <option value="Secondary Mathematics Faculty">Secondary Mathematics Faculty</option>
-                            <option value="Senior Chemistry Department Head">Senior Chemistry Department Head</option>
-                            <option value="Biology & Life Sciences Lead">Biology & Life Sciences Lead</option>
-                            <option value="General Science & Mathematics Lead">General Science & Mathematics Lead</option>
-                          </optgroup>
-                        </select>
+                        />
                       </div>
                     </div>
                   </div>
 
-                  {/* Step 2: Institute Management (Select Existing or Sign-up New Institute) */}
+                  {/* Step 2: Institute Selection */}
                   <div className="bg-white border-2 border-black p-4 sm:p-5 space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] pb-3">
                       <div>
                         <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
                           <Building className="w-4 h-4 text-black" />
-                          <span>2. Institute Selection & Sign-Up (Universities, Colleges & Schools) *</span>
+                          <span>2. Institute Selection & Sign-Up *</span>
                         </label>
                         <p className="text-[11px] text-[#6B7280] mt-0.5">
-                          Institutions worldwide — from premier research universities and medical/engineering colleges to secondary schools — can register and configure their academic curriculum.
+                          Select an existing registered school or register a new institution into the platform.
                         </p>
                       </div>
 
-                      {/* Toggle Options: Existing vs New */}
                       <div className="inline-flex border border-[#E5E7EB] p-0.5 bg-[#F9FAFB]">
                         <button
                           type="button"
@@ -1479,95 +1103,49 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                     </div>
 
                     {teacherInstituteChoice === "existing" ? (
-                      /* Select Existing Institute */
                       <div className="space-y-2">
                         <label className="text-[11px] font-bold text-[#374151] block">
-                          Choose From Available Institutes & Universities in Database:
+                          Choose From Available Institutes in Database:
                         </label>
                         <select
                           id="teacher-existing-institute-select"
                           value={teacherExistingInstitute}
-                          onChange={(e) => {
-                            setTeacherExistingInstitute(e.target.value);
-                            const matched = institutes.find((i) => i.name === e.target.value);
-                            if (matched && matched.tier) {
-                              setTeacherInstituteTier(matched.tier);
-                              if (matched.tier === "Higher Education") {
-                                setTeacherInitialGrade("Undergraduate Year 1");
-                                setTeacherInitialStream("Computer Science & Engineering (B.Tech/BS)");
-                              } else {
-                                setTeacherInitialGrade("Class 12");
-                                setTeacherInitialStream("Science (PCM / PCB)");
-                              }
-                            }
-                          }}
+                          onChange={(e) => setTeacherExistingInstitute(e.target.value)}
                           className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
                         >
                           {institutes.map((inst) => (
                             <option key={inst.id} value={inst.name}>
-                              {inst.name} &bull; [{inst.tier || "Institute"}] &bull; {inst.curriculum || inst.type || "Universal Curriculum"} &bull; ({inst.location || "Global"})
+                              {inst.name} &bull; ({inst.type || "School"} &bull; {inst.location || "India"})
                             </option>
                           ))}
                         </select>
-                        <p className="text-[11px] text-[#6B7280]">
-                          Can't find your institution? Click the <strong>"+ Register New Institution"</strong> button above to register your university, college, or school with its curriculum!
-                        </p>
                       </div>
                     ) : (
-                      /* Register a New Institute into the Database */
                       <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-4 space-y-4">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 font-bold text-xs text-[#1A1A1A]">
-                            <Sparkles className="w-4 h-4 text-emerald-600" />
-                            <span>Institutional Onboarding & Worldwide Curriculum Setup</span>
-                          </div>
-                          <span className="text-[10px] uppercase font-mono px-2 py-0.5 bg-black text-white">
-                            Universal Institution Framework
-                          </span>
-                        </div>
-
-                        {/* Basic Institution Details */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="sm:col-span-2 space-y-1">
                             <label className="text-[11px] font-bold text-[#374151]">
-                              Institution / University Full Name *
+                              Institution / School Full Name *
                             </label>
                             <input
                               id="teacher-new-institute-name"
                               type="text"
-                              required
+                              required={teacherInstituteChoice === "new"}
                               value={teacherNewInstituteName}
                               onChange={(e) => setTeacherNewInstituteName(e.target.value)}
-                              placeholder="e.g. Stanford University, National University of Singapore, Indian Institute of Science, or Cambridge Academy"
-                              className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
+                              placeholder="e.g. Delhi Public School R.K. Puram"
+                              className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black font-bold"
                             />
                           </div>
 
                           <div className="space-y-1">
                             <label className="text-[11px] font-bold text-[#374151]">
-                              Academic Level / Tier *
+                              Academic Tier / Standard
                             </label>
                             <select
                               id="teacher-institute-tier"
                               value={teacherInstituteTier}
-                              onChange={(e) => {
-                                const newTier = e.target.value;
-                                setTeacherInstituteTier(newTier);
-                                if (newTier === "Higher Education") {
-                                  setTeacherNewInstituteType("University / Higher Education");
-                                  setTeacherInitialGrade("Undergraduate Year 1");
-                                  setTeacherInitialStream("Computer Science & Engineering (B.Tech/BS)");
-                                  setTeacherCurriculum("University Undergraduate Degree (Semester / CBCS Credit System)");
-                                } else if (newTier === "Senior Secondary") {
-                                  setTeacherNewInstituteType("Private Senior Secondary School");
-                                  setTeacherInitialGrade("Class 12");
-                                  setTeacherInitialStream("Science (PCM / PCB)");
-                                  setTeacherCurriculum("CBSE / NCERT National Curriculum Framework (NCF 2023-25)");
-                                } else {
-                                  setTeacherInitialGrade("Class 10");
-                                  setTeacherInitialStream("General Science Core");
-                                }
-                              }}
+                              onChange={(e) => setTeacherInstituteTier(e.target.value)}
                               className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
                             >
                               {ACADEMIC_TIERS.map((tier) => (
@@ -1598,441 +1176,23 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
 
                           <div className="sm:col-span-2 space-y-1">
                             <label className="text-[11px] font-bold text-[#374151]">
-                              City, State & Country / Campus Location
+                              Campus City & Location
                             </label>
                             <input
                               id="teacher-new-institute-location"
                               type="text"
                               value={teacherNewInstituteLocation}
                               onChange={(e) => setTeacherNewInstituteLocation(e.target.value)}
-                              placeholder="e.g. Boston, MA, USA &bull; New Delhi, India &bull; Singapore &bull; London, UK"
+                              placeholder="e.g. New Delhi, India"
                               className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
                             />
                           </div>
                         </div>
-
-                        {/* Curriculum Selection Section */}
-                        <div className="border-t border-[#E5E7EB] pt-4 space-y-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div>
-                              <label className="text-xs font-bold text-[#1A1A1A] flex items-center gap-1.5">
-                                <Globe className="w-3.5 h-3.5 text-black" />
-                                <span>Curriculum Followed by the Institution *</span>
-                              </label>
-                              <p className="text-[11px] text-[#6B7280]">
-                                Select a popular worldwide curriculum from the dropdown menu, or design your own bespoke academic curriculum framework.
-                              </p>
-                            </div>
-
-                            {/* Custom Curriculum Design Toggle Button */}
-                            <button
-                              type="button"
-                              id="btn-toggle-custom-curriculum"
-                              onClick={() => {
-                                const nextState = !isCustomCurriculum;
-                                setIsCustomCurriculum(nextState);
-                                if (nextState && !customCurriculumData.name) {
-                                  setCustomCurriculumData({
-                                    ...DEFAULT_CUSTOM_CURRICULUM,
-                                    name: teacherNewInstituteName
-                                      ? `${teacherNewInstituteName} Autonomous Curriculum`
-                                      : "Autonomous Institutional Framework 2026",
-                                    department: teacherRegDepartment
-                                  });
-                                }
-                              }}
-                              className={`px-3 py-1 text-xs font-bold transition-all flex items-center gap-1.5 border ${
-                                isCustomCurriculum
-                                  ? "bg-purple-900 text-white border-purple-900"
-                                  : "bg-white text-purple-900 border-purple-300 hover:bg-purple-50"
-                              }`}
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                              <span>{isCustomCurriculum ? "✓ Designing Custom Curriculum" : "+ Design Your Own Curriculum"}</span>
-                            </button>
-                          </div>
-
-                          {!isCustomCurriculum ? (
-                            /* Worldwide Curriculums Dropdown Menu */
-                            <div className="space-y-3">
-                              {/* Search & Filter Bar */}
-                              <div className="flex flex-wrap items-center gap-2">
-                                <div className="relative flex-1 min-w-[200px]">
-                                  <Search className="w-3.5 h-3.5 text-[#9CA3AF] absolute left-2.5 top-1/2 -translate-y-1/2" />
-                                  <input
-                                    type="text"
-                                    value={curriculumSearchQuery}
-                                    onChange={(e) => setCurriculumSearchQuery(e.target.value)}
-                                    placeholder="Filter worldwide curriculums (e.g. IB, CBSE, ABET, Bologna, AP, IGCSE)..."
-                                    className="w-full bg-white border border-[#E5E7EB] pl-8 pr-3 py-1.5 text-xs text-[#1A1A1A] outline-none focus:border-black"
-                                  />
-                                </div>
-                                <div className="flex flex-wrap gap-1">
-                                  {["All", ...CURRICULUM_CATEGORIES.map((c) => c.name)].map((cat) => (
-                                    <button
-                                      key={cat}
-                                      type="button"
-                                      onClick={() => setSelectedCurriculumCategory(cat)}
-                                      className={`px-2 py-1 text-[10px] font-bold border transition-colors ${
-                                        selectedCurriculumCategory === cat
-                                          ? "bg-black text-white border-black"
-                                          : "bg-white text-[#6B7280] border-[#E5E7EB] hover:text-black"
-                                      }`}
-                                    >
-                                      {cat === "All" ? "All Frameworks" : cat.split(" ")[0]}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-
-                              {/* Dropdown Menu */}
-                              <div className="space-y-1">
-                                <label className="text-[11px] font-bold text-[#374151] block">
-                                  Worldwide Curriculum Standards Dropdown Menu:
-                                </label>
-                                <select
-                                  id="teacher-curriculum-select"
-                                  value={teacherCurriculum}
-                                  onChange={(e) => {
-                                    if (e.target.value === "custom_design") {
-                                      setIsCustomCurriculum(true);
-                                    } else {
-                                      setTeacherCurriculum(e.target.value);
-                                    }
-                                  }}
-                                  className="w-full bg-white border-2 border-black px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
-                                >
-                                  <option value="custom_design">
-                                    ✨ + Custom / Design Your Own Curriculum Framework...
-                                  </option>
-                                  {CURRICULUM_CATEGORIES.map((cat) => {
-                                    const matchingCurriculums = WORLDWIDE_CURRICULUMS.filter((c) => {
-                                      const matchesCat =
-                                        selectedCurriculumCategory === "All" ||
-                                        c.category === selectedCurriculumCategory;
-                                      const matchesSearch =
-                                        !curriculumSearchQuery.trim() ||
-                                        c.name.toLowerCase().includes(curriculumSearchQuery.toLowerCase()) ||
-                                        c.code.toLowerCase().includes(curriculumSearchQuery.toLowerCase()) ||
-                                        c.domains.some((d) =>
-                                          d.toLowerCase().includes(curriculumSearchQuery.toLowerCase())
-                                        );
-                                      return c.category === cat.name && matchesCat && matchesSearch;
-                                    });
-
-                                    if (matchingCurriculums.length === 0) return null;
-
-                                    return (
-                                      <optgroup key={cat.name} label={`--- ${cat.name} ---`}>
-                                        {matchingCurriculums.map((curr) => (
-                                          <option key={curr.id} value={curr.name}>
-                                            [{curr.code}] {curr.name} ({curr.tier})
-                                          </option>
-                                        ))}
-                                      </optgroup>
-                                    );
-                                  })}
-                                </select>
-                              </div>
-
-                              {/* Selected Curriculum Details Card */}
-                              {(() => {
-                                const currObj = WORLDWIDE_CURRICULUMS.find(
-                                  (c) => c.name === teacherCurriculum
-                                );
-                                if (!currObj) return null;
-                                return (
-                                  <div className="p-3 bg-white border border-[#E5E7EB] space-y-2 text-xs">
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                      <span className="font-bold text-[#1A1A1A] flex items-center gap-1.5">
-                                        <Award className="w-3.5 h-3.5 text-black" />
-                                        <span>{currObj.name}</span>
-                                      </span>
-                                      <div className="flex items-center gap-1.5">
-                                        <span className="px-1.5 py-0.5 bg-black text-white font-mono text-[10px]">
-                                          {currObj.code}
-                                        </span>
-                                        <span className="px-1.5 py-0.5 bg-[#F3F4F6] text-[#374151] text-[10px] font-bold">
-                                          {currObj.tier}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <p className="text-[11px] text-[#6B7280] leading-relaxed">
-                                      {currObj.description}
-                                    </p>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-[#F3F4F6] text-[11px]">
-                                      <div>
-                                        <span className="font-bold text-[#374151]">Core Focus Domains: </span>
-                                        <span className="text-[#6B7280]">{currObj.domains.join(", ")}</span>
-                                      </div>
-                                      <div>
-                                        <span className="font-bold text-[#374151]">Evaluation: </span>
-                                        <span className="text-[#6B7280]">{currObj.gradingScale}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          ) : (
-                            /* Custom Curriculum Designer Form */
-                            <div className="p-4 bg-purple-50 border-2 border-purple-900 space-y-3">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-1.5 font-bold text-xs text-purple-950">
-                                  <Sliders className="w-4 h-4 text-purple-800" />
-                                  <span>Custom Institutional Curriculum Builder</span>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => setIsCustomCurriculum(false)}
-                                  className="text-[11px] text-purple-800 hover:text-black font-semibold underline"
-                                >
-                                  Switch Back to Worldwide Curriculums Dropdown
-                                </button>
-                              </div>
-
-                              <p className="text-[11px] text-purple-900 leading-relaxed">
-                                Design your institution's custom educational syllabus, grading criteria, and credit system. All student progress and diagnostic heatmaps will align to this framework.
-                              </p>
-
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div className="sm:col-span-2 space-y-1">
-                                  <label className="text-[11px] font-bold text-purple-950">
-                                    Custom Curriculum / Syllabus Framework Name *
-                                  </label>
-                                  <input
-                                    id="custom-curriculum-name"
-                                    type="text"
-                                    required
-                                    value={customCurriculumData.name}
-                                    onChange={(e) =>
-                                      setCustomCurriculumData({
-                                        ...customCurriculumData,
-                                        name: e.target.value
-                                      })
-                                    }
-                                    placeholder="e.g. Autonomous CS & Systems Curriculum 2026 or Medical Sciences MD Core"
-                                    className="w-full bg-white border border-purple-300 px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-purple-900"
-                                  />
-                                </div>
-
-                                <div className="sm:col-span-2 space-y-1">
-                                  <label className="text-[11px] font-bold text-purple-950">
-                                    Core Disciplines / Subject Domains (comma-separated)
-                                  </label>
-                                  <input
-                                    id="custom-curriculum-domains"
-                                    type="text"
-                                    value={customCurriculumData.domains}
-                                    onChange={(e) =>
-                                      setCustomCurriculumData({
-                                        ...customCurriculumData,
-                                        domains: e.target.value
-                                      })
-                                    }
-                                    placeholder="e.g. Distributed Computing, Linear Algebra, Machine Learning, Data Structures"
-                                    className="w-full bg-white border border-purple-300 px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-purple-900"
-                                  />
-                                </div>
-
-                                <div className="space-y-1">
-                                  <label className="text-[11px] font-bold text-purple-950">
-                                    Grading & Evaluation Scheme
-                                  </label>
-                                  <select
-                                    id="custom-curriculum-grading"
-                                    value={customCurriculumData.gradingScale}
-                                    onChange={(e) =>
-                                      setCustomCurriculumData({
-                                        ...customCurriculumData,
-                                        gradingScale: e.target.value
-                                      })
-                                    }
-                                    className="w-full bg-white border border-purple-300 px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-purple-900"
-                                  >
-                                    <option value="Semester GPA / Grade Points (10.0 scale)">
-                                      Semester GPA / CGPA (10.0 scale)
-                                    </option>
-                                    <option value="ECTS European Credit Transfer System (Credits + A-F)">
-                                      ECTS European Credit Transfer System (Credits + A-F)
-                                    </option>
-                                    <option value="4.0 Grade Point Average (US Scale)">
-                                      4.0 Grade Point Average (US Scale)
-                                    </option>
-                                    <option value="Letter Grade Scale (A+, A, B, C, D, F)">
-                                      Letter Grade Scale (A+, A, B, C, D, F)
-                                    </option>
-                                    <option value="Percentage & Marks (0-100% / Division)">
-                                      Percentage & Marks (0-100% / Division)
-                                    </option>
-                                    <option value="Competency-Based Mastery (Pass / Honors / Remedial)">
-                                      Competency-Based Mastery (Pass / Honors / Remedial)
-                                    </option>
-                                  </select>
-                                </div>
-
-                                <div className="space-y-1">
-                                  <label className="text-[11px] font-bold text-purple-950">
-                                    Award / Degree Level
-                                  </label>
-                                  <input
-                                    id="custom-curriculum-degree"
-                                    type="text"
-                                    value={customCurriculumData.degreeOrAward}
-                                    onChange={(e) =>
-                                      setCustomCurriculumData({
-                                        ...customCurriculumData,
-                                        degreeOrAward: e.target.value
-                                      })
-                                    }
-                                    placeholder="e.g. Bachelor of Technology / B.S. / M.S. / Diploma"
-                                    className="w-full bg-white border border-purple-300 px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-purple-900"
-                                  />
-                                </div>
-
-                                <div className="space-y-1">
-                                  <label className="text-[11px] font-bold text-purple-950">
-                                    Academic Board / Faculty Approver
-                                  </label>
-                                  <input
-                                    id="custom-curriculum-department"
-                                    type="text"
-                                    value={customCurriculumData.department}
-                                    onChange={(e) =>
-                                      setCustomCurriculumData({
-                                        ...customCurriculumData,
-                                        department: e.target.value
-                                      })
-                                    }
-                                    placeholder="e.g. Academic Council / Faculty Senate"
-                                    className="w-full bg-white border border-purple-300 px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-purple-900"
-                                  />
-                                </div>
-
-                                <div className="space-y-1">
-                                  <label className="text-[11px] font-bold text-purple-950">
-                                    Accreditation Body / Oversight
-                                  </label>
-                                  <input
-                                    id="custom-curriculum-accreditation"
-                                    type="text"
-                                    value={customCurriculumData.accreditation}
-                                    onChange={(e) =>
-                                      setCustomCurriculumData({
-                                        ...customCurriculumData,
-                                        accreditation: e.target.value
-                                      })
-                                    }
-                                    placeholder="e.g. ABET / UGC / Ministry / Autonomous"
-                                    className="w-full bg-white border border-purple-300 px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-purple-900"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 flex items-start gap-2">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                          <p>
-                            <strong>Instant Universal Availability:</strong> Once you complete sign up, this new institution and its curriculum will automatically appear in the student registration dropdown menu for all students across the platform!
-                          </p>
-                        </div>
                       </div>
                     )}
-                  </div>
 
-                  {/* Step 3: Initial Class Code Generation */}
-                  <div className="bg-[#F8F9FA] border border-[#E5E7EB] p-4 sm:p-5 space-y-4">
-                    <label className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A] flex items-center gap-1.5">
-                      <BookOpen className="w-3.5 h-3.5 text-black" />
-                      <span>3. Initial Classroom Batch & Subject Stream</span>
-                    </label>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-bold text-[#374151]">Target Grade / Academic Batch</label>
-                        <select
-                          id="teacher-initial-grade"
-                          value={teacherInitialGrade}
-                          onChange={(e) => setTeacherInitialGrade(e.target.value)}
-                          className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
-                        >
-                          <optgroup label="Senior Secondary (Class 11-12)">
-                            <option value="Class 12">Class 12 (Senior Secondary)</option>
-                            <option value="Class 11">Class 11 (Senior Secondary)</option>
-                          </optgroup>
-                          <optgroup label="Secondary High School (Class 9-10)">
-                            <option value="Class 10">Class 10 (Secondary Standard)</option>
-                            <option value="Class 9">Class 9 (Secondary Standard)</option>
-                          </optgroup>
-                          <optgroup label="Middle School (Class 6-8)">
-                            <option value="Class 8">Class 8 (Middle School)</option>
-                            <option value="Class 7">Class 7 (Middle School)</option>
-                            <option value="Class 6">Class 6 (Middle School)</option>
-                          </optgroup>
-                          <optgroup label="Primary School (Class 1-5)">
-                            <option value="Class 5">Class 5 (Primary School)</option>
-                            <option value="Class 4">Class 4 (Primary School)</option>
-                            <option value="Class 3">Class 3 (Primary School)</option>
-                            <option value="Class 2">Class 2 (Primary School)</option>
-                            <option value="Class 1">Class 1 (Primary School)</option>
-                          </optgroup>
-                        </select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-bold text-[#374151]">Subject Stream / Major</label>
-                        <select
-                          id="teacher-initial-stream"
-                          value={teacherInitialStream}
-                          onChange={(e) => setTeacherInitialStream(e.target.value)}
-                          className="w-full bg-white border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#1A1A1A] outline-none focus:border-black"
-                        >
-                          {teacherInstituteTier === "Higher Education" ? (
-                            <>
-                              <option value="Computer Science & Engineering (B.Tech/BS)">
-                                Computer Science & Engineering (B.Tech/BS)
-                              </option>
-                              <option value="Artificial Intelligence & Data Science">
-                                Artificial Intelligence & Data Science
-                              </option>
-                              <option value="Medicine & Clinical Sciences (MBBS/MD)">
-                                Medicine & Clinical Sciences (MBBS/MD)
-                              </option>
-                              <option value="Mechanical & Aerospace Engineering">
-                                Mechanical & Aerospace Engineering
-                              </option>
-                              <option value="Electrical & Electronics Engineering">
-                                Electrical & Electronics Engineering
-                              </option>
-                              <option value="Mathematics, Statistics & Computing">
-                                Mathematics, Statistics & Computing
-                              </option>
-                              <option value="Physics & Quantum Sciences">
-                                Physics & Quantum Sciences
-                              </option>
-                              <option value="Economics, Finance & Management">
-                                Economics, Finance & Management
-                              </option>
-                            </>
-                          ) : (
-                            <>
-                              <option value="Science (PCM / PCB)">Science (Physics, Chem, Math, Bio)</option>
-                              <option value="Mathematics & Applied Science">Mathematics & Applied Science</option>
-                              <option value="General Science Core">General Science Core</option>
-                              <option value="Commerce & Analytics">Commerce & Analytics</option>
-                            </>
-                          )}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-white border border-[#E5E7EB] text-xs text-[#4B5563] space-y-1">
-                      <div className="font-bold text-[#1A1A1A]">Automatic Class Code Provisioning</div>
-                      <p className="text-[11px] text-[#6B7280]">
-                        Your first batch class code will be auto-generated and linked to your institute upon completing registration. You can create additional class codes any time from your Faculty Dashboard.
-                      </p>
+                    <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] text-[11px] text-[#6B7280]">
+                      💡 <strong>Flexible Classroom & Subject Setup:</strong> You can create and customize any number of classes and custom subjects directly inside your teacher dashboard anytime after sign in.
                     </div>
                   </div>
 
@@ -2046,10 +1206,9 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                       !teacherRegEmail.trim() ||
                       teacherRegPassword.length < 6 ||
                       teacherRegPassword !== teacherRegConfirmPassword ||
-                      (teacherInstituteChoice === "new" && !teacherNewInstituteName.trim()) ||
-                      (isCustomCurriculum && !customCurriculumData.name.trim())
+                      (teacherInstituteChoice === "new" && !teacherNewInstituteName.trim())
                     }
-                    className="w-full bg-black text-white hover:bg-[#222] py-3 px-4 text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-black text-white hover:bg-[#222] py-3 px-4 text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
                   >
                     <span>
                       {!teacherRegName.trim()
@@ -2059,10 +1218,8 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                         : teacherRegPassword !== teacherRegConfirmPassword
                         ? "Passwords Do Not Match"
                         : teacherInstituteChoice === "new" && !teacherNewInstituteName.trim()
-                        ? "Enter Institution / University Name"
-                        : isCustomCurriculum && !customCurriculumData.name.trim()
-                        ? "Enter Custom Curriculum Name"
-                        : "Complete Institution Sign Up & Launch Portal"}
+                        ? "Enter Institution Name"
+                        : "Complete Sign Up & Enter Teacher Dashboard"}
                     </span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
@@ -2072,6 +1229,87 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
           )}
         </div>
       </div>
+
+      {/* About the Platform & Mission Section */}
+      <section id="about" className="max-w-4xl w-full bg-white border border-[#E5E7EB] p-6 sm:p-8 space-y-6 shadow-xs">
+        <div className="border-b border-[#E5E7EB] pb-4 space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="bg-black text-white text-[10px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider">
+              Platform Overview
+            </span>
+            <span className="text-xs text-[#6B7280] font-semibold">
+              National Open Curriculum Grounded Learning Engine
+            </span>
+          </div>
+          <h2 className="text-lg sm:text-xl font-bold text-[#1A1A1A]">
+            About AI for Equitable Education Access
+          </h2>
+          <p className="text-xs text-[#4B5563] leading-relaxed">
+            A comprehensive, open, and multilingual educational ecosystem designed to bridge the digital and socioeconomic divide in school education across India.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          {/* Pillar 1 */}
+          <div className="p-4 bg-[#F9FAFB] border border-[#E5E7EB] space-y-2">
+            <div className="w-8 h-8 bg-black text-white flex items-center justify-center font-bold">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <h3 className="font-bold text-sm text-[#1A1A1A]">Multilingual Socratic AI Tutor</h3>
+            <p className="text-[11px] text-[#6B7280] leading-relaxed">
+              Step-by-step doubt resolution in 10+ Indian languages (Hindi, Tamil, Telugu, Bengali, Marathi, etc.) strictly grounded in verified NCERT & State curricula to eliminate hallucinations.
+            </p>
+          </div>
+
+          {/* Pillar 2 */}
+          <div className="p-4 bg-[#F9FAFB] border border-[#E5E7EB] space-y-2">
+            <div className="w-8 h-8 bg-black text-white flex items-center justify-center font-bold">
+              <School className="w-4 h-4" />
+            </div>
+            <h3 className="font-bold text-sm text-[#1A1A1A]">Multi-Classroom Architecture</h3>
+            <p className="text-[11px] text-[#6B7280] leading-relaxed">
+              Teachers create dedicated subject & section classrooms with unique codes (e.g. <code>CLS-10A-PHY</code>). Students can join and participate in multiple classrooms simultaneously.
+            </p>
+          </div>
+
+          {/* Pillar 3 */}
+          <div className="p-4 bg-[#F9FAFB] border border-[#E5E7EB] space-y-2">
+            <div className="w-8 h-8 bg-black text-white flex items-center justify-center font-bold">
+              <Users className="w-4 h-4" />
+            </div>
+            <h3 className="font-bold text-sm text-[#1A1A1A]">Doubts & Teacher Circulars</h3>
+            <p className="text-[11px] text-[#6B7280] leading-relaxed">
+              Open peer discussion and shared subject community doubt chats paired with an isolated, official announcement broadcast feed reserved exclusively for teacher notices.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-2">
+          {/* Pillar 4 */}
+          <div className="p-4 bg-emerald-50/60 border border-emerald-200 space-y-1.5">
+            <div className="font-bold text-emerald-950 flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-700" />
+              <span>Diagnostic Gap Detection & Faculty Intervention</span>
+            </div>
+            <p className="text-[11px] text-emerald-900 leading-relaxed">
+              Identifies real-time student struggle topics through cognitive heatmaps and empowers teachers to auto-generate customized remedial lesson plans with a single click.
+            </p>
+          </div>
+
+          {/* Pillar 5 */}
+          <div className="p-4 bg-indigo-50/60 border border-indigo-200 space-y-1.5">
+            <div className="font-bold text-indigo-950 flex items-center gap-1.5">
+              <Globe className="w-4 h-4 text-indigo-700" />
+              <span>Automated Financial Aid & Scholarship Matcher</span>
+            </div>
+            <p className="text-[11px] text-indigo-900 leading-relaxed">
+              Instant rule-based eligibility evaluation matching first-generation, low-income, and marginalized students directly with central, state, and institutional scholarship schemes.
+            </p>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };
+
+export default LoginPage;

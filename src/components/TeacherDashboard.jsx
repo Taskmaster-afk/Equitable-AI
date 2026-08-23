@@ -44,7 +44,16 @@ export const TeacherDashboard = ({
   const [showCreateClassModal, setShowCreateClassModal] = useState(false);
   const [newClassName, setNewClassName] = useState("");
   const [newGradeLevel, setNewGradeLevel] = useState("Class 10");
+  const [newSection, setNewSection] = useState("Section A");
+  const [newSubject, setNewSubject] = useState("Physics");
   const [newStream, setNewStream] = useState("Science & Mathematics");
+  const [customSubjects, setCustomSubjects] = useState([
+    "Physics",
+    "Chemistry",
+    "Mathematics",
+    "Biology"
+  ]);
+  const [newSubjectInput, setNewSubjectInput] = useState("");
   const [copiedCode, setCopiedCode] = useState(null);
 
   // Student Invites & Section State
@@ -197,14 +206,31 @@ export const TeacherDashboard = ({
       setIsLoading(false);
     }
   };
+
+  const handleAddCustomSubject = (subToAdd) => {
+    const trimmed = (subToAdd || newSubjectInput).trim();
+    if (trimmed && !customSubjects.includes(trimmed)) {
+      setCustomSubjects([...customSubjects, trimmed]);
+      setNewSubjectInput("");
+    }
+  };
+
+  const handleRemoveCustomSubject = (subToRemove) => {
+    setCustomSubjects(customSubjects.filter((s) => s !== subToRemove));
+  };
+
   const handleCreateClass = async (e) => {
     e.preventDefault();
-    if (!newClassName.trim()) return;
+    const finalClassName = newClassName.trim() || `${newGradeLevel} (${newSection}) - ${newSubject}`;
     try {
       const res = await api.createClass({
-        className: newClassName,
+        className: finalClassName,
         gradeLevel: newGradeLevel,
-        stream: newStream,
+        targetClass: newGradeLevel,
+        section: newSection,
+        subject: newSubject,
+        stream: newStream || newSubject,
+        subjects: customSubjects.length > 0 ? customSubjects : [newSubject, "General Curriculum"],
         teacherId: currentTeacher?.id,
         teacherName: currentTeacher?.name || "Teacher",
         school: currentTeacher?.school || currentTeacher?.institute || "School"
@@ -213,7 +239,9 @@ export const TeacherDashboard = ({
       setNewClassName("");
       const updatedClasses = await api.getTeacherClasses(currentTeacher?.id);
       setTeacherClasses(updatedClasses.classes || []);
-      setSelectedClassCode(res.classInfo.classCode);
+      if (res?.classInfo?.classCode) {
+        setSelectedClassCode(res.classInfo.classCode);
+      }
     } catch (err) {
       console.error("Error creating new class code:", err);
     }
@@ -1023,14 +1051,19 @@ export const TeacherDashboard = ({
         </div>
       )}
 
-      {/* Modal: Create New Class Code */}
+      {/* Modal: Create New Subject & Section Classroom */}
       {showCreateClassModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white border border-black max-w-md w-full p-6 space-y-4 shadow-xl">
+          <div className="bg-white border-2 border-black max-w-lg w-full p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
               <div className="flex items-center gap-2">
                 <KeyRound className="w-4 h-4 text-black" />
-                <h3 className="font-bold text-sm text-[#1A1A1A]">Generate New Class Code</h3>
+                <div>
+                  <h3 className="font-bold text-sm text-[#1A1A1A]">Create New Subject Classroom</h3>
+                  <p className="text-[10px] text-[#6B7280]">
+                    Lead as Classroom Admin &bull; Generates direct classroom code for students
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setShowCreateClassModal(false)}
@@ -1040,52 +1073,137 @@ export const TeacherDashboard = ({
               </button>
             </div>
 
-            <form onSubmit={handleCreateClass} className="space-y-3 text-xs">
-              <div className="space-y-1">
-                <label className="font-bold text-[#374151]">Class Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Class 10 - Science & Mathematics"
-                  value={newClassName}
-                  onChange={(e) => setNewClassName(e.target.value)}
-                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
-                />
+            <form onSubmit={handleCreateClass} className="space-y-3.5 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Grade Level */}
+                <div className="space-y-1">
+                  <label className="font-bold text-[#374151]">1. Grade Level *</label>
+                  <select
+                    value={newGradeLevel}
+                    onChange={(e) => setNewGradeLevel(e.target.value)}
+                    className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black font-semibold"
+                  >
+                    <option value="Class 12">Class 12 (Senior Secondary)</option>
+                    <option value="Class 11">Class 11 (Senior Secondary)</option>
+                    <option value="Class 10">Class 10 (Secondary Standard)</option>
+                    <option value="Class 9">Class 9 (Secondary Standard)</option>
+                    <option value="Class 8">Class 8 (Middle School)</option>
+                    <option value="Class 7">Class 7 (Middle School)</option>
+                    <option value="Class 6">Class 6 (Middle School)</option>
+                    <option value="Class 5">Class 5 (Primary)</option>
+                  </select>
+                </div>
+
+                {/* Section */}
+                <div className="space-y-1">
+                  <label className="font-bold text-[#374151]">2. Section *</label>
+                  <select
+                    value={newSection}
+                    onChange={(e) => setNewSection(e.target.value)}
+                    className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black font-semibold"
+                  >
+                    <option value="Section A">Section A</option>
+                    <option value="Section B">Section B</option>
+                    <option value="Section C">Section C</option>
+                    <option value="Section D">Section D</option>
+                    <option value="Section E">Section E</option>
+                    <option value="Batch 1">Batch 1</option>
+                    <option value="Batch 2">Batch 2</option>
+                  </select>
+                </div>
+
+                {/* Primary Subject */}
+                <div className="sm:col-span-2 space-y-1">
+                  <label className="font-bold text-[#374151]">3. Subject Focus *</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={newSubject}
+                      onChange={(e) => {
+                        setNewSubject(e.target.value);
+                        if (!customSubjects.includes(e.target.value)) {
+                          setCustomSubjects([e.target.value, ...customSubjects]);
+                        }
+                      }}
+                      className="flex-1 bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black font-semibold"
+                    >
+                      <option value="Physics">Physics</option>
+                      <option value="Chemistry">Chemistry</option>
+                      <option value="Mathematics">Mathematics</option>
+                      <option value="Biology">Biology</option>
+                      <option value="Science">Science (General)</option>
+                      <option value="Computer Science">Computer Science & AI</option>
+                      <option value="Robotics & Coding">Robotics & Coding</option>
+                      <option value="English Literature">English Literature & Communication</option>
+                      <option value="Social Science">Social Science & Civics</option>
+                      <option value="Environmental Studies">Environmental Studies (EVS)</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Or type custom subject..."
+                      value={newSubjectInput}
+                      onChange={(e) => setNewSubjectInput(e.target.value)}
+                      onBlur={() => {
+                        if (newSubjectInput.trim()) {
+                          setNewSubject(newSubjectInput.trim());
+                          handleAddCustomSubject(newSubjectInput.trim());
+                        }
+                      }}
+                      className="flex-1 bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+                    />
+                  </div>
+                </div>
+
+                {/* Classroom Display Name */}
+                <div className="sm:col-span-2 space-y-1">
+                  <label className="font-bold text-[#374151] flex items-center justify-between">
+                    <span>Classroom Name</span>
+                    <span className="text-[10px] text-[#6B7280] font-normal">Auto-formatted or custom</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={`e.g. ${newGradeLevel} (${newSection}) - ${newSubject}`}
+                    value={newClassName}
+                    onChange={(e) => setNewClassName(e.target.value)}
+                    className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black font-mono font-semibold"
+                  />
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="font-bold text-[#374151]">Grade Level</label>
-                <select
-                  value={newGradeLevel}
-                  onChange={(e) => setNewGradeLevel(e.target.value)}
-                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
-                >
-                  <option value="Class 12">Class 12 (Senior Secondary)</option>
-                  <option value="Class 11">Class 11 (Senior Secondary)</option>
-                  <option value="Class 10">Class 10 (Secondary Standard)</option>
-                  <option value="Class 9">Class 9 (Secondary Standard)</option>
-                  <option value="Class 8">Class 8 (Middle School)</option>
-                  <option value="Class 7">Class 7 (Middle School)</option>
-                  <option value="Class 6">Class 6 (Middle School)</option>
-                </select>
+              {/* Custom Subjects Badges */}
+              <div className="space-y-1.5 pt-1">
+                <label className="font-bold text-[#374151] flex items-center justify-between">
+                  <span>Classroom Syllabus Modules & Subjects</span>
+                  <span className="text-[10px] text-[#6B7280] font-normal font-mono">{customSubjects.length} subjects</span>
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {customSubjects.map((sub) => (
+                    <span
+                      key={sub}
+                      className="inline-flex items-center gap-1 bg-black text-white px-2.5 py-1 text-[11px] font-semibold"
+                    >
+                      <span>{sub}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCustomSubject(sub)}
+                        className="text-white/70 hover:text-white text-xs font-bold ml-1"
+                        title="Remove"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="font-bold text-[#374151]">Academic Stream</label>
-                <select
-                  value={newStream}
-                  onChange={(e) => setNewStream(e.target.value)}
-                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
-                >
-                  <option value="Science & Mathematics">Science & Mathematics</option>
-                  <option value="Physics & Chemistry">Physics & Chemistry</option>
-                  <option value="General Science">General Secondary Science</option>
-                </select>
+              <div className="p-2.5 bg-emerald-50 border border-emerald-300 text-[11px] text-emerald-900 space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Classroom Admin & Direct Code Provisioning</span>
+                </div>
+                <p className="text-[#374151] leading-relaxed">
+                  A unique classroom code (e.g. <strong>CLS-10A-PHY-XX</strong>) will be generated. You will lead as Classroom Admin with dedicated announcement broadcast powers and a community doubt solver thread. Students can enter the code directly to join!
+                </p>
               </div>
-
-              <p className="text-[11px] text-[#6B7280] leading-relaxed pt-1">
-                A unique NCERT code (e.g. NCERT-XXX) will be provisioned. Students registering with this code or accepting your invite will immediately join your class and sections.
-              </p>
 
               <div className="flex gap-2 pt-2">
                 <button
@@ -1097,9 +1215,9 @@ export const TeacherDashboard = ({
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 clean-button-primary py-2 text-xs font-bold"
+                  className="flex-1 clean-button-primary py-2 text-xs font-bold bg-black hover:bg-neutral-800 text-white"
                 >
-                  Generate Code & Save
+                  Provision Classroom Code & Save
                 </button>
               </div>
             </form>

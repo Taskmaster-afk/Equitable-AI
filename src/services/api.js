@@ -111,6 +111,29 @@ const api = {
     }
     return res.json();
   },
+  async joinClass(studentId, classCode) {
+    const res = await fetch("/api/student/join-class", {
+      method: "POST",
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ studentId, classCode })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to join classroom");
+    }
+    return res.json();
+  },
+  async getStudentClasses(studentId, email) {
+    const searchParams = new URLSearchParams();
+    if (studentId) searchParams.set("studentId", studentId);
+    if (email) searchParams.set("email", email);
+    const qs = searchParams.toString();
+    const res = await fetch(`/api/student/classes?${qs}`, {
+      headers: this.getAuthHeaders()
+    });
+    if (!res.ok) throw new Error("Failed to fetch student classes");
+    return res.json();
+  },
   async getStudents(classCode, teacherId) {
     const searchParams = new URLSearchParams();
     if (classCode) searchParams.set("classCode", classCode);

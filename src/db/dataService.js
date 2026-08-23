@@ -254,6 +254,92 @@ export async function getClassesByTeacher(teacherId) {
   return Array.from(inMemDb.classes.values()).filter(c => c.teacherId === teacherId);
 }
 
+export async function getStudentEnrolledClasses(studentId, studentEmail) {
+  const allClasses = Array.from(inMemDb.classes.values());
+  const matched = [];
+  const cleanEmail = (studentEmail || "").toLowerCase().trim();
+
+  for (const cls of allClasses) {
+    const isDirectCodeMatch = cls.enrolledStudentIds && cls.enrolledStudentIds.includes(studentId);
+    const isRosterMatch = cls.enrolledStudents && cls.enrolledStudents.some(
+      s => s.studentId === studentId || (cleanEmail && s.studentEmail && s.studentEmail.toLowerCase() === cleanEmail)
+    );
+    if (isDirectCodeMatch || isRosterMatch) {
+      if (!matched.some(m => m.classCode === cls.classCode)) {
+        matched.push(cls);
+      }
+    }
+  }
+
+  // Also check student's enrolledClassCodes if student object exists
+  const student = inMemDb.students.get(studentId);
+  if (student && student.enrolledClassCodes && Array.isArray(student.enrolledClassCodes)) {
+    for (const code of student.enrolledClassCodes) {
+      const cls = inMemDb.classes.get(code.toUpperCase().trim());
+      if (cls && !matched.some(m => m.classCode === cls.classCode)) {
+        matched.push(cls);
+      }
+    }
+  }
+  if (student && student.classCode) {
+    const cls = inMemDb.classes.get(student.classCode.toUpperCase().trim());
+    if (cls && !matched.some(m => m.classCode === cls.classCode)) {
+      matched.push(cls);
+    }
+  }
+
+  return matched;
+}
+
+export async function joinStudentToClass(studentId, classCode) {
+  const cleanCode = (classCode || "").toUpperCase().trim();
+  const cls = await getClassByCode(cleanCode);
+  if (!cls) {
+    throw new Error(`Classroom code "${cleanCode}" was not found.`);
+  }
+
+  const student = await getStudentById(studentId);
+  if (!student) {
+    throw new Error("Student record not found.");
+  }
+
+  // Update Class enrollment
+  cls.enrolledStudents = cls.enrolledStudents || [];
+  cls.enrolledStudentIds = cls.enrolledStudentIds || [];
+  if (!cls.enrolledStudentIds.includes(studentId)) {
+    cls.enrolledStudentIds.push(studentId);
+  }
+  if (!cls.enrolledStudents.some(s => s.studentId === studentId || s.studentEmail === student.email)) {
+    cls.enrolledStudents.push({
+      studentId: student.id,
+      studentName: student.name,
+      studentEmail: student.email,
+      section: cls.section || "Section A",
+      joinedAt: new Date().toISOString()
+    });
+  }
+  cls.enrolledCount = cls.enrolledStudents.length;
+  await updateClass(cleanCode, cls);
+
+  // Update student's multiple classrooms
+  student.enrolledClassCodes = student.enrolledClassCodes || [];
+  if (!student.enrolledClassCodes.includes(cleanCode)) {
+    student.enrolledClassCodes.push(cleanCode);
+  }
+  if (!student.classCode) {
+    student.classCode = cleanCode;
+  }
+  student.classInfo = cls;
+  await updateStudent(studentId, student);
+
+  const studentClasses = await getStudentEnrolledClasses(student.id, student.email);
+  return {
+    classInfo: cls,
+    student,
+    classes: studentClasses
+  };
+}
+
 export async function createClass(data) {
   const code = (data.classCode || "").toUpperCase().trim();
   const normalized = { ...data, classCode: code };

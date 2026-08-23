@@ -17,6 +17,7 @@ export default function App() {
   const [currentStudent, setCurrentStudent] = useState(null);
   const [currentTeacher, setCurrentTeacher] = useState(null);
   const [currentClassInfo, setCurrentClassInfo] = useState(null);
+  const [studentClasses, setStudentClasses] = useState([]);
   const [activeTab, setActiveTab] = useState("tutor");
   const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [students, setStudents] = useState([]);
@@ -26,16 +27,48 @@ export default function App() {
   const [pendingInvites, setPendingInvites] = useState([]);
   const [isAcceptingInvite, setIsAcceptingInvite] = useState(false);
 
+  // Sync activeTab with URL Hash and Browser Back/Forward navigation
+  const navigateToTab = (tab, pushHistory = true) => {
+    setActiveTab(tab);
+    const targetHash = `#${tab}`;
+    if (window.location.hash !== targetHash) {
+      if (pushHistory) {
+        window.history.pushState({ tab }, "", targetHash);
+      } else {
+        window.history.replaceState({ tab }, "", targetHash);
+      }
+    }
+  };
+
   useEffect(() => {
+    const handleLocationSync = () => {
+      const hash = window.location.hash.replace("#", "").trim();
+      const validTabs = ["tutor", "practice", "classhub", "community", "teacher", "scholarships", "oer", "about"];
+      if (hash && validTabs.includes(hash)) {
+        setActiveTab(hash);
+      }
+    };
+
+    handleLocationSync();
+    window.addEventListener("popstate", handleLocationSync);
+    window.addEventListener("hashchange", handleLocationSync);
+
     checkHealth();
     restoreSession();
+
+    return () => {
+      window.removeEventListener("popstate", handleLocationSync);
+      window.removeEventListener("hashchange", handleLocationSync);
+    };
   }, []);
 
   useEffect(() => {
     if (currentStudent) {
       loadStudentInvites(currentStudent);
+      loadStudentClasses(currentStudent);
     } else {
       setPendingInvites([]);
+      setStudentClasses([]);
     }
   }, [currentStudent?.id, currentStudent?.email]);
 
@@ -45,6 +78,35 @@ export default function App() {
       setIsAiConnected(health.aiEnabled);
     } catch (err) {
       console.error("Health check error:", err);
+    }
+  };
+
+  const loadStudentClasses = async (student) => {
+    if (!student) return;
+    try {
+      const res = await api.getStudentClasses(student.id, student.email);
+      const classes = res?.classes || [];
+      setStudentClasses(classes);
+      if (classes.length > 0 && (!currentClassInfo || !classes.some(c => c.classCode === currentClassInfo.classCode))) {
+        setCurrentClassInfo(classes[0]);
+      }
+    } catch (err) {
+      console.error("Failed to load student classes:", err);
+    }
+  };
+
+  const handleJoinClass = async (classCode) => {
+    if (!currentStudent || !classCode) return;
+    try {
+      const res = await api.joinClass(currentStudent.id, classCode);
+      if (res.student) setCurrentStudent(res.student);
+      if (res.classInfo) setCurrentClassInfo(res.classInfo);
+      if (res.classes) setStudentClasses(res.classes);
+      navigateToTab("classhub");
+      return res;
+    } catch (err) {
+      console.error("Join class error:", err);
+      throw err;
     }
   };
 
@@ -76,7 +138,8 @@ export default function App() {
       }
       // Remove accepted invite from pending list
       setPendingInvites((prev) => prev.filter((i) => i.id !== invite.id));
-      setActiveTab("classhub");
+      loadStudentClasses(res.student || currentStudent);
+      navigateToTab("classhub");
     } catch (err) {
       alert("Failed to join class: " + err.message);
     } finally {
@@ -102,19 +165,21 @@ export default function App() {
         setCurrentUser(res.user);
         if (res.user.role === "teacher") {
           setCurrentTeacher(res.teacherProfile || null);
-          setActiveTab("teacher");
+          const initialHash = window.location.hash.replace("#", "");
+          navigateToTab(initialHash || "teacher", false);
         } else {
           setCurrentStudent(res.studentProfile || null);
           setCurrentClassInfo(res.classInfo || null);
           if (res.studentProfile?.primaryLanguage) {
             setSelectedLanguage(res.studentProfile.primaryLanguage);
           }
-          setActiveTab("tutor");
+          const initialHash = window.location.hash.replace("#", "");
+          navigateToTab(initialHash || "tutor", false);
           loadStudentInvites(res.studentProfile);
+          loadStudentClasses(res.studentProfile);
         }
       }
     } catch {
-      // Clean stale token if invalid
       api.setToken(null);
     }
   };
@@ -125,7 +190,7 @@ export default function App() {
       setCurrentTeacher(teacher || null);
       setCurrentStudent(null);
       setCurrentClassInfo(null);
-      setActiveTab("teacher");
+      navigateToTab("teacher");
     } else {
       setCurrentStudent(student || null);
       setCurrentTeacher(null);
@@ -133,8 +198,9 @@ export default function App() {
       if (student?.primaryLanguage) {
         setSelectedLanguage(student.primaryLanguage);
       }
-      setActiveTab("tutor");
+      navigateToTab("tutor");
       loadStudentInvites(student);
+      loadStudentClasses(student);
     }
   };
 
@@ -144,7 +210,8 @@ export default function App() {
     setCurrentStudent(null);
     setCurrentTeacher(null);
     setCurrentClassInfo(null);
-    setActiveTab("tutor");
+    setStudentClasses([]);
+    navigateToTab("tutor");
   };
 
   const handleUpdateStudent = (updated) => {
@@ -209,7 +276,7 @@ export default function App() {
       {/* Navigation Header */}
       <Navbar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={navigateToTab}
         selectedLanguage={selectedLanguage}
         setSelectedLanguage={setSelectedLanguage}
         currentUser={currentUser}
@@ -287,8 +354,12 @@ export default function App() {
             currentStudent={currentStudent}
             currentTeacher={currentTeacher}
             classInfo={currentClassInfo}
-            onNavigateToTutor={() => setActiveTab("tutor")}
-            onNavigateToPractice={() => setActiveTab("practice")}
+            studentClasses={studentClasses}
+            onSelectClass={(cls) => setCurrentClassInfo(cls)}
+            onJoinClass={handleJoinClass}
+            onNavigateToTutor={() => navigateToTab("tutor")}
+            onNavigateToPractice={() => navigateToTab("practice")}
+            onNavigateToCommunity={() => navigateToTab("community")}
           />
         )}
 
@@ -298,7 +369,7 @@ export default function App() {
             currentUser={currentUser}
             currentStudent={currentStudent}
             currentTeacher={currentTeacher}
-            onNavigateToTutor={() => setActiveTab("tutor")}
+            onNavigateToTutor={() => navigateToTab("tutor")}
           />
         )}
 
@@ -321,8 +392,8 @@ export default function App() {
           <OerLibrary
             currentStudent={currentStudent}
             currentTeacher={currentTeacher}
-            onNavigateToTutor={() => setActiveTab("tutor")}
-            onNavigateToPractice={() => setActiveTab("practice")}
+            onNavigateToTutor={() => navigateToTab("tutor")}
+            onNavigateToPractice={() => navigateToTab("practice")}
           />
         )}
       </main>

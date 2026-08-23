@@ -49,6 +49,8 @@ import {
   acceptClassInvite,
   rejectClassInvite,
   getClassStudents,
+  getStudentEnrolledClasses,
+  joinStudentToClass,
   createAnnouncement,
   getClassAnnouncements,
   deleteAnnouncement,
@@ -2367,8 +2369,8 @@ app.post("/api/auth/register-student", async (req, res) => {
     name,
     email,
     password,
-    studentClass,
-    classCode,
+    studentClass = "",
+    classCode = "",
     instituteName,
     primaryLanguage = "en",
     category = "General",
@@ -2378,14 +2380,12 @@ app.post("/api/auth/register-student", async (req, res) => {
     firstGenerationLearner = true,
     stateOrRegion = "National"
   } = req.body;
-  if (!name || !email || !classCode) {
-    return res.status(400).json({ error: "Name, email, and class code are required for registration." });
+
+  if (!name || !name.trim() || !email || !email.trim()) {
+    return res.status(400).json({ error: "Name and email are required for registration." });
   }
   if (!password || password.length < 6) {
     return res.status(400).json({ error: "Password is required and must be at least 6 characters long." });
-  }
-  if (!studentClass) {
-    return res.status(400).json({ error: "Please select your enrolled class or academic year." });
   }
   if (!instituteName || !instituteName.trim()) {
     return res.status(400).json({
@@ -2403,41 +2403,50 @@ app.post("/api/auth/register-student", async (req, res) => {
     });
   }
 
-  const cleanCode = classCode.trim().toUpperCase();
-  const classInfo = await getClassByCode(cleanCode);
-  if (!classInfo) {
-    return res.status(400).json({
-      error: `Class Code "${cleanCode}" was not found. Please verify the code provided by your instructor or teacher (e.g. UNIV-UG1 or NCERT-12A).`
-    });
+  let cleanCode = classCode ? classCode.trim().toUpperCase() : "";
+  let classInfo = null;
+  let resolvedGradeLevel = "General Student";
+
+  if (cleanCode) {
+    classInfo = await getClassByCode(cleanCode);
+    if (!classInfo) {
+      return res.status(400).json({
+        error: `Class Code "${cleanCode}" was not found. Please verify the code provided by your instructor or teacher (or leave empty to join later from dashboard).`
+      });
+    }
+    if (studentClass) {
+      const matchResult = validateClassCodeMatch(studentClass, classInfo);
+      if (!matchResult.valid) {
+        return res.status(400).json({
+          error: matchResult.reason || "Your selected academic tier does not match the class code. You cannot join this class."
+        });
+      }
+    }
+    resolvedGradeLevel = classInfo.gradeLevel || "General Student";
+  } else if (studentClass) {
+    if (/undergraduate|postgraduate|doctoral|polytech/i.test(studentClass)) {
+      resolvedGradeLevel = "Undergraduate / Higher Ed";
+    } else if (/12|11/.test(studentClass)) {
+      resolvedGradeLevel = "Grade 11-12";
+    } else if (/10|9/.test(studentClass)) {
+      resolvedGradeLevel = "Grade 9-10";
+    } else if (/8|7|6/.test(studentClass)) {
+      resolvedGradeLevel = "Grade 6-8";
+    }
   }
-  const matchResult = validateClassCodeMatch(studentClass, classInfo);
-  if (!matchResult.valid) {
-    return res.status(400).json({
-      error: matchResult.reason || "Your selected academic tier does not match the class code. You cannot join this class."
-    });
-  }
-  let resolvedGradeLevel = classInfo.gradeLevel;
-  if (/undergraduate|postgraduate|doctoral|polytech/i.test(studentClass)) {
-    resolvedGradeLevel = "Undergraduate / Higher Ed";
-  } else if (/12|11/.test(studentClass)) {
-    resolvedGradeLevel = "Grade 11-12";
-  } else if (/10|9/.test(studentClass)) {
-    resolvedGradeLevel = "Grade 9-10";
-  } else if (/8|7|6/.test(studentClass)) {
-    resolvedGradeLevel = "Grade 6-8";
-  }
+
   const studentId = `student-${Date.now()}`;
   const avatarSeed = name.toLowerCase().replace(/[^a-z]/g, "").slice(0, 8) || "student";
-  const initialMastery = generateClassMasteryList(studentClass, resolvedGradeLevel);
+  const initialMastery = generateClassMasteryList(studentClass || "General", resolvedGradeLevel);
   const newStudent = {
     id: studentId,
-    name,
-    email,
+    name: name.trim(),
+    email: email.trim(),
     password: hashPassword(password),
     role: "student",
-    classCode: cleanCode,
-    studentClass,
-    classInfo,
+    classCode: cleanCode || null,
+    studentClass: studentClass || (classInfo ? classInfo.targetClass || classInfo.className : "General"),
+    classInfo: classInfo || null,
     gradeLevel: resolvedGradeLevel,
     institute: cleanInstituteName,
     school: cleanInstituteName,
@@ -2455,19 +2464,24 @@ app.post("/api/auth/register-student", async (req, res) => {
     lastActive: "Just now",
     masteryList: initialMastery
   };
+
   await createStudent(newStudent);
-  if (!classInfo.enrolledStudentIds) classInfo.enrolledStudentIds = [];
-  if (!classInfo.enrolledStudentIds.includes(studentId)) {
-    classInfo.enrolledStudentIds.push(studentId);
-    classInfo.enrolledCount = classInfo.enrolledStudentIds.length;
-    await updateClass(cleanCode, classInfo);
+
+  if (classInfo) {
+    if (!classInfo.enrolledStudentIds) classInfo.enrolledStudentIds = [];
+    if (!classInfo.enrolledStudentIds.includes(studentId)) {
+      classInfo.enrolledStudentIds.push(studentId);
+      classInfo.enrolledCount = classInfo.enrolledStudentIds.length;
+      await updateClass(cleanCode, classInfo);
+    }
   }
+
   const authUser = {
     id: studentId,
     name: newStudent.name,
     email: newStudent.email,
     role: "student",
-    classCode: cleanCode,
+    classCode: cleanCode || null,
     institute: cleanInstituteName,
     school: cleanInstituteName,
     studentProfile: newStudent
@@ -2478,8 +2492,10 @@ app.post("/api/auth/register-student", async (req, res) => {
     user: authUser,
     token,
     student: newStudent,
-    classInfo,
-    message: `Successfully registered for ${classInfo.className} at ${cleanInstituteName} under ${classInfo.teacherName}!`
+    classInfo: classInfo || null,
+    message: classInfo
+      ? `Successfully registered for ${classInfo.className} at ${cleanInstituteName} under ${classInfo.teacherName}!`
+      : `Welcome, ${name}! Your student desk at ${cleanInstituteName} has been initialized.`
   });
 });
 app.get("/api/teacher/classes", (req, res) => {
@@ -2505,21 +2521,28 @@ app.get("/api/teacher/classes", (req, res) => {
 app.post("/api/teacher/create-class", async (req, res) => {
   const {
     className,
-    targetClass = "Undergraduate Year 1",
-    gradeLevel = "Undergraduate / Higher Ed",
-    stream = "Computer Science & AI",
+    targetClass = "Class 10",
+    gradeLevel = "Class 10",
+    section = "Section A",
+    subject = "Science",
+    stream = "Science & Mathematics",
     curriculum,
     customCurriculum,
     teacherId = "teacher-1",
     teacherName = "Faculty Instructor",
-    school = "University / College Campus",
+    school = "School Campus",
     customCode,
     subjects
   } = req.body;
 
-  const isUniv = /undergraduate|postgraduate|doctoral|polytech/i.test(targetClass) || /higher ed/i.test(gradeLevel);
-  const defaultCodePrefix = isUniv ? "UNIV" : "NCERT";
-  const generatedCode = customCode ? customCode.trim().toUpperCase() : `${defaultCodePrefix}-${Math.floor(100 + Math.random() * 900)}`;
+  const resolvedGrade = targetClass || gradeLevel || "Class 10";
+  const cleanGradeNum = resolvedGrade.replace(/[^0-9]/g, "") || (resolvedGrade.includes("UG") ? "UG1" : "10");
+  const cleanSec = (section || "Section A").replace(/[^A-Za-z0-9]/g, "").slice(-1).toUpperCase() || "A";
+  const cleanSub = (subject || (subjects && subjects[0]) || stream || "GEN").replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase() || "SUB";
+  const randNum = Math.floor(10 + Math.random() * 90);
+
+  const defaultCode = `CLS-${cleanGradeNum}${cleanSec}-${cleanSub}-${randNum}`;
+  const generatedCode = customCode ? customCode.trim().toUpperCase() : defaultCode;
 
   if (await getClassByCode(generatedCode)) {
     return res.status(400).json({
@@ -2530,22 +2553,28 @@ app.post("/api/teacher/create-class", async (req, res) => {
   const instObj = (await getInstitutes()).find(
     (i) => i.name.toLowerCase() === (school || "").toLowerCase()
   );
-  const resolvedCurriculum = curriculum || (instObj ? instObj.curriculum : (isUniv ? "University Undergraduate Degree (Semester / CBCS Credit System)" : "CBSE / NCERT National Curriculum Framework (NCF 2023-25)"));
+  const resolvedCurriculum = curriculum || (instObj ? instObj.curriculum : "CBSE / NCERT National Curriculum Framework (NCF 2023-25)");
+
+  const finalSubjects = subjects && subjects.length ? subjects : [subject || "Core Curriculum", "Guided Practice & Labs"];
+  const finalClassName = className || `${resolvedGrade} (${section || "Section A"}) - ${subject || stream}`;
 
   const newClass = {
     classCode: generatedCode,
-    className: className || `${targetClass} - ${stream}`,
-    targetClass: targetClass || (isUniv ? "Undergraduate Year 1" : "Class 12"),
-    gradeLevel: isUniv ? "Undergraduate / Higher Ed" : gradeLevel,
-    stream,
+    className: finalClassName,
+    targetClass: resolvedGrade,
+    gradeLevel: resolvedGrade,
+    section: section || "Section A",
+    subject: subject || (finalSubjects[0] || "General"),
+    stream: stream || subject || "General Track",
     curriculum: resolvedCurriculum,
     customCurriculum: customCurriculum || (instObj ? instObj.customCurriculum : null),
     school,
     institute: school,
     teacherId,
     teacherName,
+    adminRole: "Faculty Classroom Admin",
     academicYear: "2024-2025",
-    subjects: subjects && subjects.length ? subjects : (isUniv ? ["Data Structures", "Linear Algebra", "Algorithms & Systems"] : ["Physics", "Chemistry", "Mathematics", "Biology"]),
+    subjects: finalSubjects,
     timetable: [
       {
         day: "Monday",
@@ -2553,18 +2582,18 @@ app.post("/api/teacher/create-class", async (req, res) => {
           {
             periodNumber: 1,
             time: "09:00 - 10:30 AM",
-            subject: isUniv ? "Major Core Lecture" : "Physics",
+            subject: subject || "Core Lecture",
             topic: "Introduction to Syllabus & Core Topics",
             teacher: teacherName,
-            room: isUniv ? "Lecture Hall 101" : "Room 101"
+            room: `${section || "Section A"} Room`
           },
           {
             periodNumber: 2,
             time: "11:00 - 12:30 PM",
-            subject: isUniv ? "Lab Practicum & Discussion" : "Guided Practice",
-            topic: "Analytical Problem Solving & Discussion",
+            subject: "Lab & Discussion",
+            topic: "Problem Solving & Formative Practice",
             teacher: teacherName,
-            room: isUniv ? "Computational Lab" : "Lab"
+            room: "Laboratory"
           }
         ]
       }
@@ -2572,17 +2601,19 @@ app.post("/api/teacher/create-class", async (req, res) => {
     syllabus: [
       {
         unitNumber: 1,
-        unitTitle: isUniv ? "Module 1: Core Frameworks" : "Unit 1: Core Foundations",
-        subject: stream || "Core Disciplinary",
-        chapters: ["Module 1: Foundations & Analytical Methods", "Module 2: Advanced Applications & Problem Solving"],
+        unitTitle: `Unit 1: ${subject || "Core Disciplinary Foundations"}`,
+        subject: subject || stream || "Core Subject",
+        chapters: ["Chapter 1: Theory & Core Concepts", "Chapter 2: Problem Solving & Applications"],
         weightageMarks: 35,
         totalPeriods: 30,
         status: "In Progress"
       }
     ],
     enrolledStudentIds: [],
+    enrolledStudents: [],
     enrolledCount: 0
   };
+
   await createClass(newClass);
   const teacher = await getTeacherById(teacherId);
   if (teacher) {
@@ -2591,17 +2622,52 @@ app.post("/api/teacher/create-class", async (req, res) => {
     await updateTeacher(teacherId, teacher);
   }
   res.json({ success: true, classInfo: newClass });
+// Direct student classroom join with code (supports multiple classrooms)
+app.post("/api/student/join-class", async (req, res) => {
+  const { studentId, classCode } = req.body;
+  if (!studentId || !classCode) {
+    return res.status(400).json({ error: "Student ID and Classroom Code are required." });
+  }
+  try {
+    const result = await joinStudentToClass(studentId, classCode);
+    res.json({
+      success: true,
+      message: `Successfully joined ${result.classInfo.className} (${result.classInfo.classCode})!`,
+      student: result.student,
+      classInfo: result.classInfo,
+      classes: result.classes
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message || "Failed to join classroom." });
+  }
 });
+
+// Fetch all enrolled classrooms for a student
+app.get("/api/student/classes", async (req, res) => {
+  const { studentId, email } = req.query;
+  if (!studentId && !email) {
+    return res.status(400).json({ error: "Student ID or Email is required.", classes: [] });
+  }
+  try {
+    const classes = await getStudentEnrolledClasses(studentId, email);
+    res.json({ classes });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to fetch student classes.", classes: [] });
+  }
+});
+
 app.get("/api/student/me", async (req, res) => {
   const studentId = req.query.id || "student-1";
   const student = (await getStudentById(studentId)) || db.students.get(studentId);
   if (!student) {
     return res.status(404).json({ error: "Student not found" });
   }
-  const classInfo = (await getClassByCode(student.classCode)) || db.classes.get(student.classCode);
+  const classInfo = student.classCode ? await getClassByCode(student.classCode) : null;
+  const enrolledClasses = await getStudentEnrolledClasses(student.id, student.email);
   res.json({
     student: { ...student, classInfo },
-    classInfo
+    classInfo,
+    classes: enrolledClasses
   });
 });
 app.get("/api/students", async (req, res) => {

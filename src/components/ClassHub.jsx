@@ -36,12 +36,22 @@ import {
 } from "lucide-react";
 import { api } from "../services/api";
 
-export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigateToTutor, onNavigateToPractice }) => {
+export const ClassHub = ({
+  currentStudent,
+  currentTeacher,
+  classInfo,
+  studentClasses = [],
+  onSelectClass,
+  onJoinClass,
+  onNavigateToTutor,
+  onNavigateToPractice,
+  onNavigateToCommunity
+}) => {
   const info = classInfo || currentStudent?.classInfo;
   const isTeacher = !!currentTeacher;
   const currentUser = currentTeacher || currentStudent;
   const classCode = info?.classCode || currentStudent?.classCode || "";
-  const studentSection = currentStudent?.section || "Section A";
+  const studentSection = currentStudent?.section || info?.section || "Section A";
 
   const [activeSubTab, setActiveSubTab] = useState("announcements"); // "announcements" | "discussion" | "roster" | "resources" | "schedule"
   const [selectedDay, setSelectedDay] = useState("Monday");
@@ -50,6 +60,12 @@ export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigate
   const [searchFilter, setSearchFilter] = useState("");
   const [subjectFilter, setSubjectFilter] = useState("all");
   const [mediaTypeFilter, setMediaTypeFilter] = useState("all");
+
+  // Join Classroom Modal State
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinClassCodeInput, setJoinClassCodeInput] = useState("");
+  const [isJoiningClass, setIsJoiningClass] = useState(false);
+  const [joinClassError, setJoinClassError] = useState(null);
 
   // Announcements State
   const [announcements, setAnnouncements] = useState([]);
@@ -393,15 +409,64 @@ export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigate
     }
   };
 
+  const handleDirectJoinClass = async (e) => {
+    e.preventDefault();
+    if (!joinClassCodeInput.trim()) return;
+    setIsJoiningClass(true);
+    setJoinClassError(null);
+    try {
+      if (onJoinClass) {
+        await onJoinClass(joinClassCodeInput.trim());
+      } else if (currentStudent?.id) {
+        await api.joinClass(currentStudent.id, joinClassCodeInput.trim());
+      }
+      setShowJoinModal(false);
+      setJoinClassCodeInput("");
+    } catch (err) {
+      setJoinClassError(err.message || "Classroom code not found. Please verify with your instructor.");
+    } finally {
+      setIsJoiningClass(false);
+    }
+  };
+
   if (!info && !classCode) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 text-center">
-        <div className="bg-white border border-[#E5E7EB] p-8 max-w-md mx-auto">
-          <BookOpen className="w-8 h-8 mx-auto text-[#6B7280] mb-3" />
-          <h3 className="font-bold text-sm text-[#1A1A1A]">No Class Linked</h3>
-          <p className="text-xs text-[#6B7280] mt-1">
-            Link to a class code to access your classroom timetable, shared notes, and peer study resources.
-          </p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 text-center space-y-4">
+        <div className="bg-white border-2 border-black p-8 max-w-lg mx-auto shadow-md space-y-4 text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-bold">
+              <School className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-[#1A1A1A]">Join Your Subject Classroom</h3>
+              <p className="text-xs text-[#6B7280]">
+                Enter any classroom code provided by your teacher (e.g. <strong>CLS-10A-PHY-42</strong> or <strong>NCERT-12A</strong>)
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={handleDirectJoinClass} className="space-y-3 pt-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                required
+                value={joinClassCodeInput}
+                onChange={(e) => setJoinClassCodeInput(e.target.value.toUpperCase())}
+                placeholder="e.g. CLS-10A-PHY-42"
+                className="flex-1 uppercase font-mono font-bold bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black"
+              />
+              <button
+                type="submit"
+                disabled={isJoiningClass || !joinClassCodeInput.trim()}
+                className="clean-button-primary px-4 py-2 text-xs font-bold shrink-0 bg-black text-white"
+              >
+                {isJoiningClass ? "Joining..." : "Join Classroom"}
+              </button>
+            </div>
+            {joinClassError && (
+              <p className="text-xs text-rose-600 font-semibold">{joinClassError}</p>
+            )}
+          </form>
         </div>
       </div>
     );
@@ -425,6 +490,63 @@ export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigate
 
   return (
     <div id="class-hub-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5 space-y-5">
+      {/* Multi-Classroom Switcher Bar */}
+      {studentClasses && studentClasses.length > 0 && (
+        <div className="bg-white border border-[#E5E7EB] p-3 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F0F2F5] pb-2 mb-2">
+            <div className="flex items-center gap-2">
+              <School className="w-4 h-4 text-black" />
+              <span className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A]">
+                My Enrolled Classrooms ({studentClasses.length})
+              </span>
+              <span className="text-[10px] text-[#6B7280]">
+                &bull; Click any classroom to switch &bull; Multiple classrooms enabled
+              </span>
+            </div>
+            <button
+              onClick={() => setShowJoinModal(true)}
+              className="text-xs font-bold px-2.5 py-1 bg-black text-white hover:bg-neutral-800 flex items-center gap-1 transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+              <span>+ Join Another Classroom</span>
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {studentClasses.map((cls) => {
+              const isSelected = cls.classCode === classCode;
+              return (
+                <button
+                  key={cls.classCode}
+                  onClick={() => onSelectClass && onSelectClass(cls)}
+                  className={`p-2 border text-left transition-all ${
+                    isSelected
+                      ? "border-2 border-black bg-[#F8F9FA] shadow-xs"
+                      : "border-[#E5E7EB] bg-white hover:border-[#9CA3AF]"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-xs text-[#1A1A1A]">
+                      {cls.className || cls.classCode}
+                    </span>
+                    {isSelected && (
+                      <span className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.2 rounded-xs">
+                        Active
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-[#6B7280] font-mono flex items-center gap-1.5 mt-0.5">
+                    <span>{cls.classCode}</span>
+                    <span>&bull;</span>
+                    <span>{cls.teacherName || "Faculty Lead"}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Class Header Banner */}
       <div className="bg-white border border-[#E5E7EB] p-5">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#F0F2F5] pb-4">
@@ -435,6 +557,9 @@ export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigate
               </span>
               <span className="bg-indigo-50 text-indigo-800 text-[10px] font-bold px-2 py-0.5 border border-indigo-200">
                 {studentSection}
+              </span>
+              <span className="bg-emerald-50 text-emerald-800 text-[10px] font-bold px-2 py-0.5 border border-emerald-300">
+                Admin: {info?.teacherName || "Faculty In-Charge"}
               </span>
               {info?.academicYear && (
                 <span className="text-xs text-[#6B7280] font-medium">
@@ -452,7 +577,7 @@ export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigate
                 <>
                   <span className="text-[#D1D5DB]">&bull;</span>
                   <User className="w-3.5 h-3.5 text-[#6B7280]" />
-                  <span>Teacher In-Charge: <strong>{info.teacherName}</strong></span>
+                  <span>Classroom Admin: <strong>{info.teacherName}</strong></span>
                 </>
               )}
             </p>
@@ -468,6 +593,14 @@ export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigate
                 <span>+ Broadcast Announcement</span>
               </button>
             )}
+            <button
+              onClick={() => onNavigateToCommunity ? onNavigateToCommunity() : (window.location.hash = "#community")}
+              className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold px-3 py-2 border border-emerald-700 transition-colors"
+              title="Open Community Doubts for this subject"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Shared Community Doubts</span>
+            </button>
             <button
               onClick={() => setShowCreatePostModal(true)}
               className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-2 border border-indigo-600 transition-colors"
@@ -1637,6 +1770,78 @@ export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigate
                 >
                   <Megaphone className="w-3 h-3" />
                   <span>{isPostingAnn ? "Broadcasting..." : "Broadcast Notice"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Join Classroom with Code */}
+      {showJoinModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white border-2 border-black max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
+              <div className="flex items-center gap-2">
+                <School className="w-5 h-5 text-black" />
+                <div>
+                  <h3 className="font-bold text-sm text-[#1A1A1A]">Join Another Classroom</h3>
+                  <p className="text-[10px] text-[#6B7280]">
+                    Enter the code provided by your teacher for that subject
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowJoinModal(false);
+                  setJoinClassError(null);
+                }}
+                className="text-[#6B7280] hover:text-black font-bold text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleDirectJoinClass} className="space-y-3.5 text-xs">
+              <div className="space-y-1">
+                <label className="font-bold text-[#374151]">Classroom Code *</label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="e.g. CLS-10A-PHY-42 or NCERT-12A"
+                  value={joinClassCodeInput}
+                  onChange={(e) => setJoinClassCodeInput(e.target.value.toUpperCase())}
+                  className="w-full uppercase font-mono font-bold bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs outline-none focus:border-black"
+                />
+                <p className="text-[10px] text-[#6B7280]">
+                  Students can join multiple classrooms simultaneously (e.g. Physics, Chemistry, Math, etc.).
+                </p>
+              </div>
+
+              {joinClassError && (
+                <div className="p-2 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+                  {joinClassError}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowJoinModal(false);
+                    setJoinClassError(null);
+                  }}
+                  className="flex-1 clean-button-secondary py-2 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isJoiningClass || !joinClassCodeInput.trim()}
+                  className="flex-1 clean-button-primary py-2 text-xs font-bold bg-black hover:bg-neutral-800 text-white"
+                >
+                  {isJoiningClass ? "Joining..." : "Join Classroom"}
                 </button>
               </div>
             </form>
