@@ -29,6 +29,7 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
   const [selectedRole, setSelectedRole] = useState("student"); // "student" | "teacher"
   const [studentMode, setStudentMode] = useState("login"); // "login" | "register"
   const [teacherMode, setTeacherMode] = useState("login"); // "login" | "register"
+  const [showAboutModal, setShowAboutModal] = useState(false);
 
   // Institutes State
   const [institutes, setInstitutes] = useState([]);
@@ -37,6 +38,7 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
   const [studentLoginIdentifier, setStudentLoginIdentifier] = useState("aarav.sharma@student.edu.in");
   const [studentLoginPassword, setStudentLoginPassword] = useState("password123");
   const [showStudentLoginPassword, setShowStudentLoginPassword] = useState(false);
+  const [rememberStudent, setRememberStudent] = useState(true);
 
   // Student Registration State
   const [regName, setRegName] = useState("");
@@ -61,6 +63,7 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
   const [teacherLoginIdentifier, setTeacherLoginIdentifier] = useState("rajesh.varma@school.edu.in");
   const [teacherLoginPassword, setTeacherLoginPassword] = useState("teacher123");
   const [showTeacherLoginPassword, setShowTeacherLoginPassword] = useState(false);
+  const [rememberTeacher, setRememberTeacher] = useState(true);
 
   // Teacher Registration State
   const [teacherRegName, setTeacherRegName] = useState("");
@@ -87,7 +90,29 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
 
   useEffect(() => {
     loadInitialData();
+    loadSavedCredentials();
   }, []);
+
+  const loadSavedCredentials = () => {
+    try {
+      const savedStudent = localStorage.getItem("saved_student_creds");
+      if (savedStudent) {
+        const parsed = JSON.parse(savedStudent);
+        if (parsed.email) setStudentLoginIdentifier(parsed.email);
+        if (parsed.password) setStudentLoginPassword(parsed.password);
+        setRememberStudent(true);
+      }
+      const savedTeacher = localStorage.getItem("saved_teacher_creds");
+      if (savedTeacher) {
+        const parsed = JSON.parse(savedTeacher);
+        if (parsed.email) setTeacherLoginIdentifier(parsed.email);
+        if (parsed.password) setTeacherLoginPassword(parsed.password);
+        setRememberTeacher(true);
+      }
+    } catch (e) {
+      console.warn("Could not parse saved credentials", e);
+    }
+  };
 
   const loadInitialData = async () => {
     try {
@@ -154,6 +179,16 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
         identifier: studentLoginIdentifier.trim(),
         password: studentLoginPassword
       });
+      if (rememberStudent) {
+        localStorage.setItem(
+          "saved_student_creds",
+          JSON.stringify({ email: studentLoginIdentifier.trim(), password: studentLoginPassword })
+        );
+        localStorage.setItem("remember_student", "true");
+      } else {
+        localStorage.removeItem("saved_student_creds");
+        localStorage.setItem("remember_student", "false");
+      }
       if (res.token) api.setToken(res.token);
       onLoginSuccess(res.user, res.studentProfile, void 0, res.classInfo);
     } catch (err) {
@@ -203,6 +238,13 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
         firstGenerationLearner: regFirstGen,
         stateOrRegion: regState
       });
+      if (rememberStudent) {
+        localStorage.setItem(
+          "saved_student_creds",
+          JSON.stringify({ email: regEmail.trim(), password: regPassword })
+        );
+        localStorage.setItem("remember_student", "true");
+      }
       if (res.token) api.setToken(res.token);
       onLoginSuccess(res.user, res.student, void 0, res.classInfo);
     } catch (err) {
@@ -232,6 +274,16 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
         identifier: teacherLoginIdentifier.trim(),
         password: teacherLoginPassword
       });
+      if (rememberTeacher) {
+        localStorage.setItem(
+          "saved_teacher_creds",
+          JSON.stringify({ email: teacherLoginIdentifier.trim(), password: teacherLoginPassword })
+        );
+        localStorage.setItem("remember_teacher", "true");
+      } else {
+        localStorage.removeItem("saved_teacher_creds");
+        localStorage.setItem("remember_teacher", "false");
+      }
       if (res.token) api.setToken(res.token);
       onLoginSuccess(res.user, void 0, res.teacherProfile, void 0);
     } catch (err) {
@@ -336,20 +388,17 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
             </div>
           </div>
 
-          {/* Role Selector & Briefing Button */}
-          <div className="flex items-center gap-2">
-            {onOpenAuditModal && (
-              <button
-                type="button"
-                onClick={onOpenAuditModal}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 transition-colors"
-                title="View Architectural Provenance, Semantic RAG & Security Transparency Audit"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
-                <span className="hidden sm:inline">Evaluator Briefing</span>
-                <span className="sm:hidden">Audit</span>
-              </button>
-            )}
+          {/* Role Selector & About Us Button */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setShowAboutModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-black text-black hover:bg-black hover:text-white transition-all shadow-xs"
+              title="Learn about AI for Equitable Education Access"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span>About Us</span>
+            </button>
 
             <div className="inline-flex border border-[#E5E7EB] bg-white p-1">
               <button
@@ -522,6 +571,19 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                     </div>
                   </div>
 
+                  {/* Remember Credentials Option */}
+                  <label className="flex items-center gap-2 text-xs text-[#374151] cursor-pointer select-none py-0.5">
+                    <input
+                      type="checkbox"
+                      checked={rememberStudent}
+                      onChange={(e) => setRememberStudent(e.target.checked)}
+                      className="accent-black w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="font-semibold text-[11px] text-[#1A1A1A]">
+                      Remember my login credentials on this device
+                    </span>
+                  </label>
+
                   <div className="p-3 bg-[#F8F9FA] border border-[#E5E7EB] text-xs text-[#4B5563] space-y-1.5">
                     <div className="flex items-center gap-1.5 font-bold text-[#1A1A1A]">
                       <ShieldAlert className="w-3.5 h-3.5 text-emerald-600" />
@@ -536,7 +598,7 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                     id="btn-student-login-submit"
                     type="submit"
                     disabled={isLoading}
-                    className="w-full bg-black text-white hover:bg-[#222] py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                    className="w-full bg-black text-white hover:bg-[#222] py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 shadow-xs"
                   >
                     <span>Enter My Student Desk</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -948,6 +1010,19 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
                     </div>
                   </div>
 
+                  {/* Remember Credentials Option */}
+                  <label className="flex items-center gap-2 text-xs text-[#374151] cursor-pointer select-none py-0.5">
+                    <input
+                      type="checkbox"
+                      checked={rememberTeacher}
+                      onChange={(e) => setRememberTeacher(e.target.checked)}
+                      className="accent-black w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="font-semibold text-[11px] text-[#1A1A1A]">
+                      Remember my login credentials on this device
+                    </span>
+                  </label>
+
                   <div className="p-3.5 bg-[#F8F9FA] border border-[#E5E7EB] text-xs text-[#4B5563] space-y-2">
                     <div className="flex items-center gap-1.5 font-bold text-[#1A1A1A]">
                       <Users className="w-3.5 h-3.5 text-black" />
@@ -1308,6 +1383,93 @@ export const LoginPage = ({ onLoginSuccess, onOpenAuditModal }) => {
           </div>
         </div>
       </section>
+
+      {/* About Us Interactive Modal */}
+      {showAboutModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white border-2 border-black max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-black flex items-center justify-center shadow-xs">
+                  <Sparkles className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-[#1A1A1A]">
+                    About AI for Equitable Education Access
+                  </h3>
+                  <p className="text-xs text-[#6B7280]">
+                    Democratizing Open, High-Quality Education Across Languages & Geographies
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAboutModal(false)}
+                className="w-8 h-8 rounded-xs hover:bg-[#F3F4F6] text-[#4B5563] hover:text-black font-bold flex items-center justify-center text-sm transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <p className="text-[#374151] leading-relaxed text-sm">
+                <strong>AI for Equitable Education Access</strong> is a national open curriculum platform designed to eliminate learning disparities for school students across India. It connects students and teachers through isolated subject classrooms, a grounded Socratic multimodal AI tutor, and automated financial aid matching.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] space-y-1.5">
+                  <div className="font-bold text-[#1A1A1A] flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-indigo-600" />
+                    <span>Multilingual Socratic AI Tutor</span>
+                  </div>
+                  <p className="text-[11px] text-[#6B7280] leading-relaxed">
+                    Provides step-by-step guidance in Hindi, Tamil, Telugu, Marathi, Bengali, and English, strictly grounded in verified curriculum standards. Stores full conversation history.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] space-y-1.5">
+                  <div className="font-bold text-[#1A1A1A] flex items-center gap-1.5">
+                    <School className="w-4 h-4 text-emerald-600" />
+                    <span>Multi-Classroom Joining by Code</span>
+                  </div>
+                  <p className="text-[11px] text-[#6B7280] leading-relaxed">
+                    Teachers generate unique subject codes (e.g. <code>CLS-10A-PHY</code>). Students can join and belong to multiple subject classrooms simultaneously.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] space-y-1.5">
+                  <div className="font-bold text-[#1A1A1A] flex items-center gap-1.5">
+                    <Users className="w-4 h-4 text-amber-600" />
+                    <span>Two-Tiered Doubts & Announcements</span>
+                  </div>
+                  <p className="text-[11px] text-[#6B7280] leading-relaxed">
+                    Official instructor noticeboards paired with collaborative subject & global doubt forums with live search and peer answering.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] space-y-1.5">
+                  <div className="font-bold text-[#1A1A1A] flex items-center gap-1.5">
+                    <Globe className="w-4 h-4 text-blue-600" />
+                    <span>Diagnostic Gaps & Aid Matcher</span>
+                  </div>
+                  <p className="text-[11px] text-[#6B7280] leading-relaxed">
+                    Automatic student struggle heatmaps for teachers, adaptive practice loops, and automated scholarship evaluation for low-income students.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-[#E5E7EB]">
+              <button
+                type="button"
+                onClick={() => setShowAboutModal(false)}
+                className="clean-button-primary px-5 py-2 text-xs font-bold bg-black text-white hover:bg-neutral-800"
+              >
+                Got It, Let&apos;s Get Started
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

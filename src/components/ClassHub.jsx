@@ -47,9 +47,12 @@ export const ClassHub = ({
   onNavigateToPractice,
   onNavigateToCommunity
 }) => {
-  const info = classInfo || currentStudent?.classInfo;
+  const [teacherTeachingClasses, setTeacherTeachingClasses] = useState([]);
+  const [selectedTeacherClass, setSelectedTeacherClass] = useState(null);
+
   const isTeacher = !!currentTeacher;
   const currentUser = currentTeacher || currentStudent;
+  const info = classInfo || selectedTeacherClass || currentStudent?.classInfo;
   const classCode = info?.classCode || currentStudent?.classCode || "";
   const studentSection = currentStudent?.section || info?.section || "Section A";
 
@@ -66,6 +69,11 @@ export const ClassHub = ({
   const [joinClassCodeInput, setJoinClassCodeInput] = useState("");
   const [isJoiningClass, setIsJoiningClass] = useState(false);
   const [joinClassError, setJoinClassError] = useState(null);
+
+  // Student School Edit State
+  const [showEditSchoolModal, setShowEditSchoolModal] = useState(false);
+  const [studentSchoolInput, setStudentSchoolInput] = useState(currentStudent?.school || "");
+  const [isUpdatingSchool, setIsUpdatingSchool] = useState(false);
 
   // Announcements State
   const [announcements, setAnnouncements] = useState([]);
@@ -118,6 +126,26 @@ export const ClassHub = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [expandedResourceId, setExpandedResourceId] = useState(null);
+
+  // Load teacher classes automatically if teacher is logged in
+  useEffect(() => {
+    if (isTeacher && currentTeacher?.id) {
+      loadTeacherClasses();
+    }
+  }, [isTeacher, currentTeacher?.id]);
+
+  const loadTeacherClasses = async () => {
+    try {
+      const res = await api.getTeacherClasses(currentTeacher.id);
+      const list = res?.classes || [];
+      setTeacherTeachingClasses(list);
+      if (list.length > 0 && !selectedTeacherClass && !classInfo) {
+        setSelectedTeacherClass(list[0]);
+      }
+    } catch (e) {
+      console.error("Failed to load teacher classes in ClassHub:", e);
+    }
+  };
 
   useEffect(() => {
     if (classCode) {
@@ -429,7 +457,51 @@ export const ClassHub = ({
     }
   };
 
+  const handleUpdateSchool = async (e) => {
+    e.preventDefault();
+    if (!studentSchoolInput.trim() || !currentStudent?.id) return;
+    setIsUpdatingSchool(true);
+    try {
+      const res = await api.updateStudentSchool(currentStudent.id, studentSchoolInput.trim());
+      if (res.student) {
+        currentStudent.school = res.student.school;
+        currentStudent.institute = res.student.school;
+      }
+      setShowEditSchoolModal(false);
+    } catch (err) {
+      alert("Failed to update school: " + err.message);
+    } finally {
+      setIsUpdatingSchool(false);
+    }
+  };
+
   if (!info && !classCode) {
+    if (isTeacher) {
+      return (
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 text-center space-y-4">
+          <div className="bg-white border-2 border-black p-8 max-w-lg mx-auto shadow-md space-y-4 text-left">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-bold">
+                <School className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-[#1A1A1A]">Welcome Teacher Lead</h3>
+                <p className="text-xs text-[#6B7280]">
+                  You have not created or selected an active classroom yet. Go to your Teacher Academic Desk to create a class code.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => { window.location.hash = "#teacher"; }}
+              className="w-full clean-button-primary py-2 text-xs font-bold bg-black text-white"
+            >
+              Open Teacher Academic Desk &rarr;
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 text-center space-y-4">
         <div className="bg-white border-2 border-black p-8 max-w-lg mx-auto shadow-md space-y-4 text-left">
@@ -488,37 +560,54 @@ export const ClassHub = ({
     return matchesSubject && matchesMediaType && matchesSearch;
   });
 
+  const activeClassesList = isTeacher ? teacherTeachingClasses : (studentClasses || []);
+
   return (
     <div id="class-hub-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5 space-y-5">
       {/* Multi-Classroom Switcher Bar */}
-      {studentClasses && studentClasses.length > 0 && (
+      {activeClassesList && activeClassesList.length > 0 && (
         <div className="bg-white border border-[#E5E7EB] p-3 shadow-xs">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F0F2F5] pb-2 mb-2">
             <div className="flex items-center gap-2">
               <School className="w-4 h-4 text-black" />
               <span className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A]">
-                My Enrolled Classrooms ({studentClasses.length})
+                {isTeacher ? `Teacher Managed Classrooms (${activeClassesList.length})` : `My Enrolled Classrooms (${activeClassesList.length})`}
               </span>
               <span className="text-[10px] text-[#6B7280]">
                 &bull; Click any classroom to switch &bull; Multiple classrooms enabled
               </span>
             </div>
-            <button
-              onClick={() => setShowJoinModal(true)}
-              className="text-xs font-bold px-2.5 py-1 bg-black text-white hover:bg-neutral-800 flex items-center gap-1 transition-colors"
-            >
-              <Plus className="w-3 h-3" />
-              <span>+ Join Another Classroom</span>
-            </button>
+            {!isTeacher ? (
+              <button
+                onClick={() => setShowJoinModal(true)}
+                className="text-xs font-bold px-2.5 py-1 bg-black text-white hover:bg-neutral-800 flex items-center gap-1 transition-colors"
+              >
+                <Plus className="w-3 h-3" />
+                <span>+ Join Another Classroom</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => { window.location.hash = "#teacher"; }}
+                className="text-xs font-bold px-2.5 py-1 bg-black text-white hover:bg-neutral-800 flex items-center gap-1 transition-colors"
+              >
+                <Plus className="w-3 h-3" />
+                <span>+ Create New Classroom Code</span>
+              </button>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {studentClasses.map((cls) => {
+            {activeClassesList.map((cls) => {
               const isSelected = cls.classCode === classCode;
               return (
                 <button
                   key={cls.classCode}
-                  onClick={() => onSelectClass && onSelectClass(cls)}
+                  onClick={() => {
+                    if (isTeacher) {
+                      setSelectedTeacherClass(cls);
+                    }
+                    if (onSelectClass) onSelectClass(cls);
+                  }}
                   className={`p-2 border text-left transition-all ${
                     isSelected
                       ? "border-2 border-black bg-[#F8F9FA] shadow-xs"
@@ -538,7 +627,7 @@ export const ClassHub = ({
                   <div className="text-[10px] text-[#6B7280] font-mono flex items-center gap-1.5 mt-0.5">
                     <span>{cls.classCode}</span>
                     <span>&bull;</span>
-                    <span>{cls.teacherName || "Faculty Lead"}</span>
+                    <span>{cls.teacherName || (isTeacher ? "Instructor Admin" : "Faculty Lead")}</span>
                   </div>
                 </button>
               );
@@ -559,7 +648,7 @@ export const ClassHub = ({
                 {studentSection}
               </span>
               <span className="bg-emerald-50 text-emerald-800 text-[10px] font-bold px-2 py-0.5 border border-emerald-300">
-                Admin: {info?.teacherName || "Faculty In-Charge"}
+                Admin: {info?.teacherName || (isTeacher ? (currentUser?.name || "Teacher") : "Faculty In-Charge")}
               </span>
               {info?.academicYear && (
                 <span className="text-xs text-[#6B7280] font-medium">
@@ -572,7 +661,20 @@ export const ClassHub = ({
             </h1>
             <p className="text-xs text-[#4B5563] flex items-center gap-2 flex-wrap">
               <Building className="w-3.5 h-3.5 text-[#6B7280]" />
-              <span>{info?.school || currentUser?.institute || currentUser?.school || "School Campus"}</span>
+              <span>{info?.school || currentUser?.school || currentUser?.institute || "School Campus"}</span>
+              {!isTeacher && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStudentSchoolInput(currentUser?.school || currentUser?.institute || "");
+                    setShowEditSchoolModal(true);
+                  }}
+                  className="text-[11px] text-indigo-600 hover:text-indigo-800 underline font-bold transition-colors"
+                  title="Update your school on your dashboard"
+                >
+                  ✎ Edit School
+                </button>
+              )}
               {info?.teacherName && (
                 <>
                   <span className="text-[#D1D5DB]">&bull;</span>
@@ -1842,6 +1944,61 @@ export const ClassHub = ({
                   className="flex-1 clean-button-primary py-2 text-xs font-bold bg-black hover:bg-neutral-800 text-white"
                 >
                   {isJoiningClass ? "Joining..." : "Join Classroom"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Student School Modal */}
+      {showEditSchoolModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white border-2 border-black max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
+              <div className="flex items-center gap-2">
+                <Building className="w-5 h-5 text-black" />
+                <h3 className="font-bold text-sm text-[#1A1A1A]">Update Your School</h3>
+              </div>
+              <button
+                onClick={() => setShowEditSchoolModal(false)}
+                className="text-[#6B7280] hover:text-black font-bold text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateSchool} className="space-y-3.5 text-xs">
+              <div className="space-y-1">
+                <label className="font-bold text-[#374151]">School / Institution Name *</label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="e.g. Kendriya Vidyalaya No. 1, Delhi Public School"
+                  value={studentSchoolInput}
+                  onChange={(e) => setStudentSchoolInput(e.target.value)}
+                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] px-3 py-2 text-xs text-[#1A1A1A] outline-none focus:border-black font-medium"
+                />
+                <p className="text-[10px] text-[#6B7280]">
+                  This updates your school across your dashboard and verified student records.
+                </p>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditSchoolModal(false)}
+                  className="flex-1 clean-button-secondary py-2 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingSchool || !studentSchoolInput.trim()}
+                  className="flex-1 clean-button-primary py-2 text-xs font-bold bg-black hover:bg-neutral-800 text-white"
+                >
+                  {isUpdatingSchool ? "Saving..." : "Save School"}
                 </button>
               </div>
             </form>

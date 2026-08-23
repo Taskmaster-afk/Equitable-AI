@@ -11,7 +11,12 @@ import {
   FileText,
   ChevronRight,
   ShieldCheck,
-  Maximize2
+  Maximize2,
+  History,
+  Plus,
+  Trash2,
+  Clock,
+  MessageSquare
 } from "lucide-react";
 import { api } from "../services/api";
 import { SUPPORTED_LANGUAGES } from "../data/oerKnowledgeBase";
@@ -87,23 +92,7 @@ const SAMPLE_CURRICULUM_CATEGORIES = [
     name: "Class 11-12 Biology",
     grade: "Grade 11-12",
     subject: "Biology",
-    doubts: [
-      {
-        label: "Genetics: Semiconservative DNA Replication",
-        question: "How did Meselson and Stahl prove that DNA replication is semiconservative using 15N and 14N isotopes in E. coli?",
-        topicId: "molecular-genetics"
-      },
-      {
-        label: "Biotechnology: 3 Steps of PCR",
-        question: "Describe the 3 cyclic steps of Polymerase Chain Reaction (PCR): Denaturation, Annealing, and Extension. Why is Taq Polymerase used?",
-        topicId: "biotech-pcr"
-      },
-      {
-        label: "Plant Physio: Photosynthesis C3 Cycle",
-        question: "What is the role of enzyme RuBisCO in the Calvin C3 cycle during the carboxylation step of photosynthesis?",
-        topicId: "plant-photosynthesis"
-      }
-    ]
+    doubts: []
   },
   {
     name: "Class 9-10 Science & Math",
@@ -136,24 +125,28 @@ export const DoubtSolver = ({
   setSelectedLanguage,
   onNavigateToPractice
 }) => {
-  const [messages, setMessages] = useState([
-    {
-      id: "welcome-msg",
-      role: "assistant",
-      content: `Hello ${currentStudent?.name || "there"}! I am your AI Curriculum & Classroom Tutor.
+  const DEFAULT_WELCOME_MESSAGE = {
+    id: "welcome-msg",
+    role: "assistant",
+    content: `Hello ${currentStudent?.name || "there"}! I am your AI Curriculum & Classroom Tutor.
 
 You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Classes 6 to 12. Every solution provided is step-by-step and grounded in open educational curriculum materials and classroom-shared notes with chapter and concept citations.`,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      groundingStatus: "verified_grounded",
-      groundingReasoning: "Ready to retrieve curriculum and classroom knowledge base passages.",
-      citations: [],
-      suggestedFollowUps: [
-        "How do I solve ∫ x · e^x dx using integration by parts (ILATE)?",
-        "Why does a fielder pull hands back when catching a ball (Newton’s 2nd Law)?",
-        "What are the key differences between SN1 and SN2 reaction mechanisms?"
-      ]
-    }
-  ]);
+    timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    groundingStatus: "verified_grounded",
+    groundingReasoning: "Ready to retrieve curriculum and classroom knowledge base passages.",
+    citations: [],
+    suggestedFollowUps: [
+      "How do I solve ∫ x · e^x dx using integration by parts (ILATE)?",
+      "Why does a fielder pull hands back when catching a ball (Newton’s 2nd Law)?",
+      "What are the key differences between SN1 and SN2 reaction mechanisms?"
+    ]
+  };
+
+  const [messages, setMessages] = useState([DEFAULT_WELCOME_MESSAGE]);
+  const [currentSessionId, setCurrentSessionId] = useState(`session-${Date.now()}`);
+  const [chatSessions, setChatSessions] = useState([]);
+  const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const [inputText, setInputText] = useState("");
   const [gradeLevel, setGradeLevel] = useState(currentStudent?.gradeLevel || "Grade 11-12");
@@ -162,6 +155,8 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
   const [isLoading, setIsLoading] = useState(false);
   const [activeCategoryIndex, setActiveCategoryIndex] = useState(0);
   const [sidebarTab, setSidebarTab] = useState("citations");
+
+  const userId = currentStudent?.id || currentStudent?.email || "student-1";
 
   useEffect(() => {
     if (currentStudent?.gradeLevel) {
@@ -172,7 +167,52 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
         setActiveCategoryIndex(0);
       }
     }
+    loadChatSessions();
   }, [currentStudent?.id, currentStudent?.gradeLevel]);
+
+  const loadChatSessions = async () => {
+    if (!userId) return;
+    setIsLoadingHistory(true);
+    try {
+      const res = await api.getAiChatHistory(userId);
+      setChatSessions(res?.sessions || []);
+    } catch (e) {
+      console.warn("Could not load past AI sessions", e);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const handleStartNewChat = () => {
+    const newId = `session-${Date.now()}`;
+    setCurrentSessionId(newId);
+    setMessages([DEFAULT_WELCOME_MESSAGE]);
+    setShowHistoryDrawer(false);
+  };
+
+  const handleSelectSession = (sess) => {
+    setCurrentSessionId(sess.id);
+    if (sess.messages && sess.messages.length > 0) {
+      setMessages(sess.messages);
+    }
+    if (sess.language) setSelectedLanguage(sess.language);
+    if (sess.gradeLevel) setGradeLevel(sess.gradeLevel);
+    setShowHistoryDrawer(false);
+    scrollToBottom();
+  };
+
+  const handleDeleteSession = async (e, sessId) => {
+    e.stopPropagation();
+    try {
+      await api.deleteAiChatSession(sessId);
+      if (currentSessionId === sessId) {
+        handleStartNewChat();
+      }
+      loadChatSessions();
+    } catch (err) {
+      console.error("Failed to delete session:", err);
+    }
+  };
 
   const fileInputRef = useRef(null);
   const chatEndRef = useRef(null);
@@ -227,7 +267,7 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
         gradeLevel,
         language: selectedLanguage,
         explanationStyle,
-        studentId: currentStudent?.id || "student-1",
+        studentId: userId,
         imageData: sentImage || void 0,
         previousContext: prevContext
       });
@@ -245,8 +285,21 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
         suggestedFollowUps: res.suggestedFollowUps
       };
 
+      const updatedLadder = [...messages, newMsg, assistantMsg];
       setMessages((prev) => [...prev, assistantMsg]);
       setSidebarTab("citations");
+
+      // Persist AI Chat History session to DB
+      const sessId = currentSessionId || `session-${Date.now()}`;
+      api.saveAiChatSession({
+        id: sessId,
+        userId,
+        title: query.trim().slice(0, 45) || "Doubt Session",
+        messages: updatedLadder,
+        language: selectedLanguage,
+        gradeLevel
+      }).then(() => loadChatSessions()).catch((e) => console.warn(e));
+
     } catch (err) {
       const errorMsg = {
         id: `err-${Date.now()}`,
@@ -330,8 +383,8 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
         {/* Chat / Doubt Workspace (8 Columns) */}
         <div className="lg:col-span-8 flex flex-col h-[660px] bg-white border border-[#E5E7EB]">
           {/* Streamlined Workspace Controls Bar */}
-          <div className="px-4 py-2.5 border-b border-[#E5E7EB] bg-[#F8F9FA] flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-3">
+          <div className="px-4 py-2.5 border-b border-[#E5E7EB] bg-[#F8F9FA] flex flex-wrap items-center justify-between gap-2.5 text-xs">
+            <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-bold">
                   Class:
@@ -365,11 +418,104 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
               </div>
             </div>
 
-            <div className="flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 font-semibold">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>Curriculum & Knowledge Grounded</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setShowHistoryDrawer(!showHistoryDrawer)}
+                className="clean-button-secondary px-2.5 py-1 text-xs flex items-center gap-1.5 font-bold"
+                title="View past AI doubt solving sessions"
+              >
+                <History className="w-3.5 h-3.5 text-indigo-600" />
+                <span>History ({chatSessions.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleStartNewChat}
+                className="clean-button-primary px-2.5 py-1 text-xs flex items-center gap-1 bg-black text-white hover:bg-neutral-800 font-bold"
+                title="Start a new doubt solving session"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ New Doubt</span>
+              </button>
+
+              <div className="hidden sm:flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 font-semibold">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span>Knowledge Grounded</span>
+              </div>
             </div>
           </div>
+
+          {/* History Drawer Overlay / Popover */}
+          {showHistoryDrawer && (
+            <div className="bg-white border-b-2 border-black p-4 space-y-3 shadow-md animate-in slide-in-from-top duration-150 max-h-60 overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-2">
+                <div className="flex items-center gap-2">
+                  <History className="w-4 h-4 text-indigo-600" />
+                  <span className="font-bold text-xs text-[#1A1A1A]">
+                    Past AI Doubt Sessions ({chatSessions.length})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowHistoryDrawer(false)}
+                  className="text-xs text-[#6B7280] hover:text-black font-bold"
+                >
+                  ✕ Close
+                </button>
+              </div>
+
+              {isLoadingHistory ? (
+                <div className="text-xs text-[#6B7280] py-3 text-center">Loading past doubt history...</div>
+              ) : chatSessions.length === 0 ? (
+                <div className="text-xs text-[#6B7280] py-3 text-center">
+                  No saved past doubt sessions found. Ask your first question to auto-save!
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {chatSessions.map((sess) => {
+                    const isSelected = sess.id === currentSessionId;
+                    return (
+                      <div
+                        key={sess.id}
+                        onClick={() => handleSelectSession(sess)}
+                        className={`p-2.5 border text-left cursor-pointer transition-all flex items-start justify-between gap-2 ${
+                          isSelected
+                            ? "bg-indigo-50 border-indigo-500 shadow-xs"
+                            : "bg-[#F9FAFB] border-[#E5E7EB] hover:border-black"
+                        }`}
+                      >
+                        <div className="space-y-1 min-w-0">
+                          <div className="font-bold text-xs text-[#1A1A1A] truncate">
+                            {sess.title || "Doubt Session"}
+                          </div>
+                          <div className="text-[10px] text-[#6B7280] flex items-center gap-2">
+                            <span>{sess.gradeLevel || "Grade 11-12"}</span>
+                            <span>&bull;</span>
+                            <span className="flex items-center gap-0.5">
+                              <MessageSquare className="w-3 h-3 text-[#9CA3AF]" />
+                              {sess.messages?.length || 0} msgs
+                            </span>
+                            <span>&bull;</span>
+                            <span>{new Date(sess.updatedAt || Date.now()).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteSession(e, sess.id)}
+                          className="text-[#9CA3AF] hover:text-rose-600 p-1 shrink-0 transition-colors"
+                          title="Delete session from history"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Messages Scroll Area */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#FAFAFA]">

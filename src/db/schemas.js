@@ -233,6 +233,28 @@ const CommunityPostSchema = new mongoose.Schema({
   }]
 }, { timestamps: true, strict: false });
 
+const AiChatHistorySchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  userId: { type: String, required: true, index: true },
+  title: { type: String, default: "New Doubt Session" },
+  subject: { type: String, default: "General Science" },
+  language: { type: String, default: "en" },
+  gradeLevel: { type: String, default: "Class 10" },
+  messages: [{
+    id: { type: String },
+    role: { type: String, required: true }, // "user" | "model"
+    content: { type: String, required: true },
+    timestamp: { type: String },
+    ladderLevel: { type: Number, default: 0 },
+    ladderLabel: { type: String, default: "" },
+    groundingSource: { type: String, default: "" },
+    isCurriculumGrounded: { type: Boolean, default: true },
+    confidenceScore: { type: Number, default: 95 }
+  }],
+  createdAt: { type: String, default: () => new Date().toISOString() },
+  updatedAt: { type: String, default: () => new Date().toISOString() }
+}, { timestamps: true, strict: false });
+
 export const Institute = mongoose.models.Institute || mongoose.model("Institute", InstituteSchema);
 export const Teacher = mongoose.models.Teacher || mongoose.model("Teacher", TeacherSchema);
 export const Student = mongoose.models.Student || mongoose.model("Student", StudentSchema);
@@ -242,3 +264,4 @@ export const ClassAnnouncement = mongoose.models.ClassAnnouncement || mongoose.m
 export const ClassroomResource = mongoose.models.ClassroomResource || mongoose.model("ClassroomResource", ClassroomResourceSchema);
 export const ResourceDump = mongoose.models.ResourceDump || mongoose.model("ResourceDump", ResourceDumpSchema);
 export const CommunityPost = mongoose.models.CommunityPost || mongoose.model("CommunityPost", CommunityPostSchema);
+export const AiChatHistory = mongoose.models.AiChatHistory || mongoose.model("AiChatHistory", AiChatHistorySchema);

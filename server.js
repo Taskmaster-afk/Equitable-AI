@@ -29,6 +29,7 @@ import {
   getClassesByTeacher,
   createClass,
   updateClass,
+  deleteClass,
   getClassroomResources,
   getAllClassroomResources,
   createClassroomResource,
@@ -55,7 +56,11 @@ import {
   getClassAnnouncements,
   deleteAnnouncement,
   recordDoubt,
-  recordPracticeLog
+  recordPracticeLog,
+  getAiChatHistories,
+  getAiChatHistoryById,
+  saveAiChatHistory,
+  deleteAiChatHistory
 } from "./src/db/dataService.js";
 import {
   Institute,
@@ -66,7 +71,8 @@ import {
   ClassAnnouncement,
   ClassroomResource,
   ResourceDump,
-  CommunityPost
+  CommunityPost,
+  AiChatHistory
 } from "./src/db/schemas.js";
 dotenv.config();
 const app = express();
@@ -2622,6 +2628,106 @@ app.post("/api/teacher/create-class", async (req, res) => {
     await updateTeacher(teacherId, teacher);
   }
   res.json({ success: true, classInfo: newClass });
+});
+
+// Delete classroom (Teacher Admin power)
+app.delete("/api/teacher/classes/:classCode", async (req, res) => {
+  const { classCode } = req.params;
+  const teacherId = req.query.teacherId || req.body?.teacherId;
+  if (!classCode) {
+    return res.status(400).json({ error: "Classroom Code is required." });
+  }
+  try {
+    await deleteClass(classCode, teacherId);
+    res.json({ success: true, message: `Classroom ${classCode} successfully removed.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to delete classroom." });
+  }
+});
+
+app.post("/api/teacher/delete-class", async (req, res) => {
+  const { classCode, teacherId } = req.body;
+  if (!classCode) {
+    return res.status(400).json({ error: "Classroom Code is required." });
+  }
+  try {
+    await deleteClass(classCode, teacherId);
+    res.json({ success: true, message: `Classroom ${classCode} successfully deleted.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to delete classroom." });
+  }
+});
+
+// Update student school
+app.post("/api/student/update-school", async (req, res) => {
+  const { studentId, school } = req.body;
+  if (!studentId || !school) {
+    return res.status(400).json({ error: "Student ID and School name are required." });
+  }
+  try {
+    const student = await getStudentById(studentId);
+    if (!student) return res.status(404).json({ error: "Student not found." });
+    student.school = school.trim();
+    student.institute = school.trim();
+    await updateStudent(studentId, student);
+    res.json({ success: true, student, message: "School updated successfully." });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to update school." });
+  }
+});
+
+// AI Doubt Solver Chat History Persistence
+app.get("/api/ai/history", async (req, res) => {
+  const userId = req.query.userId || req.query.studentId;
+  if (!userId) {
+    return res.status(400).json({ error: "User ID is required.", sessions: [] });
+  }
+  try {
+    const sessions = await getAiChatHistories(userId);
+    res.json({ sessions });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to fetch chat history.", sessions: [] });
+  }
+});
+
+app.get("/api/ai/history/:id", async (req, res) => {
+  try {
+    const session = await getAiChatHistoryById(req.params.id);
+    if (!session) return res.status(404).json({ error: "Session not found." });
+    res.json({ session });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to fetch session." });
+  }
+});
+
+app.post("/api/ai/history", async (req, res) => {
+  const { userId, title, messages, language, subject, gradeLevel, id } = req.body;
+  if (!userId || !messages) {
+    return res.status(400).json({ error: "User ID and messages are required." });
+  }
+  try {
+    const saved = await saveAiChatHistory({
+      id,
+      userId,
+      title: title || (messages[0]?.content?.slice(0, 45) || "Doubt Session"),
+      messages,
+      language: language || "en",
+      subject: subject || "Science",
+      gradeLevel: gradeLevel || "Class 10"
+    });
+    res.json({ success: true, session: saved });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to save chat history." });
+  }
+});
+
+app.delete("/api/ai/history/:id", async (req, res) => {
+  try {
+    await deleteAiChatHistory(req.params.id);
+    res.json({ success: true, message: "Chat session deleted." });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to delete chat session." });
+  }
 });
 
 // Direct student classroom join with code (supports multiple classrooms)

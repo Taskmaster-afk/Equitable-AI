@@ -246,6 +246,23 @@ export const TeacherDashboard = ({
       console.error("Error creating new class code:", err);
     }
   };
+  const handleDeleteClass = async (codeToDelete) => {
+    if (!codeToDelete) return;
+    if (!confirm(`Are you sure you want to delete classroom "${codeToDelete}"? This will remove enrolled rosters and all associated resources.`)) return;
+    try {
+      await api.deleteClass(codeToDelete, currentTeacher?.id);
+      const updated = await api.getTeacherClasses(currentTeacher?.id);
+      const remaining = updated?.classes || [];
+      setTeacherClasses(remaining);
+      if (selectedClassCode === codeToDelete) {
+        setSelectedClassCode(remaining[0]?.classCode || "all");
+      }
+      alert(`Classroom ${codeToDelete} has been successfully deleted.`);
+    } catch (err) {
+      alert("Failed to delete classroom: " + err.message);
+    }
+  };
+
   const handleCopyCode = (code) => {
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
@@ -819,22 +836,56 @@ export const TeacherDashboard = ({
                   <div><strong>Sections:</strong> Section A, Section B, Section C, Section D</div>
                 </div>
 
-                <button
-                  onClick={() => handleCopyCode(c.classCode)}
-                  className="w-full clean-button-secondary py-1.5 text-xs flex items-center justify-center gap-1.5"
-                >
-                  {copiedCode === c.classCode ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Copied Code to Clipboard!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copy Class Code ({c.classCode}) for Students</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex gap-1.5 pt-2">
+                  <button
+                    onClick={() => handleCopyCode(c.classCode)}
+                    className="flex-1 clean-button-secondary py-1.5 text-xs flex items-center justify-center gap-1"
+                  >
+                    {copiedCode === c.classCode ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Copied Code!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Code</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setAnnouncementSection("all");
+                      setShowAnnouncementModal(true);
+                    }}
+                    className="clean-button-secondary px-2.5 py-1.5 text-xs flex items-center gap-1 bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100"
+                    title="Broadcast circular to this classroom"
+                  >
+                    <Megaphone className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Notice</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      window.location.hash = "#community";
+                    }}
+                    className="clean-button-secondary px-2.5 py-1.5 text-xs flex items-center gap-1 bg-indigo-50 text-indigo-900 border-indigo-300 hover:bg-indigo-100"
+                    title="Enter Subject Doubts Chat for this class"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-indigo-700" />
+                    <span>Subject Doubts</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDeleteClass(c.classCode)}
+                    className="clean-button-secondary px-2.5 py-1.5 text-xs flex items-center gap-1 bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100 hover:border-rose-500 transition-colors"
+                    title="Delete this classroom"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Delete</span>
+                  </button>
+                </div>
               </div>
             ))}
           </div>

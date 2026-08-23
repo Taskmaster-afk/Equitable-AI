@@ -8,7 +8,8 @@ import {
   ClassAnnouncement,
   ClassroomResource,
   ResourceDump,
-  CommunityPost
+  CommunityPost,
+  AiChatHistory
 } from "./schemas.js";
 
 // In-Memory fallback store
@@ -23,7 +24,8 @@ export const inMemDb = {
   resourceDumps: [],
   communityPosts: [],
   doubtHistory: [],
-  practiceLogs: []
+  practiceLogs: [],
+  aiChatHistories: new Map()
 };
 
 // Seed MongoDB if empty from in-memory baseline
@@ -359,6 +361,56 @@ export async function updateClass(classCode, update) {
     return await ClassModel.findOneAndUpdate({ classCode: code }, { $set: update }, { new: true }).lean();
   }
   return updated;
+}
+
+export async function deleteClass(classCode, teacherId) {
+  const code = (classCode || "").toUpperCase().trim();
+  inMemDb.classes.delete(code);
+
+  // Clean teacher references in memory
+  if (teacherId) {
+    const teacher = inMemDb.teachers.get(teacherId);
+    if (teacher && teacher.classes) {
+      teacher.classes = teacher.classes.filter(
+        (c) => (typeof c === "string" ? c : c.classCode) !== code
+      );
+    }
+  } else {
+    for (const teacher of inMemDb.teachers.values()) {
+      if (teacher.classes) {
+        teacher.classes = teacher.classes.filter(
+          (c) => (typeof c === "string" ? c : c.classCode) !== code
+        );
+      }
+    }
+  }
+
+  // Clean student references in memory
+  for (const student of inMemDb.students.values()) {
+    if (student.enrolledClassCodes) {
+      student.enrolledClassCodes = student.enrolledClassCodes.filter((c) => c !== code);
+    }
+    if (student.classCode === code) {
+      student.classCode = student.enrolledClassCodes?.[0] || null;
+    }
+  }
+
+  if (isMongoConnected()) {
+    await ClassModel.deleteOne({ classCode: code });
+    await Teacher.updateMany({}, { $pull: { classes: { $in: [code, { classCode: code }] } } });
+    await Student.updateMany(
+      { enrolledClassCodes: code },
+      { $pull: { enrolledClassCodes: code } }
+    );
+    await Student.updateMany(
+      { classCode: code },
+      { $set: { classCode: null } }
+    );
+    await ClassroomResource.deleteMany({ classCode: code });
+    await ClassAnnouncement.deleteMany({ classCode: code });
+  }
+
+  return true;
 }
 
 // -------------------------------------------------------------
@@ -828,4 +880,52 @@ export async function recordPracticeLog(logData) {
     }
   }
   return logData;
+}
+
+// -------------------------------------------------------------
+// AI DOUBT SOLVER CHAT SESSIONS & HISTORY
+// -------------------------------------------------------------
+export async function getAiChatHistories(userId) {
+  if (!userId) return [];
+  if (isMongoConnected()) {
+    return await AiChatHistory.find({ userId }).sort({ updatedAt: -1 }).lean();
+  }
+  const all = Array.from(inMemDb.aiChatHistories.values()).filter((c) => c.userId === userId);
+  return all.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+}
+
+export async function getAiChatHistoryById(id) {
+  if (!id) return null;
+  if (isMongoConnected()) {
+    return await AiChatHistory.findOne({ id }).lean();
+  }
+  return inMemDb.aiChatHistories.get(id) || null;
+}
+
+export async function saveAiChatHistory(chatData) {
+  const id = chatData.id || `chat-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+  const now = new Date().toISOString();
+  const normalized = {
+    ...chatData,
+    id,
+    updatedAt: now,
+    createdAt: chatData.createdAt || now
+  };
+
+  inMemDb.aiChatHistories.set(id, normalized);
+
+  if (isMongoConnected()) {
+    await AiChatHistory.findOneAndUpdate({ id }, normalized, { upsert: true, new: true });
+  }
+
+  return normalized;
+}
+
+export async function deleteAiChatHistory(id) {
+  if (!id) return false;
+  inMemDb.aiChatHistories.delete(id);
+  if (isMongoConnected()) {
+    await AiChatHistory.deleteOne({ id });
+  }
+  return true;
 }

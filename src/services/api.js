@@ -450,6 +450,61 @@ const api = {
       method: "POST"
     });
     return res.json();
+  },
+  async deleteClass(classCode, teacherId) {
+    const res = await fetch(`/api/teacher/classes/${encodeURIComponent(classCode)}`, {
+      method: "DELETE",
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ teacherId })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to delete classroom");
+    }
+    return res.json();
+  },
+  async updateStudentSchool(studentId, school) {
+    const res = await fetch("/api/student/update-school", {
+      method: "POST",
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ studentId, school })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to update school");
+    }
+    return res.json();
+  },
+  async getAiChatHistory(userId) {
+    const res = await fetch(`/api/ai/history?userId=${encodeURIComponent(userId)}`, {
+      headers: this.getAuthHeaders()
+    });
+    if (!res.ok) throw new Error("Failed to fetch AI chat history");
+    return res.json();
+  },
+  async getAiChatSession(id) {
+    const res = await fetch(`/api/ai/history/${encodeURIComponent(id)}`, {
+      headers: this.getAuthHeaders()
+    });
+    if (!res.ok) throw new Error("Failed to fetch session");
+    return res.json();
+  },
+  async saveAiChatSession(sessionData) {
+    const res = await fetch("/api/ai/history", {
+      method: "POST",
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(sessionData)
+    });
+    if (!res.ok) throw new Error("Failed to save AI chat session");
+    return res.json();
+  },
+  async deleteAiChatSession(id) {
+    const res = await fetch(`/api/ai/history/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: this.getAuthHeaders()
+    });
+    if (!res.ok) throw new Error("Failed to delete chat session");
+    return res.json();
   }
 };
 export {

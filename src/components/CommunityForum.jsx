@@ -24,6 +24,7 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
   const userSection = currentStudent?.section || "Section A";
 
   const [posts, setPosts] = useState([]);
+  const [chatChannelMode, setChatChannelMode] = useState("enrolled"); // "enrolled" | "global"
   const [selectedInstitute, setSelectedInstitute] = useState(userInstitute);
   const [selectedScope, setSelectedScope] = useState("all_school"); // "all_school" | "my_class"
   const [selectedSubject, setSelectedSubject] = useState("all");
@@ -49,20 +50,24 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
 
   useEffect(() => {
     loadPosts();
-  }, [selectedInstitute, selectedSubject, selectedScope]);
+  }, [selectedInstitute, selectedSubject, selectedScope, chatChannelMode]);
 
   const loadPosts = async () => {
     setIsLoading(true);
     try {
+      const isGlobal = chatChannelMode === "global";
       const data = await api.getCommunityPosts({
-        institute: selectedInstitute !== "all" ? selectedInstitute : void 0,
+        institute: !isGlobal && selectedInstitute !== "all" ? selectedInstitute : void 0,
         subject: selectedSubject !== "all" ? selectedSubject : void 0,
-        classCode: selectedScope === "my_class" ? userClassCode : void 0,
-        section: selectedScope === "my_class" ? userSection : void 0
+        classCode: !isGlobal && selectedScope === "my_class" ? userClassCode : void 0,
+        section: !isGlobal && selectedScope === "my_class" ? userSection : void 0
       });
-      setPosts(data.posts || []);
-      if (data.posts && data.posts.length > 0 && !activePost) {
-        setActivePost(data.posts[0]);
+      const fetchedPosts = data.posts || [];
+      // Sort latest first
+      const sorted = [...fetchedPosts].reverse();
+      setPosts(sorted);
+      if (sorted.length > 0 && (!activePost || !sorted.some(p => p.id === activePost.id))) {
+        setActivePost(sorted[0]);
       }
     } catch (err) {
       console.error("Failed to load community posts:", err);
@@ -82,7 +87,7 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
     try {
       const payload = {
         instituteName: userInstitute,
-        classCode: userClassCode,
+        classCode: chatChannelMode === "enrolled" ? userClassCode : "",
         section: userSection,
         title: newPostData.title,
         content: newPostData.content,
@@ -95,7 +100,7 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
       };
 
       await api.createCommunityPost(payload);
-      setStatusMessage({ type: "success", text: "Doubt posted to your school & class community forum!" });
+      setStatusMessage({ type: "success", text: "Doubt posted successfully!" });
       setNewPostData({
         title: "",
         subject: "Physics",
@@ -105,9 +110,6 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
       });
       setShowAskModal(false);
       loadPosts();
-      if (res.post) {
-        setActivePost(res.post);
-      }
     } catch (err) {
       setStatusMessage({ type: "error", text: err.message || "Failed to post doubt" });
     } finally {
@@ -122,10 +124,10 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
     setIsAnswering(true);
     try {
       const payload = {
-        authorName: user?.name || (isTeacher ? "Faculty Member" : "Class Peer"),
+        authorName: user?.name || (isTeacher ? "Teacher" : "Student"),
         authorRole: isTeacher ? "teacher" : "student",
         authorId: user?.id || "user-1",
-        content: answerContent
+        content: answerContent.trim()
       };
 
       const res = await api.answerCommunityPost(activePost.id, payload);
@@ -198,83 +200,112 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
   };
 
   const filteredPosts = posts.filter(p => {
-    const term = searchQuery.toLowerCase();
+    const term = searchQuery.toLowerCase().trim();
+    if (!term) return true;
     return (
-      !term ||
       p.title?.toLowerCase().includes(term) ||
       p.content?.toLowerCase().includes(term) ||
       p.subject?.toLowerCase().includes(term) ||
+      p.authorName?.toLowerCase().includes(term) ||
       (p.tags && p.tags.some(t => t.toLowerCase().includes(term)))
     );
   });
 
   return (
     <div id="community-forum-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5 space-y-5">
+      {/* Dual Channel Switcher Bar */}
+      <div className="bg-white border-2 border-black p-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="w-5 h-5 text-black" />
+          <div>
+            <h2 className="text-sm font-bold text-[#1A1A1A]">Student Doubt Channels</h2>
+            <p className="text-[11px] text-[#6B7280]">
+              Switch between your enrolled subject doubts or the open global question forum
+            </p>
+          </div>
+        </div>
+
+        <div className="inline-flex border border-black p-0.5 bg-[#F9FAFB]">
+          <button
+            type="button"
+            onClick={() => setChatChannelMode("enrolled")}
+            className={`px-3 py-1.5 text-xs font-bold transition-colors flex items-center gap-1.5 ${
+              chatChannelMode === "enrolled"
+                ? "bg-black text-white"
+                : "text-[#4B5563] hover:text-black"
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>My Enrolled Subject Doubts</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setChatChannelMode("global")}
+            className={`px-3 py-1.5 text-xs font-bold transition-colors flex items-center gap-1.5 ${
+              chatChannelMode === "global"
+                ? "bg-black text-white"
+                : "text-[#4B5563] hover:text-black"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <span>Global Doubts Chat (All Questions)</span>
+          </button>
+        </div>
+      </div>
+
       {/* Community Banner */}
       <div className="bg-white border border-[#E5E7EB] p-5">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#F0F2F5] pb-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="bg-black text-white text-[10px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider">
-                Institutional Community Forum
+                {chatChannelMode === "enrolled" ? "Enrolled Classroom Channel" : "Global Open Doubts Feed"}
               </span>
               <span className="text-xs text-[#6B7280]">
-                Peer & Teacher Doubt Resolution Network
+                {chatChannelMode === "enrolled" ? "Peer Doubts for Your Subjects" : "Latest Questions Across All Schools"}
               </span>
             </div>
             <h1 className="text-xl font-bold tracking-tight text-[#1A1A1A] flex items-center gap-2">
               <Building className="w-5 h-5 text-black" />
-              <span>{userInstitute}</span>
+              <span>{chatChannelMode === "enrolled" ? userInstitute : "National Global Doubts Forum"}</span>
             </h1>
             <p className="text-xs text-[#6B7280]">
-              Ask doubts, share problem approaches, and get verified answers from your classmates and school faculty.
+              {chatChannelMode === "enrolled"
+                ? "Doubts and discussions for your enrolled subjects and classes with peer answers and teacher verifications."
+                : "Search and explore latest questions from students across all subjects and institutes."}
             </p>
           </div>
 
           <button
             onClick={() => setShowAskModal(true)}
-            className="flex items-center gap-2 bg-black hover:bg-[#333] text-white text-xs font-semibold px-4 py-2 border border-black transition-colors"
+            className="flex items-center gap-2 bg-black hover:bg-[#333] text-white text-xs font-semibold px-4 py-2 border border-black transition-colors shadow-xs"
           >
             <Plus className="w-4 h-4" />
             <span>Ask a Doubt</span>
           </button>
         </div>
 
-        {/* Institution Scope & Filtering Filter Bar */}
+        {/* Scope & Subject Filtering Bar */}
         <div className="pt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-bold text-[#6B7280] uppercase">Filter Institute:</span>
-            <button
-              onClick={() => setSelectedInstitute(userInstitute)}
-              className={`px-2.5 py-1 text-xs font-semibold border transition-colors ${
-                selectedInstitute === userInstitute ? "bg-black text-white border-black" : "bg-[#F8F9FA] text-[#4B5563] border-[#E5E7EB]"
-              }`}
-            >
-              My Campus ({userInstitute.split(",")[0]})
-            </button>
-            <button
-              onClick={() => setSelectedInstitute("all")}
-              className={`px-2.5 py-1 text-xs font-semibold border transition-colors ${
-                selectedInstitute === "all" ? "bg-black text-white border-black" : "bg-[#F8F9FA] text-[#4B5563] border-[#E5E7EB]"
-              }`}
-            >
-              All Partner Institutes
-            </button>
+            <span className="text-[11px] font-bold text-[#6B7280] uppercase">Subject:</span>
+            {["all", "Physics", "Chemistry", "Mathematics", "Biology"].map((sub) => (
+              <button
+                key={sub}
+                onClick={() => setSelectedSubject(sub)}
+                className={`px-2.5 py-1 text-xs font-semibold border transition-colors ${
+                  selectedSubject === sub
+                    ? "bg-black text-white border-black"
+                    : "bg-[#F8F9FA] text-[#4B5563] border-[#E5E7EB] hover:bg-[#E5E7EB]"
+                }`}
+              >
+                {sub === "all" ? "All Subjects" : sub}
+              </button>
+            ))}
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold text-[#6B7280] uppercase">Subject:</span>
-            <select
-              value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
-              className="bg-[#F8F9FA] border border-[#E5E7EB] px-2.5 py-1 text-xs font-semibold outline-none cursor-pointer"
-            >
-              <option value="all">All Subjects</option>
-              <option value="Physics">Physics</option>
-              <option value="Chemistry">Chemistry</option>
-              <option value="Mathematics">Mathematics</option>
-              <option value="Biology">Biology</option>
-            </select>
+          <div className="text-[11px] text-[#6B7280] font-medium">
+            Showing <strong>{filteredPosts.length}</strong> {chatChannelMode === "global" ? "global" : "classroom"} doubts
           </div>
         </div>
       </div>

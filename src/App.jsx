@@ -165,6 +165,10 @@ export default function App() {
         setCurrentUser(res.user);
         if (res.user.role === "teacher") {
           setCurrentTeacher(res.teacherProfile || null);
+          if (res.teacherProfile?.classes && res.teacherProfile.classes.length > 0) {
+            const firstClass = res.teacherProfile.classes[0];
+            setCurrentClassInfo(typeof firstClass === "string" ? { classCode: firstClass } : firstClass);
+          }
           const initialHash = window.location.hash.replace("#", "");
           navigateToTab(initialHash || "teacher", false);
         } else {
@@ -189,7 +193,12 @@ export default function App() {
     if (user.role === "teacher") {
       setCurrentTeacher(teacher || null);
       setCurrentStudent(null);
-      setCurrentClassInfo(null);
+      if (teacher?.classes && teacher.classes.length > 0) {
+        const firstClass = teacher.classes[0];
+        setCurrentClassInfo(typeof firstClass === "string" ? { classCode: firstClass } : firstClass);
+      } else {
+        setCurrentClassInfo(null);
+      }
       navigateToTab("teacher");
     } else {
       setCurrentStudent(student || null);
