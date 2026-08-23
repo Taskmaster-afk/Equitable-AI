@@ -489,7 +489,16 @@ export const ClassHub = ({ currentStudent, currentTeacher, classInfo, onNavigate
         <div className="pt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[10px] uppercase font-bold text-[#9CA3AF]">Core Subjects:</span>
-            {(info?.subjects || ["Physics", "Chemistry", "Mathematics", "Biology"]).map((sub) => (
+            {(info?.subjects && info.subjects.length > 0 ? info.subjects : [
+              "Physics",
+              "Chemistry",
+              "Mathematics",
+              "Biology",
+              "Computer Science & AI",
+              "English & Communication",
+              "Social Science",
+              "Environmental Studies"
+            ]).map((sub) => (
               <span key={sub} className="bg-[#F3F4F6] border border-[#E5E7EB] px-2 py-0.5 text-xs font-semibold text-[#1A1A1A]">
                 {sub}
               </span>
