@@ -32,7 +32,10 @@ import {
   Send,
   Check,
   Mail,
-  UserPlus
+  UserPlus,
+  School,
+  KeyRound,
+  UploadCloud
 } from "lucide-react";
 import { api } from "../services/api";
 
@@ -686,6 +689,16 @@ export const ClassHub = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            {!isTeacher && (
+              <button
+                onClick={() => setShowJoinModal(true)}
+                className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 border border-indigo-600 transition-colors shadow-xs"
+                title="Join a classroom using the code provided by your teacher"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>+ Join Classroom Code</span>
+              </button>
+            )}
             {isTeacher && (
               <button
                 onClick={() => setShowAnnounceModal(true)}
@@ -705,7 +718,7 @@ export const ClassHub = ({
             </button>
             <button
               onClick={() => setShowCreatePostModal(true)}
-              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-2 border border-indigo-600 transition-colors"
+              className="flex items-center gap-1.5 bg-[#4B5563] hover:bg-[#374151] text-white text-xs font-semibold px-3 py-2 border border-[#4B5563] transition-colors"
             >
               <MessageSquare className="w-3.5 h-3.5" />
               <span>+ Ask Class Doubt</span>
@@ -714,8 +727,8 @@ export const ClassHub = ({
               onClick={() => setShowShareModal(true)}
               className="flex items-center gap-1.5 bg-black hover:bg-[#333] text-white text-xs font-semibold px-3 py-2 border border-black transition-colors"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Upload Notes / Media</span>
+              <UploadCloud className="w-3.5 h-3.5" />
+              <span>Upload Notes / PDF / Media</span>
             </button>
           </div>
         </div>

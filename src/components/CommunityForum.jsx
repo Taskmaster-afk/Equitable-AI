@@ -12,7 +12,11 @@ import {
   Sparkles,
   Award,
   BookOpen,
-  Filter
+  Filter,
+  School,
+  Globe,
+  Users,
+  AlertCircle
 } from "lucide-react";
 import { api } from "../services/api";
 
@@ -20,14 +24,10 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
   const user = currentTeacher || currentStudent || currentUser;
   const isTeacher = currentUser?.role === "teacher";
   const userInstitute = currentUser?.institute || currentUser?.school || currentStudent?.institute || currentTeacher?.school || "Kendriya Vidyalaya No. 1";
-  const userClassCode = currentStudent?.classCode || "";
-  const userSection = currentStudent?.section || "Section A";
 
+  const [classesList, setClassesList] = useState([]);
+  const [selectedChannel, setSelectedChannel] = useState("global"); // "global" | classCode
   const [posts, setPosts] = useState([]);
-  const [chatChannelMode, setChatChannelMode] = useState("enrolled"); // "enrolled" | "global"
-  const [selectedInstitute, setSelectedInstitute] = useState(userInstitute);
-  const [selectedScope, setSelectedScope] = useState("all_school"); // "all_school" | "my_class"
-  const [selectedSubject, setSelectedSubject] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [activePost, setActivePost] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,26 +48,43 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
   const [isAnswering, setIsAnswering] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
 
+  // Load classrooms for the current user
+  useEffect(() => {
+    loadUserClasses();
+  }, [currentUser?.id, currentStudent?.id, currentTeacher?.id]);
+
+  const loadUserClasses = async () => {
+    try {
+      if (isTeacher && currentTeacher?.id) {
+        const res = await api.getTeacherClasses(currentTeacher.id);
+        setClassesList(res?.classes || []);
+      } else if (currentStudent?.id) {
+        const res = await api.getStudentClasses(currentStudent.id, currentStudent.email);
+        setClassesList(res?.classes || []);
+      }
+    } catch (err) {
+      console.error("Failed to load user classes in community forum:", err);
+    }
+  };
+
   useEffect(() => {
     loadPosts();
-  }, [selectedInstitute, selectedSubject, selectedScope, chatChannelMode]);
+  }, [selectedChannel]);
 
   const loadPosts = async () => {
     setIsLoading(true);
     try {
-      const isGlobal = chatChannelMode === "global";
+      const isGlobal = selectedChannel === "global";
       const data = await api.getCommunityPosts({
-        institute: !isGlobal && selectedInstitute !== "all" ? selectedInstitute : void 0,
-        subject: selectedSubject !== "all" ? selectedSubject : void 0,
-        classCode: !isGlobal && selectedScope === "my_class" ? userClassCode : void 0,
-        section: !isGlobal && selectedScope === "my_class" ? userSection : void 0
+        classCode: !isGlobal ? selectedChannel : void 0
       });
       const fetchedPosts = data.posts || [];
-      // Sort latest first
       const sorted = [...fetchedPosts].reverse();
       setPosts(sorted);
       if (sorted.length > 0 && (!activePost || !sorted.some(p => p.id === activePost.id))) {
         setActivePost(sorted[0]);
+      } else if (sorted.length === 0) {
+        setActivePost(null);
       }
     } catch (err) {
       console.error("Failed to load community posts:", err);
@@ -75,6 +92,8 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
       setIsLoading(false);
     }
   };
+
+  const activeClassObj = classesList.find(c => c.classCode === selectedChannel);
 
   const handleAskSubmit = async (e) => {
     e.preventDefault();
@@ -85,25 +104,29 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
 
     setIsSubmitting(true);
     try {
+      const isGlobal = selectedChannel === "global";
       const payload = {
-        instituteName: userInstitute,
-        classCode: chatChannelMode === "enrolled" ? userClassCode : "",
-        section: userSection,
-        title: newPostData.title,
-        content: newPostData.content,
-        subject: newPostData.subject,
-        gradeLevel: newPostData.gradeLevel,
+        instituteName: activeClassObj?.school || userInstitute,
+        classCode: !isGlobal ? selectedChannel : "",
+        section: activeClassObj?.section || currentStudent?.section || "All",
+        title: newPostData.title.trim(),
+        content: newPostData.content.trim(),
+        subject: newPostData.subject || activeClassObj?.subject || "General",
+        gradeLevel: newPostData.gradeLevel || activeClassObj?.gradeLevel || "Class 10",
         authorName: user?.name || (isTeacher ? "Teacher" : "Student"),
         authorRole: isTeacher ? "teacher" : "student",
         authorId: user?.id || "user-1",
-        tags: newPostData.tags ? newPostData.tags.split(",").map(t => t.trim()).filter(Boolean) : [newPostData.subject]
+        tags: newPostData.tags ? newPostData.tags.split(",").map(t => t.trim()).filter(Boolean) : [newPostData.subject || "General"]
       };
 
       await api.createCommunityPost(payload);
-      setStatusMessage({ type: "success", text: "Doubt posted successfully!" });
+      setStatusMessage({
+        type: "success",
+        text: isGlobal ? "Doubt posted to Global Forum!" : `Doubt posted to classroom ${selectedChannel}!`
+      });
       setNewPostData({
         title: "",
-        subject: "Physics",
+        subject: activeClassObj?.subject || "Physics",
         gradeLevel: currentStudent?.gradeLevel || "Class 10",
         content: "",
         tags: ""
@@ -213,100 +236,78 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
 
   return (
     <div id="community-forum-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5 space-y-5">
-      {/* Dual Channel Switcher Bar */}
-      <div className="bg-white border-2 border-black p-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="w-5 h-5 text-black" />
-          <div>
-            <h2 className="text-sm font-bold text-[#1A1A1A]">Student Doubt Channels</h2>
-            <p className="text-[11px] text-[#6B7280]">
-              Switch between your enrolled subject doubts or the open global question forum
-            </p>
-          </div>
-        </div>
-
-        <div className="inline-flex border border-black p-0.5 bg-[#F9FAFB]">
-          <button
-            type="button"
-            onClick={() => setChatChannelMode("enrolled")}
-            className={`px-3 py-1.5 text-xs font-bold transition-colors flex items-center gap-1.5 ${
-              chatChannelMode === "enrolled"
-                ? "bg-black text-white"
-                : "text-[#4B5563] hover:text-black"
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>My Enrolled Subject Doubts</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setChatChannelMode("global")}
-            className={`px-3 py-1.5 text-xs font-bold transition-colors flex items-center gap-1.5 ${
-              chatChannelMode === "global"
-                ? "bg-black text-white"
-                : "text-[#4B5563] hover:text-black"
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>Global Doubts Chat (All Questions)</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Community Banner */}
-      <div className="bg-white border border-[#E5E7EB] p-5">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#F0F2F5] pb-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="bg-black text-white text-[10px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider">
-                {chatChannelMode === "enrolled" ? "Enrolled Classroom Channel" : "Global Open Doubts Feed"}
-              </span>
-              <span className="text-xs text-[#6B7280]">
-                {chatChannelMode === "enrolled" ? "Peer Doubts for Your Subjects" : "Latest Questions Across All Schools"}
-              </span>
+      {/* Classroom & Global Channels Switcher Ribbon */}
+      <div className="bg-white border border-[#E5E7EB] p-4 shadow-xs space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F0F2F5] pb-3">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-black" />
+            <div>
+              <h2 className="text-sm font-bold text-[#1A1A1A]">
+                {isTeacher ? "Teacher Classroom Doubts & Global Chat" : "My Classroom Doubts & Global Chat"}
+              </h2>
+              <p className="text-[11px] text-[#6B7280]">
+                {isTeacher
+                  ? "Select any classroom you teach to manage student doubt threads, or access the open national global chat"
+                  : "Select any enrolled classroom for class-specific doubts, or access the open national global chat"}
+              </p>
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-[#1A1A1A] flex items-center gap-2">
-              <Building className="w-5 h-5 text-black" />
-              <span>{chatChannelMode === "enrolled" ? userInstitute : "National Global Doubts Forum"}</span>
-            </h1>
-            <p className="text-xs text-[#6B7280]">
-              {chatChannelMode === "enrolled"
-                ? "Doubts and discussions for your enrolled subjects and classes with peer answers and teacher verifications."
-                : "Search and explore latest questions from students across all subjects and institutes."}
-            </p>
           </div>
 
           <button
             onClick={() => setShowAskModal(true)}
-            className="flex items-center gap-2 bg-black hover:bg-[#333] text-white text-xs font-semibold px-4 py-2 border border-black transition-colors shadow-xs"
+            className="flex items-center gap-2 bg-black hover:bg-[#333] text-white text-xs font-semibold px-4 py-2 border border-black transition-colors shadow-xs shrink-0"
           >
             <Plus className="w-4 h-4" />
-            <span>Ask a Doubt</span>
+            <span>Ask a Doubt {selectedChannel !== "global" ? `in ${selectedChannel}` : "in Global"}</span>
           </button>
         </div>
 
-        {/* Scope & Subject Filtering Bar */}
-        <div className="pt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-bold text-[#6B7280] uppercase">Subject:</span>
-            {["all", "Physics", "Chemistry", "Mathematics", "Biology"].map((sub) => (
+        {/* Channel Selection Buttons */}
+        <div className="flex items-center gap-2 flex-wrap pt-1">
+          <span className="text-[10px] uppercase font-bold tracking-wider text-[#9CA3AF] mr-1">
+            Active Channel:
+          </span>
+
+          {/* Global Channel Tab */}
+          <button
+            type="button"
+            onClick={() => setSelectedChannel("global")}
+            className={`px-3 py-1.5 text-xs font-bold transition-all border flex items-center gap-1.5 ${
+              selectedChannel === "global"
+                ? "bg-black text-white border-black shadow-xs"
+                : "bg-[#F8F9FA] text-[#4B5563] border-[#E5E7EB] hover:border-black"
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5 text-amber-400" />
+            <span>🌐 Global Chat (All Questions)</span>
+          </button>
+
+          {/* User's Specific Classrooms Tabs */}
+          {classesList.map((cls) => {
+            const isSelected = selectedChannel === cls.classCode;
+            return (
               <button
-                key={sub}
-                onClick={() => setSelectedSubject(sub)}
-                className={`px-2.5 py-1 text-xs font-semibold border transition-colors ${
-                  selectedSubject === sub
-                    ? "bg-black text-white border-black"
-                    : "bg-[#F8F9FA] text-[#4B5563] border-[#E5E7EB] hover:bg-[#E5E7EB]"
+                key={cls.classCode}
+                type="button"
+                onClick={() => setSelectedChannel(cls.classCode)}
+                className={`px-3 py-1.5 text-xs font-bold transition-all border flex items-center gap-1.5 ${
+                  isSelected
+                    ? "bg-black text-white border-black shadow-xs"
+                    : "bg-[#F8F9FA] text-[#4B5563] border-[#E5E7EB] hover:border-black"
                 }`}
               >
-                {sub === "all" ? "All Subjects" : sub}
+                <School className="w-3.5 h-3.5 text-indigo-500" />
+                <span>{cls.className || cls.classCode}</span>
+                <span className="text-[10px] font-mono text-neutral-400">({cls.classCode})</span>
               </button>
-            ))}
-          </div>
+            );
+          })}
 
-          <div className="text-[11px] text-[#6B7280] font-medium">
-            Showing <strong>{filteredPosts.length}</strong> {chatChannelMode === "global" ? "global" : "classroom"} doubts
-          </div>
+          {classesList.length === 0 && (
+            <span className="text-xs text-[#9CA3AF] italic">
+              {isTeacher ? "No classrooms created yet. Create a class in Teacher Desk to activate class doubt chats." : "No classrooms enrolled yet. Join a classroom with teacher code."}
+            </span>
+          )}
         </div>
       </div>
 
