@@ -16,7 +16,12 @@ import {
   School,
   Globe,
   Users,
-  AlertCircle
+  AlertCircle,
+  Share2,
+  ArrowRight,
+  Trash2,
+  Flag,
+  AlertTriangle
 } from "lucide-react";
 import { api } from "../services/api";
 
@@ -29,6 +34,9 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
   const [selectedChannel, setSelectedChannel] = useState("global"); // "global" | classCode
   const [posts, setPosts] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedSubject, setSelectedSubject] = useState("all");
+  const [selectedGrade, setSelectedGrade] = useState("all");
+  const [sortBy, setSortBy] = useState("unanswered"); // "unanswered" | "newest" | "upvotes" | "most_answers"
   const [activePost, setActivePost] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -47,6 +55,9 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
   const [answerContent, setAnswerContent] = useState("");
   const [isAnswering, setIsAnswering] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
+
+  // Teacher Flag Modal State
+  const [flagModal, setFlagModal] = useState({ open: false, postId: null, answerId: null, reason: "" });
 
   // Load classrooms for the current user
   useEffect(() => {
@@ -206,55 +217,107 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
     try {
       const res = await api.verifyAnswer(postId, answerId);
       if (activePost && activePost.id === postId) {
-        const updatedAnswers = activePost.answers.map(a => {
+        const updatedAnswers = activePost.answers.map((a) => {
           if (a.id === answerId) {
-            return { ...a, isVerified: res.isVerified };
+            return { ...a, isVerified: res.isVerified, isFlagged: false };
           }
           return a;
         });
         const updatedPost = { ...activePost, answers: updatedAnswers };
         setActivePost(updatedPost);
-        setPosts(prev => prev.map(p => p.id === postId ? updatedPost : p));
+        setPosts((prev) => prev.map((p) => (p.id === postId ? updatedPost : p)));
       }
     } catch (err) {
       console.error("Verification failed:", err);
     }
   };
 
-  const filteredPosts = posts.filter(p => {
-    const term = searchQuery.toLowerCase().trim();
-    if (!term) return true;
-    return (
-      p.title?.toLowerCase().includes(term) ||
-      p.content?.toLowerCase().includes(term) ||
-      p.subject?.toLowerCase().includes(term) ||
-      p.authorName?.toLowerCase().includes(term) ||
-      (p.tags && p.tags.some(t => t.toLowerCase().includes(term)))
-    );
-  });
+  const handleFlagAnswerSubmit = async () => {
+    if (!flagModal.postId || !flagModal.answerId) return;
+    try {
+      const res = await api.flagCommunityAnswer(
+        flagModal.postId,
+        flagModal.answerId,
+        currentUser?.name || "Faculty Instructor",
+        flagModal.reason || "Conceptually incorrect or needs critical revision."
+      );
+      if (res?.post) {
+        setActivePost(res.post);
+        setPosts((prev) => prev.map((p) => (p.id === flagModal.postId ? res.post : p)));
+      }
+      setFlagModal({ open: false, postId: null, answerId: null, reason: "" });
+      alert("Answer flagged as incorrect. Warning banner attached for student review.");
+    } catch (err) {
+      alert(err.message || "Failed to flag answer");
+    }
+  };
+
+  const filteredPosts = posts
+    .filter((p) => {
+      // 1. Search Query
+      const term = searchQuery.toLowerCase().trim();
+      if (term) {
+        const matchesSearch =
+          p.title?.toLowerCase().includes(term) ||
+          p.content?.toLowerCase().includes(term) ||
+          p.subject?.toLowerCase().includes(term) ||
+          p.authorName?.toLowerCase().includes(term) ||
+          (p.tags && p.tags.some((t) => t.toLowerCase().includes(term)));
+        if (!matchesSearch) return false;
+      }
+      // 2. Subject Filter
+      if (selectedSubject !== "all") {
+        if (!p.subject || !p.subject.toLowerCase().includes(selectedSubject.toLowerCase())) {
+          return false;
+        }
+      }
+      // 3. Grade Filter
+      if (selectedGrade !== "all") {
+        if (!p.gradeLevel || !p.gradeLevel.toLowerCase().includes(selectedGrade.toLowerCase())) {
+          return false;
+        }
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "unanswered") {
+        const aCount = a.answers?.length || 0;
+        const bCount = b.answers?.length || 0;
+        if (aCount === 0 && bCount > 0) return -1;
+        if (bCount === 0 && aCount > 0) return 1;
+        return (b.upvotes || 0) - (a.upvotes || 0);
+      }
+      if (sortBy === "upvotes") {
+        return (b.upvotes || 0) - (a.upvotes || 0);
+      }
+      if (sortBy === "most_answers") {
+        return (b.answers?.length || 0) - (a.answers?.length || 0);
+      }
+      return 0; // Newest first
+    });
 
   return (
     <div id="community-forum-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5 space-y-5">
       {/* Classroom & Global Channels Switcher Ribbon */}
-      <div className="bg-white border border-[#E5E7EB] p-4 shadow-xs space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F0F2F5] pb-3">
+      <div className="bg-white dark:bg-[#1A1A1A] border border-[#E5E7EB] dark:border-[#2A2A2A] p-4 shadow-xs space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F0F2F5] dark:border-[#2A2A2A] pb-3">
           <div className="flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-black" />
+            <MessageSquare className="w-5 h-5 text-black dark:text-white" />
             <div>
-              <h2 className="text-sm font-bold text-[#1A1A1A]">
+              <h2 className="text-sm font-bold text-[#1A1A1A] dark:text-white">
                 {isTeacher ? "Teacher Classroom Doubts & Global Chat" : "My Classroom Doubts & Global Chat"}
               </h2>
-              <p className="text-[11px] text-[#6B7280]">
+              <p className="text-[11px] text-[#6B7280] dark:text-[#AAA]">
                 {isTeacher
-                  ? "Select any classroom you teach to manage student doubt threads, or access the open national global chat"
-                  : "Select any enrolled classroom for class-specific doubts, or access the open national global chat"}
+                  ? "Manage and answer student doubts by subject & grade level, or access the national global community"
+                  : "Collaborate on questions with classmates and teachers, filtered by your exact subject and class"}
               </p>
             </div>
           </div>
 
           <button
             onClick={() => setShowAskModal(true)}
-            className="flex items-center gap-2 bg-black hover:bg-[#333] text-white text-xs font-semibold px-4 py-2 border border-black transition-colors shadow-xs shrink-0"
+            className="flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black hover:bg-[#333] dark:hover:bg-neutral-200 text-xs font-semibold px-4 py-2 border border-black dark:border-white transition-colors shadow-xs shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span>Ask a Doubt {selectedChannel !== "global" ? `in ${selectedChannel}` : "in Global"}</span>
@@ -273,8 +336,8 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
             onClick={() => setSelectedChannel("global")}
             className={`px-3 py-1.5 text-xs font-bold transition-all border flex items-center gap-1.5 ${
               selectedChannel === "global"
-                ? "bg-black text-white border-black shadow-xs"
-                : "bg-[#F8F9FA] text-[#4B5563] border-[#E5E7EB] hover:border-black"
+                ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white shadow-xs"
+                : "bg-[#F8F9FA] dark:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-[#E5E7EB] dark:border-[#333] hover:border-black"
             }`}
           >
             <Globe className="w-3.5 h-3.5 text-amber-400" />
@@ -291,8 +354,8 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
                 onClick={() => setSelectedChannel(cls.classCode)}
                 className={`px-3 py-1.5 text-xs font-bold transition-all border flex items-center gap-1.5 ${
                   isSelected
-                    ? "bg-black text-white border-black shadow-xs"
-                    : "bg-[#F8F9FA] text-[#4B5563] border-[#E5E7EB] hover:border-black"
+                    ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white shadow-xs"
+                    : "bg-[#F8F9FA] dark:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-[#E5E7EB] dark:border-[#333] hover:border-black"
                 }`}
               >
                 <School className="w-3.5 h-3.5 text-indigo-500" />
@@ -301,12 +364,65 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
               </button>
             );
           })}
+        </div>
 
-          {classesList.length === 0 && (
-            <span className="text-xs text-[#9CA3AF] italic">
-              {isTeacher ? "No classrooms created yet. Create a class in Teacher Desk to activate class doubt chats." : "No classrooms enrolled yet. Join a classroom with teacher code."}
+        {/* Dynamic Multi-Filter Bar: Subject, Grade Level & Sort By */}
+        <div className="pt-2 border-t border-[#F0F2F5] dark:border-[#2A2A2A] flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] uppercase font-bold text-[#9CA3AF] flex items-center gap-1">
+              <Filter className="w-3 h-3" />
+              <span>Filter By:</span>
             </span>
-          )}
+
+            {/* Subject Selector */}
+            <select
+              value={selectedSubject}
+              onChange={(e) => setSelectedSubject(e.target.value)}
+              className="bg-[#F8F9FA] dark:bg-[#252525] border border-[#E5E7EB] dark:border-[#333] text-[#1A1A1A] dark:text-[#E5E7EB] px-2 py-1 text-xs font-medium outline-none cursor-pointer"
+            >
+              <option value="all">All Subjects</option>
+              <option value="Physics">Physics</option>
+              <option value="Chemistry">Chemistry</option>
+              <option value="Mathematics">Mathematics</option>
+              <option value="Biology">Biology</option>
+              <option value="Computer Science">Computer Science & IT</option>
+              <option value="English">English</option>
+              <option value="Social Science">Social Science / History / Geography</option>
+              <option value="Economics">Economics & Commerce</option>
+            </select>
+
+            {/* Grade Selector */}
+            <select
+              value={selectedGrade}
+              onChange={(e) => setSelectedGrade(e.target.value)}
+              className="bg-[#F8F9FA] dark:bg-[#252525] border border-[#E5E7EB] dark:border-[#333] text-[#1A1A1A] dark:text-[#E5E7EB] px-2 py-1 text-xs font-medium outline-none cursor-pointer"
+            >
+              <option value="all">All Class Levels</option>
+              <option value="Class 12">Class 12</option>
+              <option value="Class 11">Class 11</option>
+              <option value="Class 10">Class 10</option>
+              <option value="Class 9">Class 9</option>
+              <option value="Class 8">Class 8</option>
+              <option value="Class 7">Class 7</option>
+              <option value="Class 6">Class 6</option>
+              <option value="Undergraduate">Undergraduate</option>
+            </select>
+          </div>
+
+          {/* Sort By Selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase font-bold text-[#9CA3AF]">Sort Order:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-[#F8F9FA] dark:bg-[#252525] border border-[#E5E7EB] dark:border-[#333] text-[#1A1A1A] dark:text-[#E5E7EB] px-2 py-1 text-xs font-bold outline-none cursor-pointer text-indigo-700 dark:text-indigo-300"
+            >
+              <option value="unanswered">⚡ Unanswered First (Ready to Answer)</option>
+              <option value="newest">🕒 Newest Questions First</option>
+              <option value="upvotes">🔥 Most Upvoted</option>
+              <option value="most_answers">💬 Most Answered</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -515,30 +631,51 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
                           <span className="text-[10px] font-mono text-[#9CA3AF]">{ans.createdAt}</span>
                         </div>
 
-                        <div className="font-mono text-[#1F2937] whitespace-pre-wrap leading-relaxed">
+                        {ans.isFlagged && (
+                          <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 p-2.5 text-xs text-rose-800 dark:text-rose-200 flex items-start gap-2">
+                            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-bold">🚩 Flagged as Inaccurate by Faculty ({ans.flaggedBy || "Instructor"}):</p>
+                              <p className="text-[11px] mt-0.5">{ans.flagReason || "Conceptually flawed or needs critical revision."}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="font-mono text-[#1F2937] dark:text-[#E5E7EB] whitespace-pre-wrap leading-relaxed">
                           {ans.content}
                         </div>
 
-                        <div className="pt-2 border-t border-[#E5E7EB] flex items-center justify-between">
+                        <div className="pt-2 border-t border-[#E5E7EB] dark:border-[#333] flex items-center justify-between">
                           <button
                             onClick={() => handleUpvoteAnswer(activePost.id, ans.id)}
-                            className="flex items-center gap-1 text-[11px] text-[#6B7280] hover:text-black font-semibold"
+                            className="flex items-center gap-1 text-[11px] text-[#6B7280] dark:text-[#AAA] hover:text-black dark:hover:text-white font-semibold"
                           >
                             <ThumbsUp className="w-3 h-3" />
                             <span>Helpful ({ans.upvotes || 0})</span>
                           </button>
 
                           {isTeacher && (
-                            <button
-                              onClick={() => handleVerifyAnswer(activePost.id, ans.id)}
-                              className={`text-[10px] font-bold px-2 py-0.5 border transition-colors ${
-                                ans.isVerified
-                                  ? "bg-emerald-600 text-white border-emerald-600"
-                                  : "bg-white text-[#4B5563] border-[#E5E7EB] hover:border-emerald-600 hover:text-emerald-700"
-                              }`}
-                            >
-                              {ans.isVerified ? "Endorsed by You" : "Endorse / Verify"}
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setFlagModal({ open: true, postId: activePost.id, answerId: ans.id, reason: "" })}
+                                className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 flex items-center gap-1 border border-rose-200 dark:border-rose-900 px-2 py-0.5 bg-rose-50 dark:bg-rose-950/20"
+                                title="Flag answer as incorrect"
+                              >
+                                <Flag className="w-3 h-3" />
+                                <span>Flag Incorrect</span>
+                              </button>
+                              <button
+                                onClick={() => handleVerifyAnswer(activePost.id, ans.id)}
+                                className={`text-[10px] font-bold px-2 py-0.5 border transition-colors ${
+                                  ans.isVerified
+                                    ? "bg-emerald-600 text-white border-emerald-600"
+                                    : "bg-white dark:bg-[#1E1E1E] text-[#4B5563] dark:text-[#CCC] border-[#E5E7EB] dark:border-[#333] hover:border-emerald-600 hover:text-emerald-700"
+                                }`}
+                              >
+                                {ans.isVerified ? "Endorsed by You" : "Endorse / Verify"}
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -687,6 +824,63 @@ export const CommunityForum = ({ currentUser, currentStudent, currentTeacher, on
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Teacher Flag Modal */}
+      {flagModal.open && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white dark:bg-[#1A1A1A] border-2 border-rose-600 max-w-md w-full p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#333] pb-3">
+              <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                <AlertTriangle className="w-5 h-5" />
+                <h3 className="font-bold text-sm text-[#1A1A1A] dark:text-white">Flag Answer as Incorrect</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFlagModal({ open: false, postId: null, answerId: null, reason: "" })}
+                className="text-xs text-[#6B7280] hover:text-black dark:hover:text-white font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <p className="text-[#4B5563] dark:text-[#CCC] leading-relaxed">
+                As a faculty instructor, flagging this answer will attach an official warning banner and remove any verification badges.
+              </p>
+
+              <div>
+                <label className="font-bold text-[#1A1A1A] dark:text-white block mb-1">
+                  Reason for Flagging / Instructor Note:
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="e.g., Formula applied incorrectly in step 2; missing negative sign in EMF equation..."
+                  value={flagModal.reason}
+                  onChange={(e) => setFlagModal({ ...flagModal, reason: e.target.value })}
+                  className="w-full bg-[#F8F9FA] dark:bg-[#252525] border border-[#E5E7EB] dark:border-[#333] p-2.5 text-xs text-[#1A1A1A] dark:text-white outline-none focus:border-rose-600"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E5E7EB] dark:border-[#333]">
+              <button
+                type="button"
+                onClick={() => setFlagModal({ open: false, postId: null, answerId: null, reason: "" })}
+                className="px-3 py-1.5 text-xs font-semibold text-[#4B5563] dark:text-[#AAA] border border-[#E5E7EB] dark:border-[#333] hover:bg-[#F3F4F6] dark:hover:bg-[#252525]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleFlagAnswerSubmit}
+                className="px-4 py-1.5 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors"
+              >
+                Confirm Flag
+              </button>
+            </div>
           </div>
         </div>
       )}

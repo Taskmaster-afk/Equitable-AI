@@ -30,6 +30,7 @@ import {
   createClass,
   updateClass,
   deleteClass,
+  studentLeaveClass,
   getClassroomResources,
   getAllClassroomResources,
   createClassroomResource,
@@ -46,6 +47,7 @@ import {
   upvotePost,
   upvoteAnswer,
   verifyAnswer,
+  flagCommunityAnswer,
   createClassInvite,
   getStudentPendingInvites,
   getTeacherClassInvites,
@@ -1047,9 +1049,9 @@ function seedInitialData() {
       email: "rohan.das@student.edu.in",
       password: hashPassword("password123"),
       role: "student",
-      classCode: "NCERT-10A",
+      classCode: "",
       studentClass: "Class 10",
-      classInfo: sampleClass10A,
+      classInfo: null,
       gradeLevel: "Grade 9-10",
       institute: "Kendriya Vidyalaya No. 1, Model Cluster",
       school: "Kendriya Vidyalaya No. 1, Model Cluster",
@@ -2785,6 +2787,25 @@ app.post("/api/teacher/delete-class", async (req, res) => {
   }
 });
 
+// Student Leave Classroom
+app.post("/api/student/leave-class", async (req, res) => {
+  const { studentId, classCode } = req.body;
+  if (!studentId || !classCode) {
+    return res.status(400).json({ error: "Student ID and Classroom Code are required." });
+  }
+  try {
+    const result = await studentLeaveClass(studentId, classCode);
+    res.json({
+      success: true,
+      message: `Successfully left classroom ${classCode}`,
+      student: result.student,
+      classes: result.classes
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to leave classroom." });
+  }
+});
+
 // Update student school
 app.post("/api/student/update-school", async (req, res) => {
   const { studentId, school } = req.body;
@@ -3655,6 +3676,22 @@ app.post("/api/community/posts/:id/answers/:answerId/verify", async (req, res) =
   await verifyAnswer(postId, answerId, nextVerified);
 
   res.json({ isVerified: nextVerified, message: nextVerified ? "Answer verified by teacher!" : "Verification removed." });
+});
+
+// Teacher flag wrong answer
+app.post("/api/community/posts/:postId/answers/:answerId/flag", async (req, res) => {
+  const { postId, answerId } = req.params;
+  const { teacherName, reason } = req.body;
+  try {
+    const updated = await flagCommunityAnswer(postId, answerId, teacherName, reason);
+    res.json({
+      success: true,
+      message: "Answer flagged as incorrect by faculty instructor.",
+      post: updated
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to flag answer." });
+  }
 });
 
 app.get("/api/oer/corpus", (req, res) => {

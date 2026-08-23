@@ -44,6 +44,8 @@ export const OerLibrary = ({ currentStudent, currentTeacher, onNavigateToTutor, 
   const [selectedDump, setSelectedDump] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDumps, setIsLoadingDumps] = useState(false);
+  const [contributorModal, setContributorModal] = useState(null);
+  const [hoveredContributor, setHoveredContributor] = useState(null);
 
   // Upload Dump Modal
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -262,11 +264,15 @@ export const OerLibrary = ({ currentStudent, currentTeacher, onNavigateToTutor, 
           role,
           institute,
           totalUploads: 0,
-          verifiedUploads: 0
+          verifiedUploads: 0,
+          uploads: [],
+          subjects: new Set()
         });
       }
       const item = map.get(author);
       item.totalUploads += 1;
+      item.uploads.push(d);
+      if (d.subject) item.subjects.add(d.subject);
       if (isVer) {
         item.verifiedUploads += 1;
       }
@@ -492,20 +498,27 @@ export const OerLibrary = ({ currentStudent, currentTeacher, onNavigateToTutor, 
                 return (
                   <div
                     key={contributor.name}
-                    className={`bg-white border p-3 flex flex-col justify-between gap-2.5 transition-all hover:shadow-xs ${
-                      isGold ? "border-amber-400 ring-1 ring-amber-200" : "border-[#E5E7EB]"
+                    onClick={() => setContributorModal(contributor)}
+                    onMouseEnter={() => setHoveredContributor(contributor.name)}
+                    onMouseLeave={() => setHoveredContributor(null)}
+                    className={`bg-white dark:bg-[#1A1A1A] border p-3 flex flex-col justify-between gap-2.5 transition-all cursor-pointer hover:shadow-md ${
+                      isGold ? "border-amber-400 ring-1 ring-amber-200" : "border-[#E5E7EB] dark:border-[#2A2A2A] hover:border-black dark:hover:border-white"
                     }`}
+                    title="Click to view detailed contributor statistics and uploaded study materials"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2 overflow-hidden">
                         <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs font-mono shrink-0 ${
-                          contributor.role === "teacher" ? "bg-black text-white" : "bg-emerald-600 text-white"
+                          contributor.role === "teacher" ? "bg-black text-white dark:bg-white dark:text-black" : "bg-emerald-600 text-white"
                         }`}>
                           {contributor.name.slice(0, 1).toUpperCase()}
                         </div>
                         <div className="truncate">
-                          <div className="font-bold text-xs text-[#1A1A1A] truncate">{contributor.name}</div>
-                          <div className="text-[10px] text-[#6B7280] capitalize truncate">{contributor.role} &bull; {contributor.institute}</div>
+                          <div className="font-bold text-xs text-[#1A1A1A] dark:text-white truncate flex items-center gap-1">
+                            <span>{contributor.name}</span>
+                            <span className="text-[9px] text-indigo-600 dark:text-indigo-400 font-mono font-normal">🔍</span>
+                          </div>
+                          <div className="text-[10px] text-[#6B7280] dark:text-[#AAA] capitalize truncate">{contributor.role} &bull; {contributor.institute}</div>
                         </div>
                       </div>
                       <span className={`text-[10px] font-mono px-1.5 py-0.2 border shrink-0 ${medalColor}`}>
@@ -513,13 +526,13 @@ export const OerLibrary = ({ currentStudent, currentTeacher, onNavigateToTutor, 
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#F0F2F5]">
-                      <span className="text-emerald-700 font-bold flex items-center gap-1">
+                    <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#F0F2F5] dark:border-[#2A2A2A]">
+                      <span className="text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                         <span>{contributor.verifiedUploads} Verified</span>
                       </span>
-                      <span className="text-[#6B7280] font-mono text-[10px]">
-                        {contributor.totalUploads} total
+                      <span className="text-[#6B7280] dark:text-[#AAA] font-mono text-[10px]">
+                        {contributor.totalUploads} total &bull; View details &rarr;
                       </span>
                     </div>
                   </div>
@@ -1167,13 +1180,104 @@ export const OerLibrary = ({ currentStudent, currentTeacher, onNavigateToTutor, 
       {/* ZOOMED MEDIA MODAL */}
       {zoomedMedia && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setZoomedMedia(null)}>
-          <div className="bg-white p-4 max-w-4xl max-h-[90vh] overflow-auto rounded space-y-2" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b pb-2">
-              <h4 className="font-bold text-sm text-[#1A1A1A]">{zoomedMedia.title}</h4>
-              <button onClick={() => setZoomedMedia(null)} className="text-xl font-bold">&times;</button>
+          <div className="bg-white dark:bg-[#1A1A1A] p-4 max-w-4xl max-h-[90vh] overflow-auto rounded space-y-2" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#333] pb-2">
+              <h4 className="font-bold text-sm text-[#1A1A1A] dark:text-white">{zoomedMedia.title}</h4>
+              <button onClick={() => setZoomedMedia(null)} className="text-xl font-bold text-[#6B7280] dark:text-[#AAA]">&times;</button>
             </div>
             <div className="flex items-center justify-center bg-black/5 p-2">
               <img src={zoomedMedia.url} alt={zoomedMedia.title} className="max-h-[75vh] object-contain" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONTRIBUTOR PROFILE & CONTRIBUTIONS MODAL */}
+      {contributorModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setContributorModal(null)}>
+          <div className="bg-white dark:bg-[#1A1A1A] border-2 border-black dark:border-white max-w-2xl w-full p-6 space-y-4 shadow-2xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between border-b border-[#E5E7EB] dark:border-[#333] pb-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg font-mono text-white ${
+                  contributorModal.role === "teacher" ? "bg-black dark:bg-white dark:text-black" : "bg-emerald-600"
+                }`}>
+                  {contributorModal.name.slice(0, 1).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-[#1A1A1A] dark:text-white flex items-center gap-2">
+                    <span>{contributorModal.name}</span>
+                    <span className={`text-[10px] uppercase font-mono px-2 py-0.5 font-bold ${
+                      contributorModal.role === "teacher" ? "bg-black text-white dark:bg-white dark:text-black" : "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200"
+                    }`}>
+                      {contributorModal.role}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-[#6B7280] dark:text-[#AAA]">
+                    🏫 {contributorModal.institute}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setContributorModal(null)}
+                className="text-xs text-[#6B7280] hover:text-black dark:hover:text-white font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Contributor Stats Badges */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="p-3 bg-[#F8F9FA] dark:bg-[#222] border border-[#E5E7EB] dark:border-[#333] text-center space-y-0.5">
+                <span className="text-[10px] uppercase font-bold text-[#9CA3AF]">Verified Uploads</span>
+                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400 font-mono">{contributorModal.verifiedUploads}</p>
+              </div>
+              <div className="p-3 bg-[#F8F9FA] dark:bg-[#222] border border-[#E5E7EB] dark:border-[#333] text-center space-y-0.5">
+                <span className="text-[10px] uppercase font-bold text-[#9CA3AF]">Total Deposits</span>
+                <p className="text-lg font-bold text-[#1A1A1A] dark:text-white font-mono">{contributorModal.totalUploads}</p>
+              </div>
+              <div className="p-3 bg-[#F8F9FA] dark:bg-[#222] border border-[#E5E7EB] dark:border-[#333] text-center space-y-0.5">
+                <span className="text-[10px] uppercase font-bold text-[#9CA3AF]">Academic Subjects</span>
+                <p className="text-sm font-bold text-indigo-700 dark:text-indigo-400 font-mono mt-1">
+                  {contributorModal.subjects ? Array.from(contributorModal.subjects).join(", ") || "General" : "Physics, Chemistry"}
+                </p>
+              </div>
+            </div>
+
+            {/* List of Uploaded Study Materials */}
+            <div className="space-y-2 pt-2">
+              <h4 className="font-bold text-xs uppercase tracking-wider text-[#1A1A1A] dark:text-white">
+                Contributed Study Materials & Resources ({contributorModal.uploads?.length || 0})
+              </h4>
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {(contributorModal.uploads || []).map((u) => (
+                  <div
+                    key={u.id}
+                    onClick={() => {
+                      setSelectedDump(u);
+                      setContributorModal(null);
+                    }}
+                    className="p-3 bg-[#F9FAFB] dark:bg-[#252525] border border-[#E5E7EB] dark:border-[#333] hover:border-black dark:hover:border-white cursor-pointer transition-all flex items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-bold text-xs text-[#1A1A1A] dark:text-white truncate">{u.title}</div>
+                      <div className="text-[10px] text-[#6B7280] dark:text-[#AAA]">
+                        {u.subject} &bull; {u.gradeLevel} &bull; {u.mediaType?.toUpperCase() || "TEXT"}
+                      </div>
+                    </div>
+                    {u.isVerified ? (
+                      <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 text-[10px] font-bold px-2 py-0.5 border border-emerald-200 dark:border-emerald-800 shrink-0 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span>Verified</span>
+                      </span>
+                    ) : (
+                      <span className="bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 text-[10px] font-bold px-2 py-0.5 border border-amber-200 dark:border-amber-800 shrink-0">
+                        Pending Verification
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

@@ -419,6 +419,47 @@ export async function deleteClass(classCode, teacherId) {
   return true;
 }
 
+export async function studentLeaveClass(studentId, classCode) {
+  const code = (classCode || "").toUpperCase().trim();
+  const student = inMemDb.students.get(studentId);
+  const cls = inMemDb.classes.get(code);
+
+  if (student) {
+    student.enrolledClassCodes = (student.enrolledClassCodes || []).filter(c => c.toUpperCase() !== code);
+    if (student.classCode?.toUpperCase() === code) {
+      student.classCode = student.enrolledClassCodes.length > 0 ? student.enrolledClassCodes[0] : "";
+    }
+  }
+
+  if (cls) {
+    if (cls.enrolledStudentIds) {
+      cls.enrolledStudentIds = cls.enrolledStudentIds.filter(id => id !== studentId);
+    }
+    if (cls.enrolledStudents) {
+      cls.enrolledStudents = cls.enrolledStudents.filter(s => s.studentId !== studentId && s.studentEmail !== student?.email);
+      cls.enrolledCount = cls.enrolledStudents.length;
+    }
+  }
+
+  if (isMongoConnected()) {
+    await Student.findOneAndUpdate(
+      { id: studentId },
+      { $pull: { enrolledClassCodes: code } }
+    ).catch(() => {});
+    await ClassModel.findOneAndUpdate(
+      { classCode: code },
+      { $pull: { enrolledStudentIds: studentId, enrolledStudents: { studentId } } }
+    ).catch(() => {});
+  }
+
+  const studentClasses = student ? await getStudentEnrolledClasses(student.id, student.email) : [];
+  return {
+    success: true,
+    student,
+    classes: studentClasses
+  };
+}
+
 // -------------------------------------------------------------
 // CLASSROOM RESOURCES (Notes, PDF, Video OCR)
 // -------------------------------------------------------------
@@ -940,6 +981,37 @@ export async function verifyAnswer(postId, answerId, isTeacher) {
     return await CommunityPost.findOneAndUpdate(
       { id: postId, "answers.id": answerId },
       { $set: { "answers.$.isTeacherVerified": isTeacher } },
+      { new: true }
+    ).lean();
+  }
+  return postInMem;
+}
+
+export async function flagCommunityAnswer(postId, answerId, teacherName, reason) {
+  const postInMem = inMemDb.communityPosts.find(p => p.id === postId);
+  if (postInMem && postInMem.answers) {
+    const ans = postInMem.answers.find(a => a.id === answerId);
+    if (ans) {
+      ans.isFlagged = true;
+      ans.flaggedBy = teacherName || "Faculty Instructor";
+      ans.flagReason = reason || "Conceptually incorrect or needs critical revision.";
+      ans.flaggedAt = new Date().toISOString();
+      ans.isTeacherVerified = false;
+    }
+  }
+
+  if (isMongoConnected()) {
+    return await CommunityPost.findOneAndUpdate(
+      { id: postId, "answers.id": answerId },
+      {
+        $set: {
+          "answers.$.isFlagged": true,
+          "answers.$.flaggedBy": teacherName || "Faculty Instructor",
+          "answers.$.flagReason": reason || "Conceptually incorrect or needs critical revision.",
+          "answers.$.flaggedAt": new Date().toISOString(),
+          "answers.$.isTeacherVerified": false
+        }
+      },
       { new: true }
     ).lean();
   }

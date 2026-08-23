@@ -370,54 +370,6 @@ You can ask any doubt in Physics, Chemistry, Mathematics, or Biology across Clas
 
   return (
     <div id="doubt-solver-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5">
-      {/* Clean Quick-Topic Selector Ribbon */}
-      <div className="bg-white border border-[#E5E7EB] p-3 mb-4 flex flex-col gap-2.5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-black" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#1A1A1A]">
-              Curriculum & Classroom Topic Prompts:
-            </span>
-          </div>
-
-          {/* Subject Categories Tabs */}
-          <div className="flex flex-wrap gap-1.5">
-            {SAMPLE_CURRICULUM_CATEGORIES.map((cat, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  setActiveCategoryIndex(idx);
-                  setGradeLevel(cat.grade);
-                }}
-                className={`text-[11px] px-2.5 py-1 border transition-colors font-medium ${
-                  activeCategoryIndex === idx
-                    ? "bg-black text-white border-black font-semibold"
-                    : "bg-[#F8F9FA] text-[#4B5563] border-[#E5E7EB] hover:bg-[#E5E7EB]"
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Selected Category Sample Doubts */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#F0F2F5]">
-          <span className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-bold">
-            Try Sample:
-          </span>
-          {(SAMPLE_CURRICULUM_CATEGORIES[activeCategoryIndex]?.doubts || []).map((s, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleSelectSample(s)}
-              className="text-xs bg-[#F8F9FA] hover:bg-white text-[#1A1A1A] px-2.5 py-1 border border-[#E5E7EB] hover:border-black transition-colors text-left font-medium"
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Main 2-Column Clean Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Chat / Doubt Workspace (8 Columns) */}

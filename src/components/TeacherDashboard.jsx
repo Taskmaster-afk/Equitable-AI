@@ -1203,32 +1203,6 @@ export const TeacherDashboard = ({
                 </div>
               </div>
 
-              {/* Custom Subjects Badges */}
-              <div className="space-y-1.5 pt-1">
-                <label className="font-bold text-[#374151] flex items-center justify-between">
-                  <span>Classroom Syllabus Modules & Subjects</span>
-                  <span className="text-[10px] text-[#6B7280] font-normal font-mono">{customSubjects.length} subjects</span>
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {customSubjects.map((sub) => (
-                    <span
-                      key={sub}
-                      className="inline-flex items-center gap-1 bg-black text-white px-2.5 py-1 text-[11px] font-semibold"
-                    >
-                      <span>{sub}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveCustomSubject(sub)}
-                        className="text-white/70 hover:text-white text-xs font-bold ml-1"
-                        title="Remove"
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
               <div className="p-2.5 bg-emerald-50 border border-emerald-300 text-[11px] text-emerald-900 space-y-1">
                 <div className="font-bold flex items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />

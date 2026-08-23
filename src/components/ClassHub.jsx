@@ -323,6 +323,34 @@ export const ClassHub = ({
     }
   };
 
+  const handleLeaveCurrentClass = async () => {
+    if (!currentStudent?.id || !classCode) return;
+    const confirmLeave = window.confirm(`Are you sure you want to leave classroom "${info?.className || classCode}"? You will be removed from this classroom's roster.`);
+    if (!confirmLeave) return;
+
+    try {
+      await api.leaveClass(currentStudent.id, classCode);
+      alert(`You have successfully left classroom ${classCode}.`);
+      window.location.reload();
+    } catch (err) {
+      alert(err.message || "Failed to leave classroom.");
+    }
+  };
+
+  const handleDeleteCurrentClass = async () => {
+    if (!classCode) return;
+    const confirmDel = window.confirm(`⚠️ WARNING: Are you sure you want to delete classroom "${info?.className || classCode}" (${classCode})? All classroom announcements, resources, and roster data will be permanently removed.`);
+    if (!confirmDel) return;
+
+    try {
+      await api.deleteClass(classCode, currentTeacher?.id);
+      alert(`Classroom ${classCode} deleted successfully.`);
+      window.location.reload();
+    } catch (err) {
+      alert(err.message || "Failed to delete classroom.");
+    }
+  };
+
   const handleVerifyResource = async (id) => {
     if (!isTeacher) return;
     try {
@@ -701,23 +729,43 @@ export const ClassHub = ({
 
           <div className="flex items-center gap-2 flex-wrap">
             {!isTeacher && (
-              <button
-                onClick={() => setShowJoinModal(true)}
-                className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 border border-indigo-600 transition-colors shadow-xs"
-                title="Join a classroom using the code provided by your teacher"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>+ Join Classroom Code</span>
-              </button>
+              <>
+                <button
+                  onClick={() => setShowJoinModal(true)}
+                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 border border-indigo-600 transition-colors shadow-xs"
+                  title="Join a classroom using the code provided by your teacher"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>+ Join Classroom Code</span>
+                </button>
+                <button
+                  onClick={handleLeaveCurrentClass}
+                  className="flex items-center gap-1.5 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-semibold px-2.5 py-2 border border-rose-300 dark:border-rose-800 transition-colors"
+                  title="Leave this classroom"
+                >
+                  <LogOut className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Leave Classroom</span>
+                </button>
+              </>
             )}
             {isTeacher && (
-              <button
-                onClick={() => setShowAnnounceModal(true)}
-                className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-2 border border-amber-600 transition-colors"
-              >
-                <Megaphone className="w-3.5 h-3.5" />
-                <span>+ Broadcast Announcement</span>
-              </button>
+              <>
+                <button
+                  onClick={() => setShowAnnounceModal(true)}
+                  className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-2 border border-amber-600 transition-colors"
+                >
+                  <Megaphone className="w-3.5 h-3.5" />
+                  <span>+ Broadcast Announcement</span>
+                </button>
+                <button
+                  onClick={handleDeleteCurrentClass}
+                  className="flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-2.5 py-2 border border-rose-600 transition-colors"
+                  title="Delete this classroom and remove roster"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Class</span>
+                </button>
+              </>
             )}
             <button
               onClick={() => onNavigateToCommunity ? onNavigateToCommunity() : (window.location.hash = "#community")}
@@ -744,17 +792,8 @@ export const ClassHub = ({
           </div>
         </div>
 
-        {/* Subjects & AI Grounding Notice */}
+        {/* AI Grounding Notice */}
         <div className="pt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] uppercase font-bold text-[#9CA3AF]">Core Subjects:</span>
-            {(info?.subjects || ["Physics", "Chemistry", "Mathematics", "Biology"]).map((sub) => (
-              <span key={sub} className="bg-[#F3F4F6] border border-[#E5E7EB] px-2 py-0.5 text-xs font-semibold text-[#1A1A1A]">
-                {sub}
-              </span>
-            ))}
-          </div>
-
           <div className="flex items-center gap-1.5 text-emerald-700 text-xs font-medium">
             <Sparkles className="w-4 h-4 text-emerald-600" />
             <span>AI Multimodal Engine reads notes, circulars & doubt threads for personalized explanations</span>
@@ -1060,48 +1099,76 @@ export const ClassHub = ({
 
       {/* TAB 3: CLASSMATES IN MY SECTION ROSTER */}
       {activeSubTab === "roster" && (
-        <div className="bg-white border border-[#E5E7EB] p-5 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F0F2F5] pb-3">
+        <div className="bg-white dark:bg-[#1A1A1A] border border-[#E5E7EB] dark:border-[#2A2A2A] p-5 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F0F2F5] dark:border-[#2A2A2A] pb-3">
             <div>
               <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-black" />
-                <h3 className="font-bold text-sm text-[#1A1A1A]">Classmates Roster</h3>
+                <Users className="w-4 h-4 text-black dark:text-white" />
+                <h3 className="font-bold text-sm text-[#1A1A1A] dark:text-white">
+                  {isTeacher ? "Classroom Student Roster" : `Classmates in Your Section (${studentSection || "Section A"})`}
+                </h3>
               </div>
-              <p className="text-xs text-[#6B7280]">
-                Students enrolled in <strong>{info?.className || `Class ${classCode}`}</strong>.
+              <p className="text-xs text-[#6B7280] dark:text-[#AAA]">
+                {isTeacher
+                  ? `Students enrolled in ${info?.className || `Class ${classCode}`}`
+                  : `Showing classmates belonging strictly to your assigned section (${studentSection || "Section A"}).`}
               </p>
             </div>
 
-            <div className="flex items-center gap-1.5">
-              {["all", "Section A", "Section B", "Section C", "Section D"].map((sec) => (
-                <button
-                  key={sec}
-                  onClick={() => setSelectedRosterSection(sec)}
-                  className={`px-2.5 py-1 text-xs font-bold border transition-colors ${selectedRosterSection === sec ? "bg-black text-white border-black" : "bg-[#F8F9FA] text-[#4B5563] border-[#E5E7EB]"}`}
-                >
-                  {sec === "all" ? "All Sections" : sec}
-                </button>
-              ))}
-            </div>
+            {isTeacher && (
+              <div className="flex items-center gap-1.5">
+                {["all", "Section A", "Section B", "Section C", "Section D"].map((sec) => (
+                  <button
+                    key={sec}
+                    onClick={() => setSelectedRosterSection(sec)}
+                    className={`px-2.5 py-1 text-xs font-bold border transition-colors ${
+                      selectedRosterSection === sec
+                        ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white"
+                        : "bg-[#F8F9FA] dark:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-[#E5E7EB] dark:border-[#333]"
+                    }`}
+                  >
+                    {sec === "all" ? "All Sections" : sec}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {classmates
-              .filter(s => selectedRosterSection === "all" || s.section === selectedRosterSection || (!s.section && selectedRosterSection === "Section A"))
+              .filter((s) => {
+                if (!isTeacher) {
+                  // Student strictly sees ONLY their own section
+                  const mySec = studentSection || "Section A";
+                  return s.section === mySec || (!s.section && mySec === "Section A");
+                }
+                return (
+                  selectedRosterSection === "all" ||
+                  s.section === selectedRosterSection ||
+                  (!s.section && selectedRosterSection === "Section A")
+                );
+              })
               .map((student) => (
-                <div key={student.studentId} className="border border-[#E5E7EB] p-3.5 bg-[#F9FAFB] space-y-2">
+                <div
+                  key={student.studentId}
+                  className="border border-[#E5E7EB] dark:border-[#2A2A2A] p-3.5 bg-[#F9FAFB] dark:bg-[#222222] space-y-2"
+                >
                   <div className="flex items-start justify-between">
                     <div>
-                      <h4 className="font-bold text-xs text-[#1A1A1A]">{student.studentName}</h4>
-                      <span className="text-[10px] text-[#6B7280] font-mono">{student.studentEmail || student.email}</span>
+                      <h4 className="font-bold text-xs text-[#1A1A1A] dark:text-white">{student.studentName}</h4>
+                      <span className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF] font-mono">
+                        {student.studentEmail || student.email}
+                      </span>
                     </div>
-                    <span className="bg-indigo-100 text-indigo-800 text-[10px] font-bold px-2 py-0.5 border border-indigo-200">
+                    <span className="bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-200 text-[10px] font-bold px-2 py-0.5 border border-indigo-200 dark:border-indigo-800">
                       {student.section || "Section A"}
                     </span>
                   </div>
-                  <div className="text-[11px] text-[#4B5563] pt-1.5 border-t border-[#E5E7EB] flex items-center justify-between">
-                    <span>Grade: <strong>{student.gradeLevel || info?.grade || "Class 10"}</strong></span>
-                    <span className="text-emerald-700 font-semibold">Active Learner</span>
+                  <div className="text-[11px] text-[#4B5563] dark:text-[#AAA] pt-1.5 border-t border-[#E5E7EB] dark:border-[#333] flex items-center justify-between">
+                    <span>
+                      Grade: <strong>{student.gradeLevel || info?.grade || "Class 10"}</strong>
+                    </span>
+                    <span className="text-emerald-700 dark:text-emerald-400 font-semibold">Active Learner</span>
                   </div>
                 </div>
               ))}

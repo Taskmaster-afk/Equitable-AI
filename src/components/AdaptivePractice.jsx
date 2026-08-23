@@ -11,6 +11,29 @@ import {
   Zap
 } from "lucide-react";
 import { api } from "../services/api";
+const CURRICULUM_PRACTICE_TOPICS = [
+  { id: "calculus-integrals", name: "Calculus: Integration by Parts & Integrals", subject: "Mathematics", grade: "Class 12" },
+  { id: "matrices-determinants", name: "Matrices & Determinants (Inverses & Adjoint)", subject: "Mathematics", grade: "Class 12" },
+  { id: "calculus-derivatives", name: "Derivatives from First Principle & Limits", subject: "Mathematics", grade: "Class 11-12" },
+  { id: "vectors-3d", name: "Vectors & 3D Geometry (Shortest Distance)", subject: "Mathematics", grade: "Class 12" },
+  { id: "quadratic-equations", name: "Quadratic Equations & Discriminant Formula", subject: "Mathematics", grade: "Class 10" },
+  { id: "wave-optics", name: "Wave Optics: Young's Double Slit & Fringe Width", subject: "Physics", grade: "Class 12" },
+  { id: "projectile-motion", name: "Kinematics: 2D Projectile Range & Max Height", subject: "Physics", grade: "Class 11" },
+  { id: "current-electricity", name: "Current Electricity: Kirchhoff's Loop Laws", subject: "Physics", grade: "Class 12" },
+  { id: "electromagnetism", name: "Electromagnetism: Faraday & Lenz's Induction", subject: "Physics", grade: "Class 12" },
+  { id: "newton-laws", name: "Laws of Motion & Rate of Momentum Change", subject: "Physics", grade: "Class 9-10" },
+  { id: "optics-mirrors", name: "Ray Optics: Mirror Formula & Lens Sign Convention", subject: "Physics", grade: "Class 10" },
+  { id: "organic-haloalkanes", name: "Organic: SN1 vs SN2 Nucleophilic Substitution", subject: "Chemistry", grade: "Class 12" },
+  { id: "electrochemistry", name: "Electrochemistry: Nernst Equation & Cell Potential", subject: "Chemistry", grade: "Class 12" },
+  { id: "chemical-bonding", name: "Chemical Bonding: VSEPR, Hybridization & Bond Angle", subject: "Chemistry", grade: "Class 11" },
+  { id: "coordination-chemistry", name: "Coordination Compounds & Crystal Field Splitting", subject: "Chemistry", grade: "Class 12" },
+  { id: "genetics-dna", name: "Genetics: Meselson-Stahl DNA Replication", subject: "Biology", grade: "Class 12" },
+  { id: "biotechnology", name: "Biotechnology: Recombinant DNA & Restriction Enzymes", subject: "Biology", grade: "Class 12" },
+  { id: "photosynthesis-calvin", name: "Photosynthesis: Light Reactions & Calvin Cycle", subject: "Biology", grade: "Class 11" },
+  { id: "digestive-system", name: "Human Physiology: Digestive Enzymes & Emulsification", subject: "Biology", grade: "Class 10" },
+  { id: "data-structures", name: "Computer Science: Stacks, Queues & Algorithms", subject: "Computer Science", grade: "Class 11-12" }
+];
+
 export const AdaptivePractice = ({
   currentStudent,
   onUpdateStudent,
@@ -21,20 +44,23 @@ export const AdaptivePractice = ({
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTopicId, setActiveTopicId] = useState(
-    preselectedTopicId || currentStudent?.masteryList[0]?.topicId || "calculus-integrals"
+    preselectedTopicId || currentStudent?.masteryList?.[0]?.topicId || "calculus-integrals"
   );
   const [sessionStreak, setSessionStreak] = useState(0);
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState("all");
   const [showExplanation, setShowExplanation] = useState(false);
+
   const loadNextQuestion = async (topicId, forcedDifficulty) => {
     setIsLoading(true);
     setSelectedOptionIndex(null);
     setIsAnswerSubmitted(false);
     setShowExplanation(false);
+    const targetTopicId = topicId || activeTopicId;
+    setActiveTopicId(targetTopicId);
     try {
       const res = await api.generatePractice({
         studentId: currentStudent?.id || "student-1",
-        topicId: topicId || activeTopicId,
+        topicId: targetTopicId,
         requestedDifficulty: forcedDifficulty
       });
       setCurrentQuestion(res.question);
@@ -47,9 +73,16 @@ export const AdaptivePractice = ({
       setIsLoading(false);
     }
   };
+
   useEffect(() => {
-    loadNextQuestion();
+    loadNextQuestion(activeTopicId);
   }, [currentStudent?.id]);
+
+  const handleSelectTopicFromPicker = (tId) => {
+    setActiveTopicId(tId);
+    loadNextQuestion(tId);
+  };
+
   const handleSubmitAnswer = async () => {
     if (selectedOptionIndex === null || !currentQuestion || isAnswerSubmitted) return;
     const isCorrect = selectedOptionIndex === currentQuestion.correctOptionIndex;
@@ -74,51 +107,106 @@ export const AdaptivePractice = ({
       console.error("Error recording answer:", err);
     }
   };
+
   const getDifficultyBadge = (difficulty) => {
     switch (difficulty) {
       case "Foundational":
-        return <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">Level 1 &bull; Foundational</span>;
+        return <span className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">Level 1 &bull; Foundational</span>;
       case "Intermediate":
-        return <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">Level 2 &bull; Intermediate</span>;
+        return <span className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">Level 2 &bull; Intermediate</span>;
       case "Advanced":
-        return <span className="bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">Level 3 &bull; Advanced</span>;
+        return <span className="bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">Level 3 &bull; Advanced</span>;
       default:
         return null;
     }
   };
+
   const filteredTopics = (currentStudent?.masteryList || []).filter((topic) => {
     if (selectedSubjectFilter === "all") return true;
     return topic.subject.toLowerCase() === selectedSubjectFilter.toLowerCase();
   });
-  return <div id="adaptive-practice-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5">
-      {
-    /* Streamlined Header */
-  }
-      <div className="bg-white border border-[#E5E7EB] p-4 mb-5 flex flex-wrap items-center justify-between gap-4">
+
+  return (
+    <div id="adaptive-practice-container" className="max-w-7xl mx-auto px-4 sm:px-8 py-5 space-y-5">
+      {/* Streamlined Header */}
+      <div className="bg-white dark:bg-[#1A1A1A] border border-[#E5E7EB] dark:border-[#2A2A2A] p-4 flex flex-wrap items-center justify-between gap-4">
         <div>
           <span className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-bold block mb-0.5">
             Adaptive Diagnostic Engine
           </span>
-          <h2 className="text-lg font-bold text-[#1A1A1A] tracking-tight">
-            Class 11–12 & Secondary Adaptive Practice Ladder
+          <h2 className="text-lg font-bold text-[#1A1A1A] dark:text-white tracking-tight">
+            Curriculum Adaptive Practice & Diagnostic Ladder
           </h2>
-          <p className="text-xs text-[#6B7280] mt-0.5">
-            Real-time difficulty adjustment that automatically identifies concept gaps and provides prerequisite scaffolding.
+          <p className="text-xs text-[#6B7280] dark:text-[#AAA] mt-0.5">
+            Select any syllabus topic to practice diagnostic problems with automatic prerequisite step-down scaffolding.
           </p>
         </div>
 
-        {
-    /* Live Counters */
-  }
-        <div className="flex items-center gap-3 bg-[#F8F9FA] border border-[#E5E7EB] px-3 py-1.5 text-xs">
-          <div className="flex items-center gap-1.5 font-bold text-[#1A1A1A]">
+        {/* Live Counters */}
+        <div className="flex items-center gap-3 bg-[#F8F9FA] dark:bg-[#222] border border-[#E5E7EB] dark:border-[#333] px-3 py-1.5 text-xs">
+          <div className="flex items-center gap-1.5 font-bold text-[#1A1A1A] dark:text-white">
             <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
             <span>Streak: {sessionStreak}</span>
           </div>
-          <span className="text-[#D1D5DB]">|</span>
-          <span className="text-[#6B7280]">
-            Completed: <strong className="text-black font-mono">{currentStudent?.totalPracticeCompleted || 0}</strong> Questions
+          <span className="text-[#D1D5DB] dark:text-[#444]">|</span>
+          <span className="text-[#6B7280] dark:text-[#AAA]">
+            Completed: <strong className="text-black dark:text-white font-mono">{currentStudent?.totalPracticeCompleted || 0}</strong> Questions
           </span>
+        </div>
+      </div>
+
+      {/* Interactive Topic Selector Bar */}
+      <div className="bg-white dark:bg-[#1A1A1A] border border-[#E5E7EB] dark:border-[#2A2A2A] p-3.5 space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <span className="text-xs font-bold text-[#1A1A1A] dark:text-white">
+              Choose Topic to Practice:
+            </span>
+          </div>
+
+          {/* Subject Switcher */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {["all", "Mathematics", "Physics", "Chemistry", "Biology", "Computer Science"].map((subj) => (
+              <button
+                key={subj}
+                type="button"
+                onClick={() => setSelectedSubjectFilter(subj)}
+                className={`text-[11px] px-2.5 py-1 border transition-colors font-medium ${
+                  selectedSubjectFilter === subj
+                    ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white font-semibold"
+                    : "bg-[#F8F9FA] dark:bg-[#252525] text-[#4B5563] dark:text-[#CCC] border-[#E5E7EB] dark:border-[#333] hover:border-black"
+                }`}
+              >
+                {subj === "all" ? "All Subjects" : subj}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Topic Quick-Chips */}
+        <div className="flex flex-wrap gap-1.5 pt-1 border-t border-[#F0F2F5] dark:border-[#2A2A2A]">
+          {CURRICULUM_PRACTICE_TOPICS
+            .filter((t) => selectedSubjectFilter === "all" || t.subject.toLowerCase() === selectedSubjectFilter.toLowerCase())
+            .map((t) => {
+              const isSelected = t.id === activeTopicId;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => handleSelectTopicFromPicker(t.id)}
+                  className={`text-xs px-2.5 py-1 border transition-all text-left font-medium flex items-center gap-1 ${
+                    isSelected
+                      ? "bg-indigo-600 text-white border-indigo-600 font-bold shadow-xs"
+                      : "bg-[#F8F9FA] dark:bg-[#222] hover:bg-white dark:hover:bg-[#282828] text-[#1A1A1A] dark:text-[#DDD] border-[#E5E7EB] dark:border-[#333] hover:border-black"
+                  }`}
+                  title={`${t.subject} (${t.grade})`}
+                >
+                  <span>{t.name}</span>
+                  {isSelected && <CheckCircle2 className="w-3 h-3 text-white ml-0.5" />}
+                </button>
+              );
+            })}
         </div>
       </div>
 
@@ -375,5 +463,6 @@ export const AdaptivePractice = ({
           </div>
         </div>
       </div>
-    </div>;
+    </div>
+  );
 };

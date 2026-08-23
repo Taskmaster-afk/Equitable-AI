@@ -60,17 +60,23 @@ export const Navbar = ({
             <span className="hidden sm:inline">{isDarkMode ? t("lightMode") : t("darkMode")}</span>
           </button>
 
-          {/* Student Notifications Bell */}
-          {notifications && notifications.length > 0 && onOpenNotifications && (
+          {/* Notifications Bell (Teacher & Student) */}
+          {onOpenNotifications && (
             <button
               onClick={onOpenNotifications}
-              title="View verification alerts & notices"
-              className="relative flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 transition-colors"
+              title="View verification alerts, notices & student requests"
+              className={`relative flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 border transition-colors ${
+                unreadNotifs > 0
+                  ? "border-amber-400 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200"
+                  : "border-[#E5E7EB] dark:border-[#333] hover:bg-[#F3F4F6] dark:hover:bg-[#222] text-[#4B5563] dark:text-[#E5E7EB]"
+              }`}
             >
-              <Bell className="w-3 h-3 text-amber-600" />
-              <span>{t("notifications")}</span>
-              {unreadNotifs > 0 && (
+              <Bell className={`w-3 h-3 ${unreadNotifs > 0 ? "text-amber-600 dark:text-amber-400" : "text-[#6B7280] dark:text-[#AAA]"}`} />
+              <span>{t("notifications", "Notifications")}</span>
+              {unreadNotifs > 0 ? (
                 <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+              ) : (
+                <span className="text-[10px] font-mono text-neutral-400">({notifications?.length || 0})</span>
               )}
             </button>
           )}
@@ -109,9 +115,9 @@ export const Navbar = ({
                     🏫 {currentUser.institute || currentUser.school || currentStudent?.institute || currentTeacher?.school}
                   </span>
                 )}
-                {!isTeacher && currentStudent?.classCode && (
+                {!isTeacher && currentStudent?.classCode && currentStudent.classCode !== "NCERT-10A" && (
                   <span className="text-[10px] font-mono font-bold bg-[#F3F4F6] dark:bg-[#222] border border-[#E5E7EB] dark:border-[#333] px-1 text-[#4B5563] dark:text-[#AAA]">
-                    Code: {currentStudent.classCode}
+                    Class: {currentStudent.classCode}
                   </span>
                 )}
               </div>

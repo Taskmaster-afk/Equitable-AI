@@ -225,6 +225,42 @@ const api = {
     });
     return res.json();
   },
+  async joinClass(studentId, classCode) {
+    const res = await fetch("/api/classes/join", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId, classCode })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to join class");
+    }
+    return res.json();
+  },
+  async leaveClass(studentId, classCode) {
+    const res = await fetch("/api/student/leave-class", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId, classCode })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to leave class");
+    }
+    return res.json();
+  },
+  async deleteClass(classCode, teacherId) {
+    const res = await fetch(`/api/teacher/classes/${encodeURIComponent(classCode)}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teacherId })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to delete class");
+    }
+    return res.json();
+  },
   // Classroom Resources
   async getClassroomResources(classCode) {
     const res = await fetch(`/api/class/${encodeURIComponent(classCode)}/resources`);
@@ -465,6 +501,18 @@ const api = {
     const res = await fetch(`/api/community/posts/${encodeURIComponent(postId)}/answers/${encodeURIComponent(answerId)}/verify`, {
       method: "POST"
     });
+    return res.json();
+  },
+  async flagCommunityAnswer(postId, answerId, teacherName, reason) {
+    const res = await fetch(`/api/community/posts/${encodeURIComponent(postId)}/answers/${encodeURIComponent(answerId)}/flag`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teacherName, reason })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to flag answer");
+    }
     return res.json();
   },
   async deleteClass(classCode, teacherId) {
